@@ -50,4 +50,24 @@ Record of every phase merged — aim, what got built, decisions made.
 - Pay filter only applies when pay is visible in job description — jobs with no pay info pass through (most postings omit pay)
 - Jobs from one source have no company name — outreach agent handles this gap later in Phase 6
 
+## Phase 3: RAG Pipeline
+**Branch:** `phase-3-rag-pipeline` | **PR:** #3 | **Merged:** 2026-06-26
+
+**Aim:** Build the resume-matching brain — chop resume into individual bullets, turn each into a searchable fingerprint stored in the database, then for any job found: search for the resume bullets that best match that job and hand them to the tailoring step.
+
+**What got built:**
+- Resume reader: opens any `.tex` resume file, finds every bullet point, tracks which section it came from (Experience, Projects, Skills, etc.), strips all formatting markup so only plain text remains
+- Bullet fingerprinter: converts each plain-text bullet into a 1536-number vector — a mathematical fingerprint that captures the meaning of the text — then saves all fingerprints to the database (skips duplicates, overwrites if bullet changed)
+- Job matcher: takes a job description, makes a fingerprint of it, searches the database for the resume bullets whose fingerprints are closest — returns the top matches so only the most relevant experience gets used
+
+**Bugs caught before merge:**
+- Same bullet appearing under two different resume sections (e.g. "Python, SQL" under both Skills and Technologies) would silently overwrite the first — fixed the uniqueness rule to include section name
+- A bad file in a batch run would crash and skip all remaining files — changed to log the error and keep going
+- Database returning empty result could be mistaken for a failure — added safety check so empty is treated as empty, not an error
+
+**Decisions made:**
+- Fingerprint function is a stand-in placeholder (math-based, no real AI) — must swap in a real provider before the system goes live; documented clearly, single swap point used by both the saver and the searcher
+- On error during batch embed, log and continue — one bad resume file should not block the rest
+- Fingerprint uniqueness tracked per file + section + bullet text — same bullet in different sections gets its own entry
+
 <!-- New phases appended below as they merge -->
