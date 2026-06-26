@@ -24,7 +24,7 @@
 ## Phase 3: RAG Pipeline
 
 - [x] Task 6: Resume Bullet Embedder — parse `.tex` → chunk bullets → embed → pgvector upsert (`src/rag/embedder.py`, `tests/test_rag_embedder.py`)
-- [ ] Task 7: RAG Retriever — embed JD → pgvector similarity search → return top-k bullets (`src/rag/retriever.py`, `tests/test_rag_retriever.py`)
+- [x] Task 7: RAG Retriever — embed JD → pgvector similarity search → return top-k bullets (`src/rag/retriever.py`, `tests/test_rag_retriever.py`)
 
 ---
 
