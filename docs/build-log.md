@@ -1,55 +1,53 @@
 # Invictus Build Log
 
-Record of every phase merged to main — aim, what got built, decisions made.
+Record of every phase merged — aim, what got built, decisions made.
 
 ---
 
 ## Phase 1: Foundation
 **Branch:** `phase-1-foundation` | **PR:** #1 | **Merged:** 2026-06-26
 
-**Aim:** Build the skeleton everything runs on — project installs, all 11 database tables exist, Slack can send messages, and every agent shares the same data contract.
+**Aim:** Build skeleton everything runs on — project installs, all storage tables exist, alerts can send, all agents share same data shape.
 
 **What got built:**
-- Project can be installed and runs with a single command (`pip install -e ".[dev]"`)
-- All 11 database tables defined and ready — every job, application, contact, reply, and resume bullet has a home from day one
-- Slack notifier live — three functions (`post_message`, `post_error`, `post_summary`) are the only way the system ever talks to you
-- Shared data shapes (`GraphState`, `JobItem`) defined — every future agent reads and writes the same structure, nothing gets lost between steps
-- CI runs automatically on every push and pull request via GitHub Actions
+- Project installs and runs with one command
+- All 11 storage tables created — every job, application, contact, reply, and resume piece has a home from day one
+- Alert system live — three message types (regular, error, summary) are only way system talks to you via Slack
+- Shared data format locked in — every future agent reads and writes same structure, nothing lost between steps
+- Automatic checks run on every code change to catch breaks early
 
-**Bugs caught in review (fixed before merge):**
-- Slack would crash with a confusing error if `SLACK_WEBHOOK_URL` was missing — guarded with early return
-- Database client would crash at import time before env vars were loaded — removed eager module-level initialization
-- Agent errors could be silently replaced by a Slack network failure — wrapped `post_message` in `post_error` with try/except so original error always surfaces
+**Bugs caught before merge:**
+- Alert system crashed with confusing error when Slack address was missing — added early exit so it fails quiet
+- Storage connection crashed at startup before settings loaded — moved connection to happen inside agent functions, not at startup
+- Agent errors could be silently swallowed by a Slack network failure — wrapped alert call so original error always surfaces
 
-**Architecture decisions:**
-- All env vars default to `""` so tests can import any module without crashing — real validation happens at runtime when values are actually used
-- `get_client()` is the DB accessor function — never called at module level, always inside agent functions after env is loaded
-- `GraphState` is a TypedDict (not a class) — keeps state as a plain dict, which LangGraph requires
-
----
+**Decisions made:**
+- All settings default to empty so tests can run without real credentials — real failure happens when value actually needed
+- Storage only connected when agent function runs, not at startup
+- Shared data shape is a plain dictionary — required by orchestration framework
 
 ---
 
 ## Phase 2: Job Discovery
 **Branch:** `phase-2-job-discovery` | **PR:** #2 | **Merged:** 2026-06-26
 
-**Aim:** Build job finding — polls Greenhouse, Lever, and GitHub repo lists, filters by preferences, deduplicates against history, and hands off a clean list of new jobs.
+**Aim:** Build job finder — searches multiple sources, filters by your preferences, drops jobs already seen, hands off clean list of new jobs.
 
 **What got built:**
-- Search Agent pulls jobs from Greenhouse board APIs, Lever posting APIs, and GitHub curated README lists — keyword-filtered per your role preferences
-- Preference Filter gates every job on role keywords, location, and salary floor — rule-based, no LLM, runs fast and cheap before any expensive steps
-- Dedup Filter checks every job URL against the `jobs_seen` table — inserts new ones, drops already-seen ones so nothing gets applied to twice
+- Job finder pulls listings from multiple job board websites, filtered by role keywords from your settings
+- Preference checker gates every job on role, location, and minimum pay — fast rule-based check runs before any slow/expensive steps
+- Duplicate checker looks up every job link against history — saves new ones, drops already-seen so nothing applied to twice
 
-**Bugs caught in review (fixed before merge):**
-- Lever API returns a dict on error — iterating it over string keys caused `AttributeError` — guarded with `isinstance(data, list)`
-- `prefs_rows[0]["role_keywords"]` raised `KeyError` when column was NULL — switched to safe `.get()` with fallback
-- URL stripping in GitHub parser used `rstrip` (strips char set, not suffix) — replaced with targeted regex to avoid truncating legitimate query strings
-- `dedup_filter` had no error handling — Supabase failure crashed the whole pipeline silently — wrapped both DB calls with `try/except` + `post_error`
-- Salary regex matched bare 5-6 digit numbers (zip codes, job IDs) — now requires `$` prefix, `k` suffix, or salary keyword context
+**Bugs caught before merge:**
+- One job board sends back a different data shape on error — looping over it grabbed wrong fields — added shape check before looping
+- Missing preference column in DB caused crash instead of graceful fallback — switched to safe read with default value
+- URL cleanup code was stripping wrong characters from job links — replaced with precise pattern match
+- Duplicate checker had no safety net — storage failure crashed whole pipeline silently — wrapped both DB calls with error reporting
+- Pay number detector was matching zip codes and team sizes as salaries — tightened pattern to require currency symbol, `k` suffix, or salary keyword context
 
-**Architecture decisions:**
-- `search_agent` does lightweight in-memory dedup against accumulated state; `dedup_filter` does the authoritative DB dedup — two layers by design, different purposes
-- Salary filter only applies when salary is detectable in the description — jobs with no salary info pass through (intentional: most postings omit salary)
-- GitHub jobs get `company=""` since company name isn't in the repo list format — outreach agent must handle this gracefully in Phase 6
+**Decisions made:**
+- Two-layer duplicate check: fast in-memory check during discovery, authoritative DB check after — different purposes, both needed
+- Pay filter only applies when pay is visible in job description — jobs with no pay info pass through (most postings omit pay)
+- Jobs from one source have no company name — outreach agent handles this gap later in Phase 6
 
 <!-- New phases appended below as they merge -->
