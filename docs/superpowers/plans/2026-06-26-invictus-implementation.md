@@ -37,7 +37,7 @@
 
 ## Phase 5: Application Submission
 
-- [ ] Task 10: Apply Agent — Playwright ATS form-fill + captcha guard + Slack fallback (`src/agents/apply.py`, `tests/test_apply.py`)
+- [x] Task 10: Apply Agent — Playwright ATS form-fill + captcha guard + Slack fallback (`src/agents/apply.py`, `tests/test_apply.py`)
 
 ---
 
