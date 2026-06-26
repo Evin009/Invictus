@@ -30,7 +30,7 @@
 
 ## Phase 4: Content Generation
 
-- [ ] Task 8: Resume Tailoring Agent — RAG retrieval + Claude rewrite + LaTeX compile (`src/agents/resume_tailor.py`, `tests/test_resume_tailor.py`)
+- [x] Task 8: Resume Tailoring Agent — RAG retrieval + Claude rewrite + LaTeX compile (`src/agents/resume_tailor.py`, `tests/test_resume_tailor.py`)
 - [ ] Task 9: Cover Letter Agent — tone-seeded, 1-page max, JD-specific (`src/agents/cover_letter.py`, `tests/test_cover_letter.py`)
 
 ---
