@@ -32,6 +32,8 @@ def fetch_lever_jobs(company: str, keywords: list[str]) -> list[JobItem]:
     url = f"https://api.lever.co/v0/postings/{company}?mode=json"
     with urllib.request.urlopen(url) as r:
         data = json.loads(r.read())
+    if not isinstance(data, list):
+        return []
     jobs = []
     for j in data:
         title = j.get("text", "")
@@ -64,7 +66,7 @@ def fetch_github_jobs(repo_url: str, keywords: list[str]) -> list[JobItem]:
         urls = re.findall(r'https?://\S+', line)
         if not urls:
             continue
-        job_url = urls[0].rstrip(")].\"'")
+        job_url = re.sub(r'[)\]."\']+$', '', urls[0])
         jobs.append(JobItem(
             job_url=job_url,
             job_id=job_url,
@@ -88,7 +90,7 @@ def search_agent(state: GraphState) -> dict:
         post_error("search_agent", str(e), {"step": "load_preferences"})
         return {"jobs_discovered": state.get("jobs_discovered", [])}
 
-    keywords = prefs_rows[0]["role_keywords"] if prefs_rows else ["software engineer"]
+    keywords = (prefs_rows[0].get("role_keywords") or ["software engineer"]) if prefs_rows else ["software engineer"]
     all_jobs: list[JobItem] = []
 
     # Greenhouse — add your target company board tokens here

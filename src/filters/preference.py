@@ -16,10 +16,19 @@ def preference_filter(jobs: list[JobItem], prefs: dict) -> list[JobItem]:
                 continue
 
         if prefs.get("salary_floor"):
-            salary_matches = re.findall(r'\b(\d{5,6})\b', text)
-            if salary_matches:
-                max_salary = max(int(s) for s in salary_matches)
-                if max_salary < prefs["salary_floor"]:
+            # Require currency context: $55000, $55,000, $55k, 55k, or "salary: 55000"
+            dollar_matches = re.findall(r'\$\s*(\d{1,3}(?:,\d{3})+|\d{4,6})', text)
+            k_matches = re.findall(r'\b(\d{2,3})[kK]\b', text)
+            keyword_matches = re.findall(
+                r'(?:salary|pay|compensation|wage|stipend)[:\s]+\$?(\d{4,6})', text
+            )
+            all_salaries = (
+                [int(s.replace(",", "")) for s in dollar_matches]
+                + [int(s) * 1000 for s in k_matches]
+                + [int(s) for s in keyword_matches]
+            )
+            if all_salaries:
+                if max(all_salaries) < prefs["salary_floor"]:
                     continue
 
         passing.append(job)
