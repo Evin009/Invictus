@@ -70,4 +70,27 @@ Record of every phase merged — aim, what got built, decisions made.
 - On error during batch embed, log and continue — one bad resume file should not block the rest
 - Fingerprint uniqueness tracked per file + section + bullet text — same bullet in different sections gets its own entry
 
+## Phase 4: Content Generation
+**Branch:** `phase-4-content-generation` | **PR:** #4 | **Merged:** 2026-06-26
+
+**Aim:** Build the two document makers — one that rewrites resume bullet points to match each job, compiles it into a PDF, and enforces the 2-page cap; one that writes a tailored cover letter for each job and enforces the 350-word cap.
+
+**What got built:**
+- Resume maker: pulls the most relevant resume bullets for each job (from Phase 3), sends them to AI to rewrite using the job's language, swaps the rewrites into the original resume file, compiles to PDF, checks the page count — holds the job and alerts if over 2 pages
+- Cover letter maker: pulls a tone example and applicant profile from storage, asks AI to write a job-specific letter, checks it's under 350 words and not empty — holds and alerts if either check fails; saves letter to file
+- Shared filename helper — both makers use the same rule to name their output files (company + job ID, special chars stripped)
+
+**Bugs caught before merge:**
+- AI often wraps its JSON reply in code fences (```json ...```) despite being told not to — added fence-stripping before trying to parse the reply
+- AI might return slightly different wording for the "original" bullet than what was sent — used safe field lookup so a mismatch skips silently instead of crashing
+- Empty AI response (API hiccup or content filter) would write an empty cover letter file with no error — added explicit check and alert
+- Page count tool had no time limit — could hang the whole pipeline forever on a malformed PDF — added 30-second timeout
+- Applicant profile was sent to AI as raw Python syntax (single-quoted keys, `None` instead of `null`) — switched to standard JSON format so AI reads it correctly
+- Output file naming logic was copy-pasted in both files — extracted to shared helper so a future change only needs one edit
+
+**Decisions made:**
+- Resume maker and cover letter maker are separate agents — each has one job and one set of failure modes
+- Both hold the job (raise an error) on any document quality failure — never submit with a bad resume or empty letter
+- AI output treated as untrusted text: fences stripped, fields validated, empty response caught before writing to disk
+
 <!-- New phases appended below as they merge -->
