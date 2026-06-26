@@ -13,7 +13,8 @@ Follow this exactly, every phase, every time — no exceptions.
 
 ### 2. During the Phase
 - Work task by task following the implementation plan
-- At the end of each task: stage relevant files, commit with a clear message
+- When a task is complete: mark its checkbox `[x]` in `docs/superpowers/plans/2026-06-26-invictus-implementation.md`
+- At the end of each task: stage relevant files + the updated plan checklist, commit with a clear message
 - Never batch multiple tasks into one commit
 
 ### 3. Phase End
@@ -24,6 +25,7 @@ Follow this exactly, every phase, every time — no exceptions.
 - Only merge once PR review is clear and CI/CD passes
 
 ### 4. Post-Merge
+- Append a new entry to `docs/build-log.md` — aim, what got built, architecture decisions, bugs caught
 - Stop. Write a bulleted summary using caveman skill:
   - What was built
   - What features are now live
