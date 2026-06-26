@@ -100,7 +100,7 @@ def test_has_login_wall_clean_page_returns_false():
 
 def test_build_receipt_shape():
     job = _job()
-    receipt = _build_receipt(job, "greenhouse", "auto", {"email": "e@e.com"})
+    receipt = _build_receipt(job, "greenhouse", "auto", {"email": "e@e.com"}, "/r.pdf", "/c.txt")
     assert receipt["job_url"] == job["job_url"]
     assert receipt["title"] == job["title"]
     assert receipt["company"] == job["company"]
@@ -108,13 +108,17 @@ def test_build_receipt_shape():
     assert receipt["submission_type"] == "auto"
     assert receipt["status"] == "applied"
     assert receipt["fields_filled"]["email"] == "e@e.com"
+    assert receipt["resume_pdf_path"] == "/r.pdf"
+    assert receipt["cover_letter_path"] == "/c.txt"
 
 
-def test_build_receipt_manual_type():
+def test_build_receipt_manual_status():
     job = _job()
     receipt = _build_receipt(job, "manual", "manual", {})
     assert receipt["submission_type"] == "manual"
-    assert receipt["fields_filled"] == {}
+    assert receipt["status"] == "manual_pending"
+    assert receipt["resume_pdf_path"] is None
+    assert receipt["cover_letter_path"] is None
 
 
 # --- _save_application ---
@@ -142,7 +146,7 @@ def test_save_application_raises_and_alerts_on_db_error():
 # --- Playwright mocks ---
 
 def _make_playwright_mock():
-    """Build sync_playwright() context manager mock returning a clean page."""
+    """Build sync_playwright() context manager mock returning a clean page (no captcha, no fields)."""
     mock_page = MagicMock()
     mock_page.query_selector.return_value = None  # no captcha, no login wall
     mock_page.locator.return_value.count.return_value = 0  # no matching form fields
@@ -160,6 +164,10 @@ def _make_playwright_mock():
     return mock_cm, mock_page, mock_browser
 
 
+def _profile():
+    return {"email": "e@e.com", "first_name": "Evin", "last_name": "Bento"}
+
+
 # --- apply_to_job ---
 
 def test_apply_to_job_unknown_ats_triggers_manual_fallback():
@@ -169,7 +177,7 @@ def test_apply_to_job_unknown_ats_triggers_manual_fallback():
         with patch("src.agents.apply.post_message") as mock_msg:
             result = apply_to_job(job, "/tmp/resume.pdf", "/tmp/cover.txt")
     assert result["submission_type"] == "manual"
-    assert result["status"] == "applied"
+    assert result["status"] == "manual_pending"
     mock_msg.assert_called_once()
     mock_db.table.return_value.insert.assert_called_once()
 
@@ -202,17 +210,53 @@ def test_apply_to_job_login_wall_triggers_manual_fallback():
     mock_msg.assert_called_once()
 
 
-def test_apply_to_job_success_saves_to_db():
+def test_apply_to_job_no_required_fields_triggers_manual_fallback():
+    # count=0 means no fields found; empty profile means filled stays {}; guard fires
     job = _job()
     mock_cm, mock_page, _ = _make_playwright_mock()
 
     mock_db = MagicMock()
     with patch("src.agents.apply.sync_playwright", return_value=mock_cm):
         with patch("src.agents.apply.get_client", return_value=mock_db):
-            with patch("src.agents.apply._get_profile", return_value={"email": "e@e.com", "first_name": "Evin"}):
+            with patch("src.agents.apply._get_profile", return_value={}):
+                with patch("src.agents.apply.post_message") as mock_msg:
+                    result = apply_to_job(job, "/tmp/resume.pdf", "/tmp/cover.txt")
+    assert result["submission_type"] == "manual"
+    mock_msg.assert_called_once()
+
+
+def test_apply_to_job_post_submit_captcha_triggers_manual_fallback():
+    # pre-submit: clean; locator fills email; post-submit: recaptcha appears
+    job = _job()
+    mock_cm, mock_page, _ = _make_playwright_mock()
+    mock_page.locator.return_value.count.return_value = 1
+    # 4 None = pre-submit captcha(3) + login_wall(1); then MagicMock = post-submit recaptcha
+    mock_page.query_selector.side_effect = [None, None, None, None, MagicMock()]
+
+    mock_db = MagicMock()
+    with patch("src.agents.apply.sync_playwright", return_value=mock_cm):
+        with patch("src.agents.apply.get_client", return_value=mock_db):
+            with patch("src.agents.apply._get_profile", return_value=_profile()):
+                with patch("src.agents.apply.post_message") as mock_msg:
+                    result = apply_to_job(job, "/tmp/resume.pdf", "/tmp/cover.txt")
+    assert result["submission_type"] == "manual"
+    mock_msg.assert_called_once()
+
+
+def test_apply_to_job_success_saves_to_db():
+    job = _job()
+    mock_cm, mock_page, _ = _make_playwright_mock()
+    mock_page.locator.return_value.count.return_value = 1  # form fields found
+
+    mock_db = MagicMock()
+    with patch("src.agents.apply.sync_playwright", return_value=mock_cm):
+        with patch("src.agents.apply.get_client", return_value=mock_db):
+            with patch("src.agents.apply._get_profile", return_value=_profile()):
                 result = apply_to_job(job, "/tmp/resume.pdf", "/tmp/cover.txt")
     assert result["submission_type"] == "auto"
     assert result["status"] == "applied"
+    assert result["resume_pdf_path"] == "/tmp/resume.pdf"
+    assert result["cover_letter_path"] == "/tmp/cover.txt"
     mock_db.table.return_value.insert.assert_called_once()
 
 
@@ -222,12 +266,11 @@ def test_apply_to_job_success_fills_profile_fields():
     mock_page.locator.return_value.count.return_value = 1
 
     mock_db = MagicMock()
-    profile = {"email": "e@e.com", "first_name": "Evin", "last_name": "Bento", "phone": "555-1234"}
     with patch("src.agents.apply.sync_playwright", return_value=mock_cm):
         with patch("src.agents.apply.get_client", return_value=mock_db):
-            with patch("src.agents.apply._get_profile", return_value=profile):
+            with patch("src.agents.apply._get_profile", return_value=_profile()):
                 result = apply_to_job(job, "/tmp/resume.pdf", "/tmp/cover.txt")
-    assert "email" in result["fields_filled"] or result["submission_type"] == "auto"
+    assert "email" in result["fields_filled"]
 
 
 def test_apply_to_job_unexpected_error_alerts_and_reraises():
@@ -251,5 +294,17 @@ def test_apply_to_job_manual_fallback_saves_to_db():
             apply_to_job(job, "/tmp/resume.pdf", "/tmp/cover.txt")
     mock_db.table.return_value.insert.assert_called_once()
     inserted = mock_db.table.return_value.insert.call_args[0][0]
-    assert inserted["status"] == "applied"
+    assert inserted["status"] == "manual_pending"
     assert inserted["submission_type"] == "manual"
+
+
+def test_apply_to_job_manual_fallback_db_error_does_not_crash():
+    # _save_application raises, but _manual_fallback swallows it and returns receipt
+    job = _job(job_url="https://unknown.com/jobs/123")
+    mock_db = MagicMock()
+    mock_db.table.return_value.insert.return_value.execute.side_effect = Exception("DB down")
+    with patch("src.agents.apply.get_client", return_value=mock_db):
+        with patch("src.agents.apply.post_message"):
+            with patch("src.agents.apply.post_error"):
+                result = apply_to_job(job, "/tmp/resume.pdf", "/tmp/cover.txt")
+    assert result["submission_type"] == "manual"

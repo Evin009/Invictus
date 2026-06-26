@@ -20,6 +20,9 @@ _FIELD_SELECTORS: dict[str, list[str]] = {
     "github_url": ["github", "github_url", "githubProfile"],
 }
 
+# At least one of these must appear in filled before submit fires
+_REQUIRED_FILL_FIELDS = {"email", "first_name", "last_name"}
+
 
 class ManualFallbackRequired(Exception):
     pass
@@ -33,10 +36,6 @@ def _detect_ats_platform(job_url: str) -> str:
 
 
 def apply_to_job(job: JobItem, resume_pdf_path: str, cover_letter_path: str) -> dict:
-    """
-    Fill ATS form for job via browser automation.
-    On captcha, login wall, or unrecognized platform: Slack alert + return manual receipt.
-    """
     ats = _detect_ats_platform(job["job_url"])
 
     if ats == "manual":
@@ -49,7 +48,7 @@ def apply_to_job(job: JobItem, resume_pdf_path: str, cover_letter_path: str) -> 
                 page = browser.new_page()
                 page.goto(job["job_url"], timeout=30000)
                 filled = _fill_form(page, resume_pdf_path, cover_letter_path)
-                receipt = _build_receipt(job, ats, "auto", filled)
+                receipt = _build_receipt(job, ats, "auto", filled, resume_pdf_path, cover_letter_path)
             finally:
                 browser.close()
     except ManualFallbackRequired as e:
@@ -86,15 +85,23 @@ def _fill_form(page, resume_pdf_path: str, cover_letter_path: str) -> dict:
     resume_loc = page.locator("input[type='file'][name*='resume'], input[type='file'][accept*='.pdf']")
     if resume_loc.count() > 0:
         resume_loc.first.set_input_files(resume_pdf_path)
-        filled["resume_path"] = resume_pdf_path
+        filled["resume_uploaded"] = True
 
     cl_loc = page.locator("input[type='file'][name*='cover']")
     if cl_loc.count() > 0:
         cl_loc.first.set_input_files(cover_letter_path)
-        filled["cover_letter_path"] = cover_letter_path
+        filled["cover_letter_uploaded"] = True
+
+    # Guard: require at least one identity field before firing submit
+    if not any(f in filled for f in _REQUIRED_FILL_FIELDS):
+        raise ManualFallbackRequired("No required fields (email, first_name, last_name) found on page")
 
     page.locator("[type=submit]").first.click()
     page.wait_for_load_state("networkidle", timeout=15000)
+
+    # Some ATS platforms inject captchas or login walls only after submit
+    if _has_captcha(page) or _has_login_wall(page):
+        raise ManualFallbackRequired("Captcha or login wall appeared after submit")
 
     return filled
 
@@ -112,20 +119,30 @@ def _has_login_wall(page) -> bool:
 
 
 def _get_profile() -> dict:
-    db = get_client()
-    rows = db.table("user_profile").select("*").limit(1).execute().data or []
-    return rows[0] if rows else {}
+    # delegates to cover_letter's identical helper to avoid duplication
+    from src.agents.cover_letter import _fetch_user_profile
+    return _fetch_user_profile()
 
 
-def _build_receipt(job: JobItem, ats: str, submission_type: str, filled: dict) -> dict:
+def _build_receipt(
+    job: JobItem,
+    ats: str,
+    submission_type: str,
+    filled: dict,
+    resume_pdf_path: str | None = None,
+    cover_letter_path: str | None = None,
+) -> dict:
+    status = "applied" if submission_type == "auto" else "manual_pending"
     return {
         "job_url": job["job_url"],
         "title": job["title"],
         "company": job["company"],
         "ats_platform": ats,
         "fields_filled": filled,
+        "resume_pdf_path": resume_pdf_path,
+        "cover_letter_path": cover_letter_path,
         "submission_type": submission_type,
-        "status": "applied",
+        "status": status,
     }
 
 
@@ -141,5 +158,8 @@ def _save_application(receipt: dict) -> None:
 def _manual_fallback(job: JobItem, ats: str, reason: str) -> dict:
     post_message(f"Manual application needed: {job['job_url']}\nReason: {reason}")
     receipt = _build_receipt(job, ats, "manual", {})
-    _save_application(receipt)
+    try:
+        _save_application(receipt)
+    except Exception:
+        pass  # Slack already alerted; don't crash graph node on DB failure
     return receipt
