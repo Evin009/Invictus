@@ -93,4 +93,31 @@ Record of every phase merged — aim, what got built, decisions made.
 - Both hold the job (raise an error) on any document quality failure — never submit with a bad resume or empty letter
 - AI output treated as untrusted text: fences stripped, fields validated, empty response caught before writing to disk
 
+## Phase 5: Application Submission
+**Branch:** `phase-5-application-submission` | **PR:** #5 | **Merged:** 2026-06-26
+
+**Aim:** Build the agent that actually submits job applications — detect which job board it is, open the page in a browser, fill the form, and save a record of what happened.
+
+**What got built:**
+- Job board detector: reads the job link and identifies which of the four supported platforms it belongs to (Greenhouse, Lever, Ashby, Workday); anything else is immediately flagged for manual submission
+- Form filler: opens the job page in a hidden browser, finds standard fields like name, email, phone, LinkedIn, and GitHub, fills them from the saved applicant profile, and uploads the resume and cover letter files
+- Safety guards: checks for a captcha or login wall before filling anything — and again after clicking submit, since some boards only show captchas after the form is submitted
+- Blank form protection: refuses to click submit if none of the required identity fields (email, first name, last name) were found on the page
+- Manual fallback: whenever any guard fires, sends a Slack alert with the job link so the application can be done by hand; saves a record to the database marked as waiting for manual action (not falsely marked as submitted)
+- Application record: saves a full receipt to the database after every attempt — auto or manual — including which fields were filled, where the resume and cover letter files live, and the current status
+
+**Bugs caught before merge:**
+- Form submit would fire on a completely blank form if the applicant profile wasn't set up — added a check requiring at least one identity field before clicking submit
+- Captcha detection only ran at page load; some boards inject a captcha only after you click submit — added a second check after the page settles
+- Manual fallback receipts were saved with status "applied" even though no application was submitted — fixed to "manual pending" so the tracker is accurate
+- A database failure inside the manual fallback was crashing the whole pipeline — wrapped it so the pipeline keeps running and the Slack alert already sent is the notification
+- Resume and cover letter file paths were being buried inside the form-fill record instead of stored in their own dedicated database columns — fixed so they're always top-level and queryable
+- Two agents had identical code for reading the applicant profile from the database — removed the duplicate from the apply agent and reused the existing one from the cover letter agent
+
+**Decisions made:**
+- Never guess or skip required fields — halt and alert rather than submit a broken form
+- Captcha checked twice: once before touching the form, once after submit settles — catches both pre-loaded and post-submit challenges
+- Manual fallback always saves a record and always alerts Slack, even if the database write fails
+- "Manual pending" and "applied" are distinct statuses — a job routed to manual is not counted as submitted until confirmed
+
 <!-- New phases appended below as they merge -->
