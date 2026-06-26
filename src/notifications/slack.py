@@ -4,6 +4,8 @@ from src.config import settings
 
 
 def post_message(text: str) -> None:
+    if not settings.slack_webhook_url:
+        return
     payload = json.dumps({"text": text}).encode()
     req = urllib.request.Request(
         settings.slack_webhook_url,
@@ -18,7 +20,10 @@ def post_error(agent: str, error: str, context: dict) -> None:
     lines = [f":red_circle: *{agent} error*", f"```{error}```"]
     for k, v in context.items():
         lines.append(f"• {k}: {v}")
-    post_message("\n".join(lines))
+    try:
+        post_message("\n".join(lines))
+    except Exception:
+        pass
 
 
 def post_summary(summary: dict) -> None:

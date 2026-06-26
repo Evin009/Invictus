@@ -9,6 +9,3 @@ def get_client() -> Client:
     if _client is None:
         _client = create_client(settings.supabase_url, settings.supabase_key)
     return _client
-
-
-db = get_client()
