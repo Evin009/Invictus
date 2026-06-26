@@ -7,9 +7,10 @@ import anthropic
 
 from src.config import settings
 from src.notifications.slack import post_error
-from src.rag.embedder import _clean_tex
+from src.rag.embedder import clean_tex
 from src.rag.retriever import retrieve_bullets
 from src.state import JobItem
+from src.utils import make_version_slug
 
 
 def tailor_resume(job: JobItem, tex_path: str, output_dir: str = "output/resumes") -> dict:
@@ -26,7 +27,7 @@ def tailor_resume(job: JobItem, tex_path: str, output_dir: str = "output/resumes
         tailored_tex = _substitute_bullets(tex_content, rewritten)
 
         Path(output_dir).mkdir(parents=True, exist_ok=True)
-        version = re.sub(r"[^a-zA-Z0-9_-]", "_", f"{job['company']}_{job['job_id']}")[:50]
+        version = make_version_slug(job)
         tailored_tex_path = str(Path(output_dir) / f"resume_{version}.tex")
         Path(tailored_tex_path).write_text(tailored_tex, encoding="utf-8")
 
@@ -64,8 +65,10 @@ def _rewrite_bullets(bullets: list[str], job_description: str, job_title: str) -
         max_tokens=1024,
         messages=[{"role": "user", "content": prompt}],
     )
-    pairs = json.loads(response.content[0].text.strip())
-    return {pair["original"]: pair["rewritten"] for pair in pairs}
+    raw = response.content[0].text.strip() if response.content else ""
+    raw = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw, flags=re.DOTALL).strip()
+    pairs = json.loads(raw)
+    return {pair.get("original", ""): pair.get("rewritten", "") for pair in pairs if pair.get("original")}
 
 
 def _substitute_bullets(tex_content: str, replacements: dict[str, str]) -> str:
@@ -77,7 +80,7 @@ def _substitute_bullets(tex_content: str, replacements: dict[str, str]) -> str:
 
     def _replace(m: re.Match) -> str:
         prefix, content = m.group(1), m.group(2)
-        cleaned = _clean_tex(content.strip())
+        cleaned = clean_tex(content.strip())
         if cleaned in replacements:
             return prefix + replacements[cleaned] + "\n"
         return m.group(0)
@@ -100,7 +103,7 @@ def _compile_tex(tex_path: str, output_dir: str) -> str:
 
 def _get_page_count(pdf_path: str) -> int:
     """Get PDF page count via pdfinfo. Raises RuntimeError on failure."""
-    result = subprocess.run(["pdfinfo", pdf_path], capture_output=True, text=True)
+    result = subprocess.run(["pdfinfo", pdf_path], capture_output=True, text=True, timeout=30)
     if result.returncode != 0:
         raise RuntimeError(f"pdfinfo failed: {result.stderr[:200]}")
     for line in result.stdout.split("\n"):

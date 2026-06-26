@@ -103,6 +103,21 @@ def test_generate_cover_letter_saves_file(tmp_path):
     assert os.path.exists(result["cover_letter_path"])
 
 
+def test_generate_cover_letter_raises_on_empty_letter(tmp_path):
+    mock_db = MagicMock()
+    mock_db.table.return_value.select.return_value.limit.return_value.execute.return_value.data = []
+
+    mock_client = MagicMock()
+    mock_client.messages.create.return_value.content = [MagicMock(text="")]
+
+    with patch("src.agents.cover_letter.get_client", return_value=mock_db):
+        with patch("src.agents.cover_letter.anthropic.Anthropic", return_value=mock_client):
+            with patch("src.agents.cover_letter.post_error") as mock_err:
+                with pytest.raises(RuntimeError, match="empty"):
+                    generate_cover_letter(_job(), output_dir=str(tmp_path))
+            mock_err.assert_called_once()
+
+
 def test_generate_cover_letter_enforces_350_word_cap(tmp_path):
     long_letter = " ".join(["word"] * 400)
 

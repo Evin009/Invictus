@@ -87,6 +87,15 @@ def test_rewrite_bullets_returns_original_to_rewritten_mapping():
     assert result["Led team of 5 engineers"] == "Led 5-person team delivering Python microservices"
 
 
+def test_rewrite_bullets_handles_fenced_json_response():
+    fenced = "```json\n" + json.dumps(REWRITTEN_PAIRS) + "\n```"
+    mock_client = MagicMock()
+    mock_client.messages.create.return_value.content = [MagicMock(text=fenced)]
+    with patch("src.agents.resume_tailor.anthropic.Anthropic", return_value=mock_client):
+        result = _rewrite_bullets(["Built a web scraper using Python"], "jd", "title")
+    assert "Built a web scraper using Python" in result
+
+
 def test_rewrite_bullets_empty_list_skips_claude():
     with patch("src.agents.resume_tailor.anthropic.Anthropic") as mock_cls:
         result = _rewrite_bullets([], "jd", "title")

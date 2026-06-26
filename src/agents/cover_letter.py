@@ -1,3 +1,4 @@
+import json
 import re
 from pathlib import Path
 
@@ -7,6 +8,7 @@ from src.config import settings
 from src.db.client import get_client
 from src.notifications.slack import post_error
 from src.state import JobItem
+from src.utils import make_version_slug
 
 _WORD_LIMIT = 350
 
@@ -14,7 +16,7 @@ _WORD_LIMIT = 350
 def generate_cover_letter(job: JobItem, output_dir: str = "output/cover_letters") -> dict:
     """
     Generate a job-specific cover letter via Claude, seeded with tone example.
-    Raises (after Slack alert) if output exceeds 350 words.
+    Raises (after Slack alert) if output exceeds 350 words or is empty.
     Returns {"cover_letter_path": str, "word_count": int}
     """
     try:
@@ -23,11 +25,13 @@ def generate_cover_letter(job: JobItem, output_dir: str = "output/cover_letters"
 
         letter = _call_claude(job, tone_seed, profile)
         word_count = len(letter.split())
+        if word_count == 0:
+            raise RuntimeError(f"Cover letter is empty for {job['job_url']}")
         if word_count > _WORD_LIMIT:
             raise RuntimeError(f"Cover letter is {word_count} words (max {_WORD_LIMIT}) for {job['job_url']}")
 
         Path(output_dir).mkdir(parents=True, exist_ok=True)
-        version = re.sub(r"[^a-zA-Z0-9_-]", "_", f"{job['company']}_{job['job_id']}")[:50]
+        version = make_version_slug(job)
         path = str(Path(output_dir) / f"cover_{version}.txt")
         Path(path).write_text(letter, encoding="utf-8")
 
@@ -40,14 +44,14 @@ def generate_cover_letter(job: JobItem, output_dir: str = "output/cover_letters"
 def _fetch_tone_seed() -> str:
     """Return first cover letter seed from DB, or empty string if none."""
     db = get_client()
-    rows = db.table("cover_letter_seeds").select("content").limit(1).execute().data
+    rows = db.table("cover_letter_seeds").select("content").limit(1).execute().data or []
     return rows[0]["content"] if rows else ""
 
 
 def _fetch_user_profile() -> dict:
     """Return user profile dict from DB, or empty dict if none."""
     db = get_client()
-    rows = db.table("user_profile").select("*").limit(1).execute().data
+    rows = db.table("user_profile").select("*").limit(1).execute().data or []
     return rows[0] if rows else {}
 
 
@@ -56,7 +60,7 @@ def _call_claude(job: JobItem, tone_seed: str, profile: dict) -> str:
     client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
 
     tone_section = f"\nTone example (match this voice, not content):\n{tone_seed}\n" if tone_seed else ""
-    profile_section = f"\nApplicant profile:\n{profile}\n" if profile else ""
+    profile_section = f"\nApplicant profile:\n{json.dumps(profile, indent=2)}\n" if profile else ""
 
     prompt = (
         f"Write a cover letter for this job.\n\n"
@@ -77,4 +81,4 @@ def _call_claude(job: JobItem, tone_seed: str, profile: dict) -> str:
         max_tokens=1024,
         messages=[{"role": "user", "content": prompt}],
     )
-    return response.content[0].text.strip()
+    return response.content[0].text.strip() if response.content else ""
