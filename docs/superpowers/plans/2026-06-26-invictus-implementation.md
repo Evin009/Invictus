@@ -16,8 +16,8 @@
 
 ## Phase 2: Job Discovery
 
-- [ ] Task 4: Search Agent — Greenhouse + Lever APIs + GitHub repo watcher (`src/agents/search.py`, `tests/test_search_agent.py`)
-- [ ] Task 5: Preference Filter + Dedup Check — rule-based, no LLM (`src/filters/preference.py`, `src/filters/dedup.py`, tests)
+- [x] Task 4: Search Agent — Greenhouse + Lever APIs + GitHub repo watcher (`src/agents/search.py`, `tests/test_search_agent.py`)
+- [x] Task 5: Preference Filter + Dedup Check — rule-based, no LLM (`src/filters/preference.py`, `src/filters/dedup.py`, tests)
 
 ---
 
