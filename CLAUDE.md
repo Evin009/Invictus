@@ -25,7 +25,8 @@ Follow this exactly, every phase, every time — no exceptions.
 - Only merge once PR review is clear and CI/CD passes
 
 ### 4. Post-Merge
-- Append a new entry to `docs/build-log.md` — aim, what got built, architecture decisions, bugs caught
+- Append a new entry to `docs/build-log.md` using `/caveman:caveman` skill — aim, what got built, decisions made, bugs caught
+- Build log entries must be written in plain language: no API names, no framework names, no engineering acronyms — explain what each thing *does*, not what it's *called*. Non-engineer must understand every bullet.
 - Stop. Write a bulleted summary using caveman skill:
   - What was built
   - What features are now live

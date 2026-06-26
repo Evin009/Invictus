@@ -60,7 +60,7 @@ create table if not exists resume_bullets (
     section text,
     bullet_text text,
     embedding vector(1536),
-    unique (source_file, bullet_text)
+    unique (source_file, section, bullet_text)
 );
 
 create table if not exists user_profile (
