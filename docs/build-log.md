@@ -120,4 +120,32 @@ Record of every phase merged — aim, what got built, decisions made.
 - Manual fallback always saves a record and always alerts Slack, even if the database write fails
 - "Manual pending" and "applied" are distinct statuses — a job routed to manual is not counted as submitted until confirmed
 
+## Phase 6: Outreach
+**Branch:** `phase-6-outreach` | **PR:** #6 | **Merged:** 2026-06-26
+
+**Aim:** Build the cold outreach agent — find people at each target company, send them a personalized email automatically, and draft a LinkedIn message to Slack for manual sending.
+
+**What got built:**
+- Contact finder: looks up people at each job's company by name using a contact-data service — returns up to 5 contacts (name, email, LinkedIn profile, job title)
+- 30-day cooldown checker: before reaching out to anyone, checks the outreach history log — skips contacts messaged within the last 30 days; checks by both email address and LinkedIn profile so no one gets messaged twice through different channels
+- Message drafter: generates a short personalized cold outreach message using AI, seeded with a saved tone example from the database — different message per contact, keeps it under 100 words
+- Email sender: automatically delivers the cold email via Gmail
+- LinkedIn poster: posts the draft message to Slack with the contact's name and profile link so you can send it manually — never automated (the platform bans it)
+- Outreach logger: writes a record to the database after every send — contact info, message text, channel used, timestamp — so the cooldown checker has accurate history
+- Safe log wrapper: if the database write fails after an email is already sent, the failure is noted in Slack but doesn't cause the same email to be sent again on the next run
+- Seed fallback: if the tone example table is missing or empty, outreach continues with no seed rather than aborting the whole run
+
+**Bugs caught before merge:**
+- Contact lookup was querying the wrong company — for jobs hosted on a job board platform, the URL domain pointed to the board (not the employer) — fixed to use the company name directly instead of parsing the URL
+- A blank message (AI returned nothing due to an API hiccup) would auto-send as an empty email — added a guard to skip any contact whose message came back empty
+- If the database log write failed after an email was already sent, the email would be re-sent on the next hourly run (no cooldown entry = no block) — split the log step so its failure is caught and reported without triggering a resend
+- A contact with neither email nor LinkedIn still incremented the "contacts reached" count — now only counted if at least one message was actually sent
+- LinkedIn-only contacts (no email address) bypassed the 30-day cooldown entirely — cooldown now checks LinkedIn URL as a fallback when email is absent
+- A database failure fetching the tone seed example crashed the entire outreach run — wrapped it to return empty and continue
+
+**Decisions made:**
+- Never send LinkedIn messages automatically — always draft to Slack for manual send
+- Cooldown is per-contact identity (email or LinkedIn), not per job — once reached, not reached again for 30 days regardless of which job triggered it
+- Per-contact errors are logged to Slack and skipped — one bad contact or failed email doesn't block the remaining contacts for that job
+
 <!-- New phases appended below as they merge -->
