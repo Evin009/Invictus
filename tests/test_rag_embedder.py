@@ -3,7 +3,7 @@ import os
 import tempfile
 from unittest.mock import MagicMock, patch
 
-from src.rag.embedder import _clean_tex, embed_resumes, embed_text, parse_bullets
+from src.rag.embedder import _clean_tex, clean_tex, embed_resumes, embed_text, parse_bullets
 
 SAMPLE_TEX = r"""
 \section{Experience}

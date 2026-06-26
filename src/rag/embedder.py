@@ -37,12 +37,15 @@ def parse_bullets(tex_content: str) -> list[dict]:
     return bullets
 
 
-def _clean_tex(text: str) -> str:
+def clean_tex(text: str) -> str:
     text = re.sub(r'\\href\{[^}]*\}\{([^}]*)\}', r'\1', text)
     text = re.sub(r'\\(?:text\w+|emph)\{([^}]*)\}', r'\1', text)
     text = re.sub(r'\\[a-zA-Z]+\*?\{([^}]*)\}', r'\1', text)
     text = re.sub(r'\\[a-zA-Z]+', '', text)
     return re.sub(r'\s+', ' ', text).strip()
+
+
+_clean_tex = clean_tex  # backward-compat alias
 
 
 def embed_text(text: str) -> list[float]:
