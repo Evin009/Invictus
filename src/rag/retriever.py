@@ -8,7 +8,7 @@ def retrieve_bullets(job_description: str, top_k: int = 5) -> list[str]:
     db = get_client()
     try:
         embedding = embed_text(job_description)
-        rows = db.rpc("match_bullets", {"query_embedding": embedding, "match_count": top_k}).execute().data
+        rows = db.rpc("match_bullets", {"query_embedding": embedding, "match_count": top_k}).execute().data or []
         return [row["bullet_text"] for row in rows]
     except Exception as e:
         post_error("retrieve_bullets", str(e), {"top_k": top_k})

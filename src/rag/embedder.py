@@ -60,7 +60,7 @@ def embed_text(text: str) -> list[float]:
 
 
 def embed_resumes(resumes_dir: str) -> int:
-    """Parse all .tex files, embed bullets, upsert to resume_bullets. Returns bullet count."""
+    """Parse all .tex files, embed bullets, upsert to resume_bullets. Returns bullets processed (inserts + updates)."""
     db = get_client()
     total = 0
 
@@ -75,11 +75,11 @@ def embed_resumes(resumes_dir: str) -> int:
                         "bullet_text": bullet["bullet_text"],
                         "embedding": embed_text(bullet["bullet_text"]),
                     },
-                    on_conflict="source_file,bullet_text",
+                    on_conflict="source_file,section,bullet_text",
                 ).execute()
                 total += 1
         except Exception as e:
             post_error("embed_resumes", str(e), {"file": tex_file.name})
-            raise
+            continue
 
     return total

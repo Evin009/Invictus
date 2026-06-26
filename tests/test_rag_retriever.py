@@ -61,6 +61,14 @@ def test_retrieve_bullets_empty_db_returns_empty():
     assert result == []
 
 
+def test_retrieve_bullets_none_data_returns_empty():
+    mock_db = MagicMock()
+    mock_db.rpc.return_value.execute.return_value.data = None
+    with patch("src.rag.retriever.get_client", return_value=mock_db):
+        result = retrieve_bullets("any job description", top_k=5)
+    assert result == []
+
+
 def test_retrieve_bullets_raises_on_db_error():
     mock_db = MagicMock()
     mock_db.rpc.return_value.execute.side_effect = Exception("RPC failed")

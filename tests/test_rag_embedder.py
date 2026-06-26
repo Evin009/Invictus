@@ -122,7 +122,7 @@ def test_embed_resumes_empty_dir_returns_zero():
     assert count == 0
 
 
-def test_embed_resumes_raises_on_db_error():
+def test_embed_resumes_logs_error_and_continues_on_db_failure():
     tex_content = r"""
 \section{X}
 \begin{itemize}
@@ -138,12 +138,10 @@ def test_embed_resumes_raises_on_db_error():
 
         with patch("src.rag.embedder.get_client", return_value=mock_db):
             with patch("src.rag.embedder.post_error") as mock_err:
-                try:
-                    embed_resumes(tmpdir)
-                    assert False, "Expected exception"
-                except Exception as e:
-                    assert "DB error" in str(e)
-                mock_err.assert_called_once()
+                count = embed_resumes(tmpdir)
+
+        mock_err.assert_called_once()
+        assert count == 0
 
 
 def test_embed_resumes_upsert_payload_shape():
