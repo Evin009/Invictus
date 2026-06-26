@@ -43,7 +43,7 @@
 
 ## Phase 6: Outreach
 
-- [ ] Task 11: Outreach Agent — Hunter.io contacts + Gmail auto-send + LinkedIn Slack draft (`src/agents/outreach.py`, `tests/test_outreach.py`)
+- [x] Task 11: Outreach Agent — Hunter.io contacts + Gmail auto-send + LinkedIn Slack draft (`src/agents/outreach.py`, `tests/test_outreach.py`)
 
 ---
 
