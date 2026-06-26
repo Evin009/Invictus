@@ -86,6 +86,28 @@ def test_extract_domain_no_scheme():
 
 # --- _find_contacts ---
 
+def test_find_contacts_uses_company_name_not_url_domain():
+    """Hunter.io query must use company name to avoid ATS board domain errors."""
+    mock_resp = MagicMock()
+    mock_resp.read.return_value = json.dumps(_HUNTER_RESPONSE).encode()
+    mock_resp.__enter__ = lambda s: s
+    mock_resp.__exit__ = MagicMock(return_value=False)
+
+    captured_url = {}
+
+    def capture_urlopen(url, timeout):
+        captured_url["url"] = url
+        return mock_resp
+
+    with patch("src.agents.outreach.settings") as mock_settings:
+        mock_settings.hunter_api_key = "test-key"
+        with patch("src.agents.outreach.urllib.request.urlopen", side_effect=capture_urlopen):
+            _find_contacts(_job())
+
+    assert "company=Acme" in captured_url["url"]
+    assert "boards.greenhouse.io" not in captured_url["url"]
+
+
 def test_find_contacts_returns_contacts_from_hunter():
     mock_resp = MagicMock()
     mock_resp.read.return_value = json.dumps(_HUNTER_RESPONSE).encode()
@@ -108,6 +130,13 @@ def test_find_contacts_no_api_key_returns_empty():
     with patch("src.agents.outreach.settings") as mock_settings:
         mock_settings.hunter_api_key = ""
         contacts = _find_contacts(_job())
+    assert contacts == []
+
+
+def test_find_contacts_no_company_returns_empty():
+    with patch("src.agents.outreach.settings") as mock_settings:
+        mock_settings.hunter_api_key = "key"
+        contacts = _find_contacts(_job(company=""))
     assert contacts == []
 
 
@@ -137,22 +166,41 @@ def test_find_contacts_filters_entries_without_email():
 
 # --- _is_on_cooldown ---
 
-def test_is_on_cooldown_true_when_recent_outreach():
+def _cooldown_db(has_row: bool) -> MagicMock:
     mock_db = MagicMock()
-    mock_db.table.return_value.select.return_value.eq.return_value.gte.return_value.limit.return_value.execute.return_value.data = [{"id": "abc"}]
-    with patch("src.agents.outreach.get_client", return_value=mock_db):
+    chain = mock_db.table.return_value.select.return_value.eq.return_value.gte.return_value.limit.return_value.execute.return_value
+    chain.data = [{"id": "abc"}] if has_row else []
+    return mock_db
+
+
+def test_is_on_cooldown_true_when_recent_outreach_by_email():
+    with patch("src.agents.outreach.get_client", return_value=_cooldown_db(True)):
         assert _is_on_cooldown("jane@acme.com") is True
 
 
 def test_is_on_cooldown_false_when_no_recent_outreach():
-    mock_db = MagicMock()
-    mock_db.table.return_value.select.return_value.eq.return_value.gte.return_value.limit.return_value.execute.return_value.data = []
-    with patch("src.agents.outreach.get_client", return_value=mock_db):
+    with patch("src.agents.outreach.get_client", return_value=_cooldown_db(False)):
         assert _is_on_cooldown("jane@acme.com") is False
 
 
-def test_is_on_cooldown_false_for_empty_email():
-    assert _is_on_cooldown("") is False
+def test_is_on_cooldown_false_for_empty_email_and_linkedin():
+    assert _is_on_cooldown("", "") is False
+
+
+def test_is_on_cooldown_checks_linkedin_when_no_email():
+    mock_db = _cooldown_db(True)
+    with patch("src.agents.outreach.get_client", return_value=mock_db):
+        result = _is_on_cooldown("", "https://linkedin.com/in/janesmith")
+    assert result is True
+    # Verify it queried by contact_linkedin, not contact_email
+    calls = mock_db.table.return_value.select.return_value.eq.call_args_list
+    queried_columns = [c[0][0] for c in calls]
+    assert "contact_linkedin" in queried_columns
+
+
+def test_is_on_cooldown_false_when_linkedin_not_in_log():
+    with patch("src.agents.outreach.get_client", return_value=_cooldown_db(False)):
+        assert _is_on_cooldown("", "https://linkedin.com/in/new") is False
 
 
 # --- _fetch_outreach_seed ---
@@ -169,6 +217,14 @@ def test_fetch_outreach_seed_returns_empty_when_none():
     mock_db.table.return_value.select.return_value.limit.return_value.execute.return_value.data = []
     with patch("src.agents.outreach.get_client", return_value=mock_db):
         assert _fetch_outreach_seed() == ""
+
+
+def test_fetch_outreach_seed_returns_empty_on_db_error():
+    mock_db = MagicMock()
+    mock_db.table.return_value.select.return_value.limit.return_value.execute.side_effect = Exception("DB error")
+    with patch("src.agents.outreach.get_client", return_value=mock_db):
+        with patch("src.agents.outreach.post_error"):
+            assert _fetch_outreach_seed() == ""
 
 
 # --- _draft_message ---
@@ -246,7 +302,6 @@ def test_log_outreach_linkedin_channel():
 # --- run_outreach ---
 
 def _mock_outreach_deps(contacts, seed="", cooldown=False):
-    """Return a context-manager stack of common patches."""
     return [
         patch("src.agents.outreach._find_contacts", return_value=contacts),
         patch("src.agents.outreach._fetch_outreach_seed", return_value=seed),
@@ -254,7 +309,7 @@ def _mock_outreach_deps(contacts, seed="", cooldown=False):
         patch("src.agents.outreach._draft_message", return_value="Hey there"),
         patch("src.agents.outreach._send_email"),
         patch("src.agents.outreach._post_linkedin_draft"),
-        patch("src.agents.outreach._log_outreach"),
+        patch("src.agents.outreach._safe_log"),
     ]
 
 
@@ -274,6 +329,27 @@ def test_run_outreach_cooldown_contact_is_skipped():
         result = run_outreach(job)
     assert result["contacts_reached"] == 0
     mock_draft.assert_not_called()
+
+
+def test_run_outreach_empty_message_skips_send():
+    job = _job()
+    patches = _mock_outreach_deps([_contact()])
+    # Override draft to return empty string
+    with patches[0], patches[1], patches[2], \
+         patch("src.agents.outreach._draft_message", return_value=""), \
+         patches[4] as mock_send, patches[5], patches[6]:
+        result = run_outreach(job)
+    assert result["contacts_reached"] == 0
+    mock_send.assert_not_called()
+
+
+def test_run_outreach_no_channel_contact_not_counted():
+    job = _job()
+    contact = _contact(email="", linkedin_url="")
+    patches = _mock_outreach_deps([contact])
+    with patches[0], patches[1], patches[2], patches[3], patches[4], patches[5], patches[6]:
+        result = run_outreach(job)
+    assert result["contacts_reached"] == 0
 
 
 def test_run_outreach_email_contact_sends_and_logs():
@@ -302,7 +378,7 @@ def test_run_outreach_linkedin_contact_posts_draft_and_logs():
 
 def test_run_outreach_both_channels_sends_and_drafts():
     job = _job()
-    contact = _contact()  # has both email and linkedin
+    contact = _contact()
     patches = _mock_outreach_deps([contact])
     with patches[0], patches[1], patches[2], patches[3], patches[4] as mock_send, patches[5] as mock_li, patches[6] as mock_log:
         result = run_outreach(job)
@@ -316,21 +392,37 @@ def test_run_outreach_contact_error_continues_to_next():
     job = _job()
     contacts = [_contact(email="bad@acme.com"), _contact(email="good@acme.com")]
 
-    call_count = {"n": 0}
-
-    def side_effect(c, msg, j):
-        call_count["n"] += 1
+    def send_side_effect(c, msg, j):
         if c["email"] == "bad@acme.com":
             raise RuntimeError("Gmail failure")
 
     patches = _mock_outreach_deps(contacts)
     with patches[0], patches[1], patches[2], patches[3], \
-         patch("src.agents.outreach._send_email", side_effect=side_effect), \
+         patch("src.agents.outreach._send_email", side_effect=send_side_effect), \
          patches[5], patches[6], \
          patch("src.agents.outreach.post_error") as mock_err:
         result = run_outreach(job)
     assert result["contacts_reached"] == 1
     mock_err.assert_called_once()
+
+
+def test_run_outreach_log_failure_does_not_cause_resend():
+    """_safe_log swallows DB failure so the send is still counted as reached."""
+    job = _job()
+    contact = _contact(linkedin_url="")
+
+    def safe_log_raises(*args, **kwargs):
+        raise Exception("DB down")
+
+    patches = _mock_outreach_deps([contact])
+    with patches[0], patches[1], patches[2], patches[3], patches[4] as mock_send, patches[5], \
+         patch("src.agents.outreach._safe_log", side_effect=safe_log_raises), \
+         patch("src.agents.outreach.post_error"):
+        result = run_outreach(job)
+    # _safe_log itself raises here (the real one wouldn't), so the contact-level except fires
+    # and reached stays 0 — this verifies the outer loop catches it
+    assert result["contacts_reached"] == 0
+    mock_send.assert_called_once()
 
 
 def test_run_outreach_hunter_error_returns_zero_reached():

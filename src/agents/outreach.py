@@ -1,5 +1,6 @@
 import json
 import re
+import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta, timezone
 
@@ -15,31 +16,33 @@ _HUNTER_DOMAIN_SEARCH = "https://api.hunter.io/v2/domain-search"
 
 
 def run_outreach(job: JobItem) -> dict:
-    """
-    Find contacts for job company. Send cold email via Gmail; post LinkedIn draft to Slack.
-    Skips contacts messaged within 30 days. Per-contact errors are logged and skipped.
-    """
     try:
         contacts = _find_contacts(job)
         seed = _fetch_outreach_seed()
         reached = 0
         for contact in contacts:
             try:
-                if _is_on_cooldown(contact.get("email", "")):
+                if _is_on_cooldown(contact.get("email", ""), contact.get("linkedin_url", "")):
                     continue
                 message = _draft_message(contact, job, seed)
+                if not message:
+                    continue
+                sent = False
                 if contact.get("email"):
                     _send_email(contact, message, job)
-                    _log_outreach(contact, message, job, "email")
+                    _safe_log(contact, message, job, "email")
+                    sent = True
                 if contact.get("linkedin_url"):
                     _post_linkedin_draft(contact, message, job)
-                    _log_outreach(contact, message, job, "linkedin")
-                reached += 1
+                    _safe_log(contact, message, job, "linkedin")
+                    sent = True
+                if sent:
+                    reached += 1
             except Exception as e:
                 post_error(
                     "outreach_agent",
                     str(e),
-                    {"company": job.get("company", ""), "contact": contact.get("email", "")},
+                    {"company": job["company"], "contact": contact.get("email", "")},
                 )
                 continue
         return {"contacts_reached": reached, "job_url": job["job_url"]}
@@ -49,18 +52,21 @@ def run_outreach(job: JobItem) -> dict:
 
 
 def _find_contacts(job: JobItem) -> list[dict]:
-    """Query Hunter.io for up to 5 contacts at the job's domain."""
+    """Query Hunter.io by company name for up to 5 contacts."""
     if not settings.hunter_api_key:
         return []
-    domain = _extract_domain(job["job_url"])
-    if not domain:
+    company = job["company"]
+    if not company:
         return []
-    url = f"{_HUNTER_DOMAIN_SEARCH}?domain={domain}&limit=5&api_key={settings.hunter_api_key}"
+    url = (
+        f"{_HUNTER_DOMAIN_SEARCH}"
+        f"?company={urllib.parse.quote(company)}&limit=5&api_key={settings.hunter_api_key}"
+    )
     try:
         with urllib.request.urlopen(url, timeout=10) as resp:
             data = json.loads(resp.read())
     except Exception as e:
-        post_error("outreach_agent", str(e), {"domain": domain})
+        post_error("outreach_agent", str(e), {"company": company})
         return []
     emails = (data.get("data") or {}).get("emails") or []
     return [
@@ -76,31 +82,52 @@ def _find_contacts(job: JobItem) -> list[dict]:
 
 
 def _extract_domain(job_url: str) -> str:
+    """Extract hostname from URL. Note: for ATS URLs this returns the board host, not the company domain."""
     m = re.search(r"https?://(?:www\.)?([^/]+)", job_url)
     return m.group(1) if m else ""
 
 
-def _is_on_cooldown(email: str) -> bool:
-    if not email:
+def _is_on_cooldown(email: str, linkedin_url: str = "") -> bool:
+    """Return True if this contact (by email or LinkedIn URL) was messaged within the last 30 days."""
+    if not email and not linkedin_url:
         return False
     db = get_client()
     cutoff = (datetime.now(tz=timezone.utc) - timedelta(days=_COOLDOWN_DAYS)).isoformat()
-    rows = (
-        db.table("outreach_log")
-        .select("id")
-        .eq("contact_email", email)
-        .gte("sent_at", cutoff)
-        .limit(1)
-        .execute()
-        .data or []
-    )
-    return len(rows) > 0
+    if email:
+        rows = (
+            db.table("outreach_log")
+            .select("id")
+            .eq("contact_email", email)
+            .gte("sent_at", cutoff)
+            .limit(1)
+            .execute()
+            .data or []
+        )
+        if rows:
+            return True
+    if linkedin_url:
+        rows = (
+            db.table("outreach_log")
+            .select("id")
+            .eq("contact_linkedin", linkedin_url)
+            .gte("sent_at", cutoff)
+            .limit(1)
+            .execute()
+            .data or []
+        )
+        if rows:
+            return True
+    return False
 
 
 def _fetch_outreach_seed() -> str:
-    db = get_client()
-    rows = db.table("outreach_seeds").select("content").limit(1).execute().data or []
-    return rows[0]["content"] if rows else ""
+    try:
+        db = get_client()
+        rows = db.table("outreach_seeds").select("content").limit(1).execute().data or []
+        return rows[0]["content"] if rows else ""
+    except Exception as e:
+        post_error("outreach_agent", str(e), {})
+        return ""
 
 
 def _draft_message(contact: dict, job: JobItem, seed: str) -> str:
@@ -121,7 +148,6 @@ def _draft_message(contact: dict, job: JobItem, seed: str) -> str:
 
 
 def _send_email(contact: dict, message: str, job: JobItem) -> None:
-    """Send cold email via Gmail API using stored OAuth credentials."""
     import base64
     import email.mime.text
     from google.oauth2.credentials import Credentials
@@ -137,7 +163,6 @@ def _send_email(contact: dict, message: str, job: JobItem) -> None:
 
 
 def _post_linkedin_draft(contact: dict, message: str, job: JobItem) -> None:
-    """Post LinkedIn message draft to Slack for manual sending."""
     name = contact.get("name") or "contact"
     linkedin = contact.get("linkedin_url") or "no URL found"
     post_message(
@@ -158,3 +183,15 @@ def _log_outreach(contact: dict, message: str, job: JobItem, channel: str) -> No
         "channel": channel,
         "message_text": message,
     }).execute()
+
+
+def _safe_log(contact: dict, message: str, job: JobItem, channel: str) -> None:
+    """Log outreach; alert Slack on DB failure but don't propagate — send already happened."""
+    try:
+        _log_outreach(contact, message, job, channel)
+    except Exception as e:
+        post_error(
+            "outreach_agent",
+            f"log failed after {channel} send: {e}",
+            {"contact": contact.get("email", ""), "job_url": job["job_url"]},
+        )
