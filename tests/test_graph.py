@@ -45,6 +45,17 @@ def test_filter_node_db_error_uses_empty_prefs():
     mock_pf.assert_called_once_with([_JOB], {})
 
 
+def test_filter_node_get_client_error_uses_empty_prefs():
+    """get_client() is now inside try — a connection failure should not crash the graph."""
+    state = {"jobs_discovered": [_JOB]}
+    with patch("src.db.client.get_client", side_effect=Exception("conn refused")):
+        with patch("src.graph.preference_filter", return_value=[_JOB]) as mock_pf:
+            with patch("src.graph.dedup_filter", return_value=[_JOB]):
+                with patch("src.graph.post_error"):
+                    result = filter_node(state)
+    mock_pf.assert_called_once_with([_JOB], {})
+
+
 def test_filter_node_empty_discovered_returns_empty():
     state = {"jobs_discovered": []}
     mock_db = MagicMock()

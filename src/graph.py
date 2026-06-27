@@ -16,8 +16,8 @@ from src.state import GraphState
 
 def filter_node(state: GraphState) -> dict:
     from src.db.client import get_client
-    db = get_client()
     try:
+        db = get_client()
         prefs_rows = db.table("preferences").select("*").limit(1).execute().data or []
         prefs = prefs_rows[0] if prefs_rows else {}
     except Exception as e:
@@ -52,7 +52,12 @@ def apply_node(state: GraphState) -> dict:
                 item.get("resume_pdf_path", ""),
                 item.get("cover_letter_path", ""),
             )
-            applied.append({**item, **receipt})
+            merged = {**item, **receipt}
+            if item.get("resume_pdf_path") and not receipt.get("resume_pdf_path"):
+                merged["resume_pdf_path"] = item["resume_pdf_path"]
+            if item.get("cover_letter_path") and not receipt.get("cover_letter_path"):
+                merged["cover_letter_path"] = item["cover_letter_path"]
+            applied.append(merged)
         except Exception as e:
             post_error("apply_node", str(e), {"job_url": item.get("job_url", "")})
             continue

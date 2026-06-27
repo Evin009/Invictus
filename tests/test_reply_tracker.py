@@ -81,6 +81,19 @@ def test_find_job_url_returns_none_when_no_match():
     assert result is None
 
 
+def test_find_job_url_strips_display_name_from_address():
+    """Sender from Gmail From header ('Name <addr>') must match bare address in outreach_log."""
+    mock_db = MagicMock()
+    mock_db.table.return_value.select.return_value.eq.return_value.limit.return_value.execute.return_value.data = [
+        {"job_url": "https://boards.greenhouse.io/acme/jobs/99"}
+    ]
+    with patch("src.agents.reply_tracker.get_client", return_value=mock_db):
+        result = _find_job_url("John Smith <recruiter@acme.com>")
+    eq_call = mock_db.table.return_value.select.return_value.eq.call_args[0]
+    assert eq_call[1] == "recruiter@acme.com"
+    assert result == "https://boards.greenhouse.io/acme/jobs/99"
+
+
 # --- _save_reply ---
 
 def test_save_reply_inserts_to_reply_log():
@@ -93,12 +106,14 @@ def test_save_reply_inserts_to_reply_log():
             body="Let's chat",
             classification="interview_request",
             channel="email",
+            message_id="msg-abc",
         )
     mock_db.table.assert_called_with("reply_log")
     inserted = mock_db.table.return_value.insert.call_args[0][0]
     assert inserted["sender"] == "recruiter@acme.com"
     assert inserted["classification"] == "interview_request"
     assert inserted["channel"] == "email"
+    assert inserted["message_id"] == "msg-abc"
 
 
 def test_save_reply_accepts_null_job_url():

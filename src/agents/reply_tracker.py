@@ -1,4 +1,5 @@
 import anthropic
+import email.utils
 
 from src.config import settings
 from src.db.client import get_client
@@ -43,6 +44,7 @@ def scan_replies() -> list[dict]:
                 body=email["body"],
                 classification=classification,
                 channel="email",
+                message_id=email["message_id"],
             )
             _update_application_status(job_url, classification)
             _alert_if_notable(classification, email["sender"], email["subject"], job_url)
@@ -75,12 +77,19 @@ def _fetch_unread_emails() -> list[dict]:
         ).execute()
         headers = {h["name"]: h["value"] for h in full.get("payload", {}).get("headers", [])}
         body = _extract_body(full.get("payload", {}))
+        _, sender_addr = email.utils.parseaddr(headers.get("From", ""))
         emails.append({
-            "sender": headers.get("From", ""),
+            "sender": sender_addr or headers.get("From", ""),
             "subject": headers.get("Subject", ""),
             "body": body,
             "message_id": msg["id"],
         })
+        try:
+            service.users().messages().modify(
+                userId="me", id=msg["id"], body={"removeLabelIds": ["UNREAD"]}
+            ).execute()
+        except Exception as e:
+            post_error("reply_tracker", f"mark_read failed: {e}", {"message_id": msg["id"]})
     return emails
 
 
@@ -118,11 +127,13 @@ def _classify_reply(subject: str, body: str) -> str:
 
 def _find_job_url(sender: str) -> str | None:
     """Look up sender email in outreach_log to find the associated job URL."""
+    _, addr = email.utils.parseaddr(sender)
+    lookup = addr or sender
     db = get_client()
     rows = (
         db.table("outreach_log")
         .select("job_url")
-        .eq("contact_email", sender)
+        .eq("contact_email", lookup)
         .limit(1)
         .execute()
         .data or []
@@ -137,6 +148,7 @@ def _save_reply(
     body: str,
     classification: str,
     channel: str,
+    message_id: str | None = None,
 ) -> None:
     db = get_client()
     db.table("reply_log").insert({
@@ -146,6 +158,7 @@ def _save_reply(
         "subject": subject,
         "body": body,
         "classification": classification,
+        "message_id": message_id,
     }).execute()
 
 
