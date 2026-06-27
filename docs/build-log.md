@@ -176,4 +176,31 @@ Record of every phase merged — aim, what got built, decisions made.
 - Stats scoped to 24 hours by default, not all-time — matches the hourly cron cadence; the window is configurable via argument if a longer view is ever needed
 - Pipeline continues through every step on per-item errors — one failed application or one bad email doesn't block the rest of the batch
 
+## Phase 8: Deployment
+**Branch:** `phase-8-deployment` | **PR:** #8 | **Merged:** 2026-06-27
+
+**Aim:** Add two more job discovery sources — a watchlist of specific companies to check and a broad list of company career pages to crawl — then package the system so it can run on a remote cloud machine automatically every hour without anyone babysitting it.
+
+**What got built:**
+- Watchlist watcher: opens each company's career page in a real browser (same as a person would), reads the visible text on the page, and hands it to AI to pull out matching job listings — one targeted scan per company in your VIP list
+- Broad crawler: does the same page-open-and-read for a separate list of any career page URLs you want covered — picks up jobs from companies not yet on any job board
+- Login wall guard: before reading any page, checks if it requires a password — if so, skips and logs an alert rather than hanging or submitting blank data
+- Provisioning script: one shell script that sets up a fresh cloud machine from scratch — installs everything, creates a dedicated non-admin account to run the system (so it doesn't run as root), registers the hourly job, sets up automatic log cleanup so the log file doesn't grow forever
+- Log rotation: system log is trimmed automatically — keeps 14 days of history, compresses old entries, never fills the disk
+- Hourly job: installed as a system-level scheduled task so it survives reboots and can't accidentally be overwritten by unrelated cron edits
+- Deploy guide: step-by-step instructions for getting from a brand new cloud machine to a running system
+
+**Bugs caught before merge (code review):**
+- When AI couldn't find a URL for a job listing, every job on the page was assigned the same fallback URL (the careers page itself) — the duplicate checker then dropped all but the first, so only one job per company was ever discovered when URLs were missing — fixed by building a unique URL from the job title instead (careers-page URL plus the title, spaces-to-dashes)
+- The page scraper was downloading the full raw page source (all the invisible code and markup) instead of just the text a person would read — full page source is often 10x larger and mostly noise for AI — switched to reading only the visible text, matching what a person sees
+- The source label ("watchlist" vs "crawler") was hardcoded inside the shared parsing function — the crawler had to retroactively fix every job's label with a workaround after the fact — added source as a parameter so each caller passes the right label directly
+- The provisioning script ran the hourly job as the root administrator account — browsers used for web scraping warn and sometimes refuse to run as root on hardened servers — changed to create and use a dedicated non-admin account
+- The system log had no size limit — on a low-cost cloud machine with limited disk, months of hourly runs would eventually fill the disk and crash everything — added automatic daily compression and rotation with 14-day history
+
+**Decisions made:**
+- Career page text (not raw HTML) sent to AI — visible text is denser in signal and small enough to fit comfortably in AI context; raw HTML is mostly tags and scripts with very little useful content
+- Dedicated cloud account with minimum permissions runs the system — follows least-privilege: the job application system has no more access than it needs to do its job
+- System-level cron file used instead of user-level crontab — survives user changes, survives reboots, easier to audit
+- Log rotation configured at 14 days — enough history to debug a problem from the previous week without risking disk fill
+
 <!-- New phases appended below as they merge -->
