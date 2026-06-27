@@ -148,4 +148,32 @@ Record of every phase merged — aim, what got built, decisions made.
 - Cooldown is per-contact identity (email or LinkedIn), not per job — once reached, not reached again for 30 days regardless of which job triggered it
 - Per-contact errors are logged to Slack and skipped — one bad contact or failed email doesn't block the remaining contacts for that job
 
+## Phase 7: Reply Tracking + Reporting
+**Branch:** `phase-7-reply-tracking-reporting` | **PR:** #7 | **Merged:** 2026-06-27
+
+**Aim:** Build the inbox watcher and daily summary — scan your email for replies to applications and outreach, classify each one, update the job status automatically, alert on interviews and rejections, and post a Slack summary at the end of every hourly run. Wire all agents together into a single pipeline that runs start to finish with one command.
+
+**What got built:**
+- Inbox scanner: reads your 50 most recent unread emails, marks each one as read after processing so the same email is never processed twice
+- Reply classifier: sends each email subject and body to AI and gets back one label — interview request, rejection, follow-up needed, generic acknowledgement, recruiter reply to outreach, or other — falls back to "other" if the response doesn't match any known label
+- Status updater: when a reply is classified as an interview request or rejection, finds the matching job application in the database and updates its status automatically
+- Slack alerter: immediately posts to Slack on interview requests and rejections only — other reply types are saved quietly to the log
+- Reply log: saves every processed email to the database with its classification and the message's unique ID — the unique ID prevents duplicate entries if something re-runs
+- Contact linker: looks up the sender's email address in the outreach log to tie a reply back to the job it belongs to; parses the display name out of the Gmail "From" header so the lookup finds the right record
+- Stats reporter: counts jobs discovered, applications submitted, manual pending, interviews, rejections, replies, and outreach sent — all scoped to the last 24 hours so the summary reflects the current run, not all-time totals — posts the summary to Slack at the end of every run
+- Full pipeline: all agents wired into a single ordered sequence — discover → filter → tailor → apply → outreach → scan replies → report. One command runs the whole cycle. Every agent failure posts to Slack and moves on; one bad step never blocks the rest.
+
+**Bugs caught before merge (code review):**
+- Reply sender lookup always returned nothing — the Gmail "From" header includes a display name ("Jane Doe <jane@acme.com>") but the database stores only the bare email address — fixed by parsing the email address out of the header before looking it up
+- Emails were never marked as read after processing — every hourly run re-fetched, re-classified, and re-alerted on all the same emails; duplicates accumulated in the log and Slack flooded with repeat interview/rejection alerts — fixed by calling Gmail's mark-as-read API after each message is processed; also store the message's unique ID in the database with a uniqueness rule so duplicates can't be inserted even if something re-runs
+- Stats report was showing all-time totals — after 50 runs the Slack message would read "2,400 jobs discovered, 180 applied" with no way to know what happened in the last hour — fixed by filtering all counts to rows created in the last 24 hours
+- A database connection failure inside the filter step crashed the entire pipeline silently with no Slack alert — moved the connection call inside the error-catching block so failures are reported and the pipeline falls back to default settings instead of aborting
+- When a job application was routed to manual fallback (captcha, unknown job board, etc.), the tailored resume file path was overwritten with nothing in the pipeline's shared data — the receipt from the manual fallback path didn't carry the resume path, and merging it over the original data erased the real path — fixed by keeping the original paths when the fallback receipt doesn't provide them
+
+**Decisions made:**
+- Email processing marks the message read immediately after processing each one individually, not in a batch at the end — a mid-run crash leaves already-processed messages read so they're skipped next time
+- Message unique ID stored in the reply log with a database-level uniqueness rule — two layers of duplicate protection (mark as read + unique constraint) since partial failures can leave either layer incomplete
+- Stats scoped to 24 hours by default, not all-time — matches the hourly cron cadence; the window is configurable via argument if a longer view is ever needed
+- Pipeline continues through every step on per-item errors — one failed application or one bad email doesn't block the rest of the batch
+
 <!-- New phases appended below as they merge -->
