@@ -1,5 +1,4 @@
 from src.agents.watchlist import _scrape_career_page, _parse_jobs
-from src.config import settings
 from src.db.client import get_client
 from src.notifications.slack import post_error
 from src.state import GraphState, JobItem
@@ -22,8 +21,7 @@ def crawler_agent(state: GraphState) -> dict:
 
     prefs_keywords: list[str] = []
     try:
-        db2 = get_client()
-        prefs_rows = db2.table("preferences").select("role_keywords").limit(1).execute().data or []
+        prefs_rows = db.table("preferences").select("role_keywords").limit(1).execute().data or []
         if prefs_rows:
             prefs_keywords = prefs_rows[0].get("role_keywords") or []
     except Exception as e:
@@ -35,10 +33,9 @@ def crawler_agent(state: GraphState) -> dict:
         if not url:
             continue
         try:
-            html = _scrape_career_page(url)
-            jobs = _parse_jobs(html, company, url, prefs_keywords)
+            text = _scrape_career_page(url)
+            jobs = _parse_jobs(text, company, url, prefs_keywords, source="crawler")
             for job in jobs:
-                job = {**job, "source": "crawler"}
                 if job["job_url"] not in seen_urls:
                     seen_urls.add(job["job_url"])
                     all_jobs.append(job)

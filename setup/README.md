@@ -55,11 +55,11 @@ This installs Python 3.11, all dependencies, Playwright Chromium, and registers 
 ## 7. Verify
 
 ```bash
-# Manual test run
-cd /opt/invictus && .venv/bin/python run.py
+# Manual test run (as service user)
+sudo -u invictus bash -c 'cd /opt/invictus && .venv/bin/python run.py'
 
-# Check cron is registered
-crontab -l
+# Check cron job installed
+cat /etc/cron.d/invictus
 
 # Watch logs
 tail -f /var/log/invictus.log
@@ -71,7 +71,6 @@ tail -f /var/log/invictus.log
 ssh root@<droplet-ip>
 cd /opt/invictus
 git pull
-source .venv/bin/activate
-pip install -e .
+sudo -u invictus /opt/invictus/.venv/bin/pip install -e .
 # cron picks up changes automatically on next run
 ```

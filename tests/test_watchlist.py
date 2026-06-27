@@ -114,7 +114,7 @@ def test_parse_jobs_missing_url_uses_careers_url():
     ]
     with patch("src.agents.watchlist.anthropic.Anthropic", return_value=mock_client):
         result = _parse_jobs(_RAW_HTML, "Acme", "https://acme.com/careers", ["engineer"])
-    assert result[0]["job_url"] == "https://acme.com/careers"
+    assert result[0]["job_url"] == "https://acme.com/careers#swe"
 
 
 # --- watchlist_agent ---

@@ -32,8 +32,8 @@ def watchlist_agent(state: GraphState) -> dict:
         if not url:
             continue
         try:
-            html = _scrape_career_page(url)
-            jobs = _parse_jobs(html, company, url, keywords)
+            text = _scrape_career_page(url)
+            jobs = _parse_jobs(text, company, url, keywords, source="watchlist")
             for job in jobs:
                 if job["job_url"] not in seen_urls:
                     seen_urls.add(job["job_url"])
@@ -52,21 +52,25 @@ def _scrape_career_page(url: str) -> str:
             page = browser.new_page()
             page.goto(url, timeout=30000)
             page.wait_for_load_state("networkidle", timeout=15000)
-            return page.content()
+            if page.query_selector("input[type='password']"):
+                raise RuntimeError("Login wall detected")
+            return page.inner_text("body")
         finally:
             browser.close()
 
 
-def _parse_jobs(html: str, company: str, careers_url: str, keywords: list[str]) -> list[JobItem]:
+def _parse_jobs(text: str, company: str, careers_url: str, keywords: list[str], source: str = "watchlist") -> list[JobItem]:
     client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
     kw_str = ", ".join(keywords) if keywords else "software engineer"
+    truncated = text[:8000]
     prompt = (
         f"You are parsing a company careers page for {company}.\n"
         f"Extract all job listings matching these keywords: {kw_str}\n\n"
         "Return a JSON array of objects with keys: title (string), url (string).\n"
+        "Include a url for each listing if visible; omit the key if no URL is available.\n"
         "If no matching jobs found, return [].\n"
         "Return only the JSON array, no other text.\n\n"
-        f"Page HTML (truncated to first 8000 chars):\n{html[:8000]}"
+        f"Page text:\n{truncated}"
     )
     response = client.messages.create(
         model="claude-sonnet-4-6",
@@ -95,13 +99,16 @@ def _parse_jobs(html: str, company: str, careers_url: str, keywords: list[str]) 
         title = item.get("title", "").strip()
         if not title:
             continue
-        job_url = item.get("url", "").strip() or careers_url
+        raw_url = item.get("url", "").strip()
+        # Use title-based synthetic ID when Claude can't extract a URL so multiple
+        # jobs from the same page don't all collapse onto careers_url in dedup.
+        job_url = raw_url or f"{careers_url}#{re.sub(r'[^a-z0-9]+', '-', title.lower())}"
         jobs.append(JobItem(
             job_url=job_url,
             job_id=job_url,
             title=title,
             company=company,
-            source="watchlist",
+            source=source,
             description=title,
             ats_platform="unknown",
             raw_json=item,
