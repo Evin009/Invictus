@@ -51,7 +51,9 @@ create table if not exists reply_log (
     subject text,
     body text,
     classification text, -- 'interview_request' | 'rejection' | 'follow_up_needed' | 'generic_acknowledgement' | 'recruiter_reply_to_outreach' | 'other'
-    received_at timestamptz default now()
+    message_id text,
+    received_at timestamptz default now(),
+    unique (message_id, channel)
 );
 
 create table if not exists resume_bullets (

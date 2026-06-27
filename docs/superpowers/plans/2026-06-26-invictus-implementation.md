@@ -49,8 +49,8 @@
 
 ## Phase 7: Reply Tracking + Reporting
 
-- [ ] Task 12: Reply Tracking Agent — Gmail scan + LLM classify + immediate Slack on interview/rejection (`src/agents/reply_tracker.py`, `tests/test_reply_tracker.py`)
-- [ ] Task 13: Tracking & Reporting Agent + full LangGraph graph wired (`src/agents/reporter.py`, `src/graph.py`, `tests/test_reporter.py`)
+- [x] Task 12: Reply Tracking Agent — Gmail scan + LLM classify + immediate Slack on interview/rejection (`src/agents/reply_tracker.py`, `tests/test_reply_tracker.py`)
+- [x] Task 13: Tracking & Reporting Agent + full LangGraph graph wired (`src/agents/reporter.py`, `src/graph.py`, `tests/test_reporter.py`)
 
 ---
 
