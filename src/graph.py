@@ -2,11 +2,13 @@ from langgraph.graph import StateGraph, END
 
 from src.agents.apply import apply_to_job
 from src.agents.cover_letter import generate_cover_letter
+from src.agents.crawler import crawler_agent
 from src.agents.outreach import run_outreach
 from src.agents.reply_tracker import scan_replies
 from src.agents.reporter import generate_report
 from src.agents.resume_tailor import tailor_resume
 from src.agents.search import search_agent
+from src.agents.watchlist import watchlist_agent
 from src.config import settings
 from src.filters.dedup import dedup_filter
 from src.filters.preference import preference_filter
@@ -97,6 +99,8 @@ def build_graph() -> StateGraph:
     graph = StateGraph(GraphState)
 
     graph.add_node("search", search_agent)
+    graph.add_node("watchlist", watchlist_agent)
+    graph.add_node("crawler", crawler_agent)
     graph.add_node("filter", filter_node)
     graph.add_node("tailor", tailor_node)
     graph.add_node("apply", apply_node)
@@ -105,7 +109,9 @@ def build_graph() -> StateGraph:
     graph.add_node("report", report_node)
 
     graph.set_entry_point("search")
-    graph.add_edge("search", "filter")
+    graph.add_edge("search", "watchlist")
+    graph.add_edge("watchlist", "crawler")
+    graph.add_edge("crawler", "filter")
     graph.add_edge("filter", "tailor")
     graph.add_edge("tailor", "apply")
     graph.add_edge("apply", "outreach")
