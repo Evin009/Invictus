@@ -56,5 +56,5 @@
 
 ## Phase 8: Deployment
 
-- [ ] Task 14: Watchlist Agent + Broad Career-Page Crawler — Playwright + LLM parser (`src/agents/watchlist.py`, `src/agents/crawler.py`)
-- [ ] Task 15: Cron + VM deployment — `run.py` entrypoint + cron setup on DigitalOcean VM
+- [x] Task 14: Watchlist Agent + Broad Career-Page Crawler — Playwright + LLM parser (`src/agents/watchlist.py`, `src/agents/crawler.py`)
+- [x] Task 15: Cron + VM deployment — `run.py` entrypoint + cron setup on DigitalOcean VM
