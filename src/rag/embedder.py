@@ -1,8 +1,9 @@
-import hashlib
-import math
 import re
 from pathlib import Path
 
+import openai
+
+from src.config import settings
 from src.db.client import get_client
 from src.notifications.slack import post_error
 
@@ -49,17 +50,9 @@ _clean_tex = clean_tex  # backward-compat alias
 
 
 def embed_text(text: str) -> list[float]:
-    """Deterministic placeholder — replace with real embedding provider before prod."""
-    dims = 1536
-    encoded = text.encode()
-    result: list[float] = []
-    for chunk in range(0, dims, 8):
-        digest = hashlib.sha256(encoded + chunk.to_bytes(4, 'big')).digest()
-        for j in range(min(8, dims - chunk)):
-            val = int.from_bytes(digest[j * 4:(j + 1) * 4], 'big') / 2**32 * 2 - 1
-            result.append(val)
-    magnitude = math.sqrt(sum(v * v for v in result))
-    return [v / magnitude for v in result] if magnitude > 0 else result
+    client = openai.OpenAI(api_key=settings.openai_api_key)
+    resp = client.embeddings.create(model="text-embedding-3-small", input=text)
+    return resp.data[0].embedding
 
 
 def embed_resumes(resumes_dir: str) -> int:

@@ -8,6 +8,7 @@ load_dotenv()
 @dataclass
 class Settings:
     anthropic_api_key: str
+    openai_api_key: str
     supabase_url: str
     supabase_key: str
     slack_webhook_url: str
@@ -21,6 +22,7 @@ class Settings:
 
 settings = Settings(
     anthropic_api_key=os.environ.get("ANTHROPIC_API_KEY", ""),
+    openai_api_key=os.environ.get("OPENAI_API_KEY", ""),
     supabase_url=os.environ.get("SUPABASE_URL", ""),
     supabase_key=os.environ.get("SUPABASE_SERVICE_ROLE_KEY", ""),
     slack_webhook_url=os.environ.get("SLACK_WEBHOOK_URL", ""),

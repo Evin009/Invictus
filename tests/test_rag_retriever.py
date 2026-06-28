@@ -1,7 +1,8 @@
-import math
 from unittest.mock import MagicMock, patch
 
 from src.rag.retriever import retrieve_bullets
+
+_FAKE_VEC = [0.1] * 1536
 
 
 def _mock_db(rows: list[dict]) -> MagicMock:
@@ -17,7 +18,8 @@ def test_retrieve_bullets_returns_list():
         {"bullet_text": "Built scalable microservices", "similarity": 0.92},
         {"bullet_text": "Led team of 5 engineers", "similarity": 0.87},
     ]
-    with patch("src.rag.retriever.get_client", return_value=_mock_db(rows)):
+    with patch("src.rag.retriever.get_client", return_value=_mock_db(rows)), \
+         patch("src.rag.retriever.embed_text", return_value=_FAKE_VEC):
         result = retrieve_bullets("We need a backend engineer", top_k=5)
     assert isinstance(result, list)
     assert len(result) == 2
@@ -26,7 +28,8 @@ def test_retrieve_bullets_returns_list():
 def test_retrieve_bullets_calls_rpc_with_embedding():
     rows = [{"bullet_text": "Some bullet", "similarity": 0.9}]
     mock_db = _mock_db(rows)
-    with patch("src.rag.retriever.get_client", return_value=mock_db):
+    with patch("src.rag.retriever.get_client", return_value=mock_db), \
+         patch("src.rag.retriever.embed_text", return_value=_FAKE_VEC):
         retrieve_bullets("software engineer role", top_k=3)
     mock_db.rpc.assert_called_once()
     call_args = mock_db.rpc.call_args
@@ -37,11 +40,23 @@ def test_retrieve_bullets_calls_rpc_with_embedding():
     assert len(params["query_embedding"]) == 1536
 
 
+def test_retrieve_bullets_passes_embed_output_to_rpc():
+    rows = []
+    custom_vec = [float(i) / 1536 for i in range(1536)]
+    mock_db = _mock_db(rows)
+    with patch("src.rag.retriever.get_client", return_value=mock_db), \
+         patch("src.rag.retriever.embed_text", return_value=custom_vec):
+        retrieve_bullets("engineer role", top_k=1)
+    params = mock_db.rpc.call_args[0][1]
+    assert params["query_embedding"] == custom_vec
+
+
 def test_retrieve_bullets_returns_text_only():
     rows = [
         {"bullet_text": "Built scalable microservices", "similarity": 0.92},
     ]
-    with patch("src.rag.retriever.get_client", return_value=_mock_db(rows)):
+    with patch("src.rag.retriever.get_client", return_value=_mock_db(rows)), \
+         patch("src.rag.retriever.embed_text", return_value=_FAKE_VEC):
         result = retrieve_bullets("backend role", top_k=5)
     assert result == ["Built scalable microservices"]
 
@@ -49,14 +64,16 @@ def test_retrieve_bullets_returns_text_only():
 def test_retrieve_bullets_default_top_k():
     rows = [{"bullet_text": f"Bullet {i}", "similarity": 0.9 - i * 0.01} for i in range(10)]
     mock_db = _mock_db(rows)
-    with patch("src.rag.retriever.get_client", return_value=mock_db):
+    with patch("src.rag.retriever.get_client", return_value=mock_db), \
+         patch("src.rag.retriever.embed_text", return_value=_FAKE_VEC):
         retrieve_bullets("engineer role")
     params = mock_db.rpc.call_args[0][1]
     assert params["match_count"] == 5
 
 
 def test_retrieve_bullets_empty_db_returns_empty():
-    with patch("src.rag.retriever.get_client", return_value=_mock_db([])):
+    with patch("src.rag.retriever.get_client", return_value=_mock_db([])), \
+         patch("src.rag.retriever.embed_text", return_value=_FAKE_VEC):
         result = retrieve_bullets("any job description", top_k=5)
     assert result == []
 
@@ -64,7 +81,8 @@ def test_retrieve_bullets_empty_db_returns_empty():
 def test_retrieve_bullets_none_data_returns_empty():
     mock_db = MagicMock()
     mock_db.rpc.return_value.execute.return_value.data = None
-    with patch("src.rag.retriever.get_client", return_value=mock_db):
+    with patch("src.rag.retriever.get_client", return_value=mock_db), \
+         patch("src.rag.retriever.embed_text", return_value=_FAKE_VEC):
         result = retrieve_bullets("any job description", top_k=5)
     assert result == []
 
@@ -72,31 +90,12 @@ def test_retrieve_bullets_none_data_returns_empty():
 def test_retrieve_bullets_raises_on_db_error():
     mock_db = MagicMock()
     mock_db.rpc.return_value.execute.side_effect = Exception("RPC failed")
-    with patch("src.rag.retriever.get_client", return_value=mock_db):
-        with patch("src.rag.retriever.post_error") as mock_err:
-            try:
-                retrieve_bullets("engineer role", top_k=5)
-                assert False, "Expected exception"
-            except Exception as e:
-                assert "RPC failed" in str(e)
-            mock_err.assert_called_once()
-
-
-def test_retrieve_bullets_embedding_is_normalized():
-    captured = {}
-
-    def fake_rpc(fn_name, params):
-        captured["embedding"] = params["query_embedding"]
-        mock = MagicMock()
-        mock.execute.return_value.data = []
-        return mock
-
-    mock_db = MagicMock()
-    mock_db.rpc.side_effect = fake_rpc
-
-    with patch("src.rag.retriever.get_client", return_value=mock_db):
-        retrieve_bullets("some job description", top_k=3)
-
-    vec = captured["embedding"]
-    magnitude = math.sqrt(sum(v * v for v in vec))
-    assert abs(magnitude - 1.0) < 1e-6
+    with patch("src.rag.retriever.get_client", return_value=mock_db), \
+         patch("src.rag.retriever.embed_text", return_value=_FAKE_VEC), \
+         patch("src.rag.retriever.post_error") as mock_err:
+        try:
+            retrieve_bullets("engineer role", top_k=5)
+            assert False, "Expected exception"
+        except Exception as e:
+            assert "RPC failed" in str(e)
+        mock_err.assert_called_once()
