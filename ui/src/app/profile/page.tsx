@@ -11,7 +11,7 @@ export default async function ProfilePage() {
 
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
-      <div className="text-center">
+      <div>
         <h1 className="text-[1.875rem] font-semibold tracking-tight" style={{ color: "var(--foreground)" }}>
           Profile
         </h1>

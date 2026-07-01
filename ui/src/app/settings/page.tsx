@@ -16,7 +16,7 @@ export default async function SettingsPage() {
 
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
-      <div className="text-center">
+      <div>
         <h1 className="text-[1.875rem] font-semibold tracking-tight" style={{ color: "var(--foreground)" }}>
           Settings
         </h1>
