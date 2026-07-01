@@ -25,38 +25,33 @@ export function ApplicationsTable({ applications }: { applications: Application[
     <div className="space-y-4 animate-fade-up">
       {/* Toolbar */}
       <div className="flex items-center justify-between">
-        <p className="text-[12px] font-medium" style={{ color: "rgba(255,255,255,0.35)" }}>
-          <span style={{ fontFamily: "var(--font-mono)", color: "oklch(0.930 0.008 210)" }}>
+        <p className="text-[12px] font-medium" style={{ color: "var(--muted-foreground)" }}>
+          <span style={{ fontFamily: "var(--font-mono)", color: "var(--foreground)" }}>
             {visible.length}
           </span>
           {" "}of{" "}
-          <span style={{ fontFamily: "var(--font-mono)", color: "oklch(0.930 0.008 210)" }}>
+          <span style={{ fontFamily: "var(--font-mono)", color: "var(--foreground)" }}>
             {applications.length}
           </span>
           {" "}applications
         </p>
 
         <div
-          className="flex items-center gap-2 px-3 py-1.5 rounded-xl"
+          className="flex items-center gap-2 px-3 py-1.5 rounded-lg transition-premium"
           style={{
-            background: "rgba(255,255,255,0.05)",
-            border: "1px solid rgba(255,255,255,0.09)",
-            backdropFilter: "blur(12px)",
-            boxShadow: "inset 0 1px 0 rgba(255,255,255,0.10)",
+            border: "1px solid var(--border)",
+            backgroundColor: "var(--card)",
           }}
         >
-          <FunnelSimple size={13} style={{ color: "rgba(255,255,255,0.35)" }} />
+          <FunnelSimple size={13} style={{ color: "var(--muted-foreground)" }} />
           <select
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
-            className="text-[12px] font-medium outline-none cursor-pointer"
-            style={{
-              color: "oklch(0.930 0.008 210)",
-              background: "transparent",
-            }}
+            className="text-[12px] font-medium outline-none cursor-pointer bg-transparent"
+            style={{ color: "var(--foreground)" }}
           >
             {STATUS_FILTERS.map((f) => (
-              <option key={f.value} value={f.value} style={{ backgroundColor: "#0d1624", color: "#e0e8f0" }}>
+              <option key={f.value} value={f.value}>
                 {f.label}
               </option>
             ))}
@@ -65,32 +60,23 @@ export function ApplicationsTable({ applications }: { applications: Application[
       </div>
 
       {/* Table */}
-      <div
-        className="rounded-2xl overflow-hidden"
-        style={{
-          background: "linear-gradient(145deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.03) 100%)",
-          backdropFilter: "blur(28px) saturate(150%)",
-          WebkitBackdropFilter: "blur(28px) saturate(150%)",
-          border: "1px solid rgba(255,255,255,0.09)",
-          boxShadow: "inset 0 1px 0 rgba(255,255,255,0.14), 0 8px 32px rgba(0,0,0,0.24)",
-        }}
-      >
+      <div className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
         {visible.length === 0 ? (
           <EmptyState filter={filter} />
         ) : (
           <table className="w-full text-[13px]">
             <thead>
-              <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+              <tr
+                style={{
+                  backgroundColor: "var(--muted)",
+                  borderBottom: "1px solid var(--border)",
+                }}
+              >
                 {["Company", "Role", "Platform", "Type", "Status", "Date"].map((h) => (
                   <th
                     key={h}
                     className="text-left px-4 py-3 font-medium"
-                    style={{
-                      color: "rgba(255,255,255,0.30)",
-                      fontSize: "11px",
-                      letterSpacing: "0.06em",
-                      background: "rgba(255,255,255,0.02)",
-                    }}
+                    style={{ color: "var(--muted-foreground)" }}
                   >
                     {h}
                   </th>
@@ -103,14 +89,14 @@ export function ApplicationsTable({ applications }: { applications: Application[
                   key={app.id}
                   className="transition-premium"
                   style={{
-                    borderBottom: i < visible.length - 1 ? "1px solid rgba(255,255,255,0.05)" : "none",
-                    backgroundColor: hovered === app.id ? "rgba(255,255,255,0.04)" : "transparent",
+                    borderBottom: i < visible.length - 1 ? "1px solid var(--border)" : "none",
+                    backgroundColor: hovered === app.id ? "var(--muted)" : "transparent",
                     animationDelay: `${i * 30}ms`,
                   }}
                   onMouseEnter={() => setHovered(app.id)}
                   onMouseLeave={() => setHovered(null)}
                 >
-                  <td className="px-4 py-3 font-medium" style={{ color: "oklch(0.900 0.008 210)" }}>
+                  <td className="px-4 py-3 font-medium" style={{ color: "var(--foreground)" }}>
                     {app.company ?? "—"}
                   </td>
                   <td className="px-4 py-3">
@@ -120,18 +106,18 @@ export function ApplicationsTable({ applications }: { applications: Application[
                         target="_blank"
                         rel="noopener noreferrer"
                         className="transition-premium hover:underline"
-                        style={{ color: "oklch(0.720 0.130 195)" }}
+                        style={{ color: "var(--primary)" }}
                       >
                         {app.title}
                       </a>
                     ) : (
-                      <span style={{ color: "rgba(255,255,255,0.25)" }}>—</span>
+                      <span style={{ color: "var(--muted-foreground)" }}>—</span>
                     )}
                   </td>
-                  <td className="px-4 py-3 capitalize" style={{ color: "rgba(255,255,255,0.35)" }}>
+                  <td className="px-4 py-3 capitalize" style={{ color: "var(--muted-foreground)" }}>
                     {app.ats_platform ?? "—"}
                   </td>
-                  <td className="px-4 py-3 capitalize" style={{ color: "rgba(255,255,255,0.35)" }}>
+                  <td className="px-4 py-3 capitalize" style={{ color: "var(--muted-foreground)" }}>
                     {app.submission_type === "auto" ? "Auto" : app.submission_type === "manual" ? "Manual" : "—"}
                   </td>
                   <td className="px-4 py-3">
@@ -140,7 +126,7 @@ export function ApplicationsTable({ applications }: { applications: Application[
                   <td
                     className="px-4 py-3"
                     style={{
-                      color: "rgba(255,255,255,0.28)",
+                      color: "var(--muted-foreground)",
                       fontFamily: "var(--font-mono, monospace)",
                       fontSize: "11px",
                     }}
@@ -166,18 +152,18 @@ function EmptyState({ filter }: { filter: string }) {
     <div className="py-16 text-center">
       <div
         className="w-10 h-10 rounded-full mx-auto mb-4 flex items-center justify-center"
-        style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.09)" }}
+        style={{ backgroundColor: "var(--muted)" }}
       >
-        <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5"
-          style={{ color: "rgba(255,255,255,0.30)" }}>
+        <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5"
+          style={{ color: "var(--muted-foreground)" }}>
           <circle cx="11" cy="11" r="8" />
           <path d="m21 21-4.35-4.35" />
         </svg>
       </div>
-      <p className="text-[13px] font-medium mb-1" style={{ color: "oklch(0.900 0.008 210)" }}>
+      <p className="text-[13px] font-medium mb-1" style={{ color: "var(--foreground)" }}>
         {filter === "all" ? "No applications yet" : `No ${filter.replace("_", " ")} applications`}
       </p>
-      <p className="text-[12px]" style={{ color: "rgba(255,255,255,0.28)" }}>
+      <p className="text-[12px]" style={{ color: "var(--muted-foreground)" }}>
         {filter === "all"
           ? "The agent will populate this on its first hourly run."
           : "Try a different filter to see other applications."}

@@ -9,7 +9,23 @@ interface SettingsFormProps {
   watchlist: WatchlistEntry[]
 }
 
-function GlassInput({
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <h2 className="text-[13px] font-semibold mb-1" style={{ color: "var(--foreground)" }}>
+      {children}
+    </h2>
+  )
+}
+
+function FieldLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <label className="text-[12px] font-medium block" style={{ color: "var(--foreground)" }}>
+      {children}
+    </label>
+  )
+}
+
+function StyledInput({
   value,
   onChange,
   placeholder,
@@ -31,36 +47,15 @@ function GlassInput({
       placeholder={placeholder}
       onFocus={() => setFocused(true)}
       onBlur={() => setFocused(false)}
-      className={`w-full px-3 py-2 text-[13px] rounded-xl outline-none transition-premium ${className}`}
+      className={`w-full px-3 py-2 text-[13px] rounded-lg outline-none transition-premium ${className}`}
       style={{
-        background: focused ? "rgba(255,255,255,0.07)" : "rgba(255,255,255,0.045)",
-        backdropFilter: "blur(12px)",
-        border: `1px solid ${focused ? "oklch(0.680 0.130 195 / 0.50)" : "rgba(255,255,255,0.09)"}`,
-        color: "oklch(0.930 0.008 210)",
-        boxShadow: focused
-          ? "inset 0 1px 0 rgba(255,255,255,0.10), 0 0 0 3px oklch(0.680 0.130 195 / 0.12)"
-          : "inset 0 1px 0 rgba(255,255,255,0.08)",
+        border: `1px solid ${focused ? "var(--primary)" : "var(--border)"}`,
+        backgroundColor: "var(--background)",
+        color: "var(--foreground)",
+        boxShadow: focused ? `0 0 0 3px oklch(0.580 0.100 200 / 0.10)` : "none",
       }}
     />
   )
-}
-
-function FieldLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <label className="text-[12px] font-medium block" style={{ color: "rgba(255,255,255,0.50)" }}>
-      {children}
-    </label>
-  )
-}
-
-const glassSection: React.CSSProperties = {
-  background: "linear-gradient(145deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.03) 100%)",
-  backdropFilter: "blur(28px) saturate(150%)",
-  WebkitBackdropFilter: "blur(28px) saturate(150%)",
-  border: "1px solid rgba(255,255,255,0.09)",
-  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.14), 0 8px 32px rgba(0,0,0,0.24)",
-  borderRadius: "1rem",
-  padding: "24px",
 }
 
 export function SettingsForm({ preferences, watchlist: initial }: SettingsFormProps) {
@@ -136,15 +131,16 @@ export function SettingsForm({ preferences, watchlist: initial }: SettingsFormPr
   const canAdd = newCompany.trim().length > 0 && newUrl.trim().length > 0 && !adding
 
   return (
-    <div className="space-y-6 max-w-2xl animate-fade-up">
+    <div className="space-y-8 max-w-2xl animate-fade-up">
 
       {/* Preferences */}
-      <section style={glassSection}>
+      <section
+        className="rounded-xl p-6"
+        style={{ border: "1px solid var(--border)", backgroundColor: "var(--card)" }}
+      >
         <div className="mb-5">
-          <h2 className="text-[14px] font-semibold" style={{ color: "oklch(0.930 0.008 210)" }}>
-            Job Preferences
-          </h2>
-          <p className="text-[12px] mt-0.5" style={{ color: "rgba(255,255,255,0.32)" }}>
+          <SectionTitle>Job Preferences</SectionTitle>
+          <p className="text-[12px] mt-0.5" style={{ color: "var(--muted-foreground)" }}>
             Controls what the agent targets on each run.
           </p>
         </div>
@@ -152,49 +148,65 @@ export function SettingsForm({ preferences, watchlist: initial }: SettingsFormPr
         <div className="space-y-4">
           <div className="space-y-1.5">
             <FieldLabel>Role keywords</FieldLabel>
-            <GlassInput value={keywords} onChange={setKeywords} placeholder="Software Engineer, Backend Engineer, Full Stack" />
-            <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.25)" }}>
-              Comma-separated. Agent filters job listings by these terms.
+            <StyledInput
+              value={keywords}
+              onChange={setKeywords}
+              placeholder="Software Engineer, Backend Engineer, Full Stack"
+            />
+            <p className="text-[11px]" style={{ color: "var(--muted-foreground)" }}>
+              Comma-separated. The agent filters job listings by these terms.
             </p>
           </div>
+
           <div className="space-y-1.5">
             <FieldLabel>Locations</FieldLabel>
-            <GlassInput value={locations} onChange={setLocations} placeholder="Remote, Tampa FL, New York NY" />
+            <StyledInput
+              value={locations}
+              onChange={setLocations}
+              placeholder="Remote, Tampa FL, New York NY"
+            />
+            <p className="text-[11px]" style={{ color: "var(--muted-foreground)" }}>
+              Comma-separated. Include "Remote" to match remote positions.
+            </p>
           </div>
+
           <div className="space-y-1.5">
             <FieldLabel>Minimum salary (USD/year)</FieldLabel>
-            <GlassInput value={salary} onChange={setSalary} placeholder="80000" type="number" className="max-w-[180px]" />
+            <StyledInput
+              value={salary}
+              onChange={setSalary}
+              placeholder="80000"
+              type="number"
+              className="max-w-[180px]"
+            />
           </div>
         </div>
 
-        <div
-          className="flex items-center gap-3 mt-6 pt-5"
-          style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
-        >
+        <div className="flex items-center gap-3 mt-6 pt-5" style={{ borderTop: "1px solid var(--border)" }}>
           <button
             onClick={savePreferences}
             disabled={saving}
-            className="px-4 py-2 rounded-xl text-[13px] font-medium transition-premium active:scale-[0.98]"
+            className="px-4 py-2 rounded-lg text-[13px] font-medium transition-premium active:scale-[0.98]"
             style={{
-              background: saving
-                ? "rgba(255,255,255,0.06)"
-                : "linear-gradient(135deg, oklch(0.700 0.130 195), oklch(0.560 0.120 210))",
-              color: saving ? "rgba(255,255,255,0.35)" : "white",
-              border: "none",
+              backgroundColor: "var(--foreground)",
+              color: "var(--background)",
+              opacity: saving ? 0.55 : 1,
               cursor: saving ? "not-allowed" : "pointer",
-              boxShadow: saving ? "none" : "0 2px 12px oklch(0.680 0.130 195 / 0.30), inset 0 1px 0 rgba(255,255,255,0.20)",
+              transform: "translateZ(0)",
             }}
           >
             {saving ? "Saving…" : "Save preferences"}
           </button>
 
           {saveState === "saved" && (
-            <span className="text-[12px] font-medium animate-fade-in" style={{ color: "oklch(0.720 0.130 145)" }}>
-              Saved
+            <span className="text-[12px] font-medium animate-fade-in"
+              style={{ color: "oklch(0.290 0.120 145)" }}>
+              Preferences updated
             </span>
           )}
           {saveState === "error" && (
-            <span className="text-[12px] font-medium animate-fade-in" style={{ color: "oklch(0.680 0.170 15)" }}>
+            <span className="text-[12px] font-medium animate-fade-in"
+              style={{ color: "oklch(0.350 0.140 15)" }}>
               Something went wrong
             </span>
           )}
@@ -202,62 +214,60 @@ export function SettingsForm({ preferences, watchlist: initial }: SettingsFormPr
       </section>
 
       {/* Watchlist */}
-      <section style={glassSection}>
+      <section
+        className="rounded-xl p-6"
+        style={{ border: "1px solid var(--border)", backgroundColor: "var(--card)" }}
+      >
         <div className="mb-5">
-          <h2 className="text-[14px] font-semibold" style={{ color: "oklch(0.930 0.008 210)" }}>
-            Company Watchlist
-          </h2>
-          <p className="text-[12px] mt-0.5" style={{ color: "rgba(255,255,255,0.32)" }}>
+          <SectionTitle>Company Watchlist</SectionTitle>
+          <p className="text-[12px] mt-0.5" style={{ color: "var(--muted-foreground)" }}>
             Career pages the agent monitors on every hourly run.
           </p>
         </div>
 
+        {/* Entries */}
         {watchlist.length === 0 ? (
           <div
-            className="rounded-xl px-4 py-8 text-center mb-4"
-            style={{ border: "1px dashed rgba(255,255,255,0.10)" }}
+            className="rounded-lg px-4 py-8 text-center mb-4"
+            style={{ border: "1px dashed var(--border)" }}
           >
-            <p className="text-[13px] font-medium" style={{ color: "oklch(0.930 0.008 210)" }}>
+            <p className="text-[13px] font-medium" style={{ color: "var(--foreground)" }}>
               No companies yet
             </p>
-            <p className="text-[12px] mt-1" style={{ color: "rgba(255,255,255,0.28)" }}>
+            <p className="text-[12px] mt-1" style={{ color: "var(--muted-foreground)" }}>
               Add a company below to start monitoring its career page.
             </p>
           </div>
         ) : (
-          <div
-            className="rounded-xl overflow-hidden mb-4"
-            style={{ border: "1px solid rgba(255,255,255,0.07)" }}
-          >
+          <div className="rounded-lg overflow-hidden mb-4" style={{ border: "1px solid var(--border)" }}>
             {watchlist.map((entry, i) => (
               <div
                 key={entry.id}
                 className="flex items-center justify-between px-4 py-3 transition-premium"
                 style={{
-                  borderBottom: i < watchlist.length - 1 ? "1px solid rgba(255,255,255,0.06)" : "none",
+                  borderBottom: i < watchlist.length - 1 ? "1px solid var(--border)" : "none",
                   opacity: removing === entry.id ? 0.4 : 1,
-                  background: "rgba(255,255,255,0.02)",
                 }}
               >
                 <div>
-                  <p className="text-[13px] font-medium" style={{ color: "oklch(0.900 0.008 210)" }}>
+                  <p className="text-[13px] font-medium" style={{ color: "var(--foreground)" }}>
                     {entry.company_name ?? "—"}
                   </p>
-                  <p className="text-[11px] mt-0.5" style={{ color: "rgba(255,255,255,0.28)" }}>
+                  <p className="text-[11px] mt-0.5" style={{ color: "var(--muted-foreground)" }}>
                     {entry.careers_url ?? "—"}
                   </p>
                 </div>
                 <button
                   onClick={() => removeWatchlistEntry(entry.id)}
                   disabled={removing === entry.id}
-                  className="p-2 rounded-lg transition-premium active:scale-[0.92]"
-                  style={{ color: "rgba(255,255,255,0.28)", background: "transparent", border: "none", cursor: "pointer" }}
+                  className="p-2 rounded-md transition-premium active:scale-[0.92]"
+                  style={{ color: "oklch(0.480 0.005 220)" }}
                   onMouseEnter={(e) => {
-                    ;(e.currentTarget as HTMLElement).style.color = "oklch(0.680 0.170 15)"
-                    ;(e.currentTarget as HTMLElement).style.backgroundColor = "rgba(220,60,40,0.10)"
+                    ;(e.currentTarget as HTMLElement).style.color = "oklch(0.350 0.140 15)"
+                    ;(e.currentTarget as HTMLElement).style.backgroundColor = "oklch(0.960 0.020 15)"
                   }}
                   onMouseLeave={(e) => {
-                    ;(e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.28)"
+                    ;(e.currentTarget as HTMLElement).style.color = "oklch(0.480 0.005 220)"
                     ;(e.currentTarget as HTMLElement).style.backgroundColor = "transparent"
                   }}
                   aria-label={`Remove ${entry.company_name}`}
@@ -269,21 +279,29 @@ export function SettingsForm({ preferences, watchlist: initial }: SettingsFormPr
           </div>
         )}
 
+        {/* Add new */}
         <div className="flex gap-2">
-          <GlassInput value={newCompany} onChange={setNewCompany} placeholder="Company name" className="flex-1" />
-          <GlassInput value={newUrl} onChange={setNewUrl} placeholder="https://company.com/careers" className="flex-[2]" />
+          <StyledInput
+            value={newCompany}
+            onChange={setNewCompany}
+            placeholder="Company name"
+            className="flex-1"
+          />
+          <StyledInput
+            value={newUrl}
+            onChange={setNewUrl}
+            placeholder="https://company.com/careers"
+            className="flex-[2]"
+          />
           <button
             onClick={addWatchlistEntry}
             disabled={!canAdd}
-            className="shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-medium transition-premium active:scale-[0.98]"
+            className="shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-lg text-[13px] font-medium transition-premium active:scale-[0.98]"
             style={{
-              background: canAdd
-                ? "linear-gradient(135deg, oklch(0.700 0.130 195), oklch(0.560 0.120 210))"
-                : "rgba(255,255,255,0.05)",
-              color: canAdd ? "white" : "rgba(255,255,255,0.25)",
-              border: "none",
+              backgroundColor: canAdd ? "var(--primary)" : "var(--muted)",
+              color: canAdd ? "var(--primary-foreground)" : "var(--muted-foreground)",
               cursor: canAdd ? "pointer" : "not-allowed",
-              boxShadow: canAdd ? "0 2px 12px oklch(0.680 0.130 195 / 0.28), inset 0 1px 0 rgba(255,255,255,0.18)" : "none",
+              transform: "translateZ(0)",
             }}
           >
             <Plus size={13} weight="bold" />

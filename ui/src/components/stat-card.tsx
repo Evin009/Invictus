@@ -9,57 +9,56 @@ interface StatCardProps {
 
 export function StatCard({ label, value, sub, large = false, index = 0, accent = false }: StatCardProps) {
   return (
+    /* Outer shell — double-bezel */
     <div
-      className="animate-fade-up rounded-2xl flex flex-col justify-between"
+      className="animate-fade-up rounded-2xl p-[3px]"
       style={{
-        /* Liquid glass card */
         background: accent
-          ? "linear-gradient(145deg, rgba(100,200,220,0.10) 0%, rgba(255,255,255,0.04) 100%)"
-          : "linear-gradient(145deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.04) 100%)",
-        backdropFilter: "blur(28px) saturate(150%)",
-        WebkitBackdropFilter: "blur(28px) saturate(150%)",
-        border: accent
-          ? "1px solid oklch(0.680 0.130 195 / 0.22)"
-          : "1px solid rgba(255,255,255,0.10)",
-        boxShadow: accent
-          ? "inset 0 1px 0 rgba(180,230,240,0.22), inset 0 -1px 0 rgba(255,255,255,0.03), 0 8px 32px rgba(0,0,0,0.28), 0 0 24px oklch(0.680 0.130 195 / 0.06)"
-          : "inset 0 1px 0 rgba(255,255,255,0.18), inset 0 -1px 0 rgba(255,255,255,0.03), 0 8px 32px rgba(0,0,0,0.28)",
-        padding: "20px",
-        minHeight: large ? "138px" : "108px",
+          ? "linear-gradient(135deg, oklch(0.580 0.100 200 / 0.25), oklch(0.910 0.003 220))"
+          : "oklch(0.910 0.003 220 / 0.6)",
         animationDelay: `${index * 55}ms`,
       }}
     >
-      <p
-        className="text-[10px] font-semibold uppercase"
+      {/* Inner core */}
+      <div
+        className="rounded-[calc(1rem-3px)] p-5 flex flex-col justify-between h-full"
         style={{
-          color: accent ? "oklch(0.680 0.130 195)" : "rgba(255,255,255,0.36)",
-          letterSpacing: "0.13em",
+          background: accent
+            ? "linear-gradient(145deg, oklch(0.995 0.003 200), oklch(1.000 0.000 0))"
+            : "oklch(1.000 0.000 0)",
+          boxShadow: "inset 0 1px 0 rgba(255,255,255,0.9)",
+          minHeight: large ? "138px" : "108px",
         }}
       >
-        {label}
-      </p>
-      <div className="flex items-end gap-1 mt-auto">
-        <span
-          className={`font-semibold tracking-tight leading-none ${large ? "text-[3.25rem]" : "text-[2rem]"}`}
-          style={{
-            fontFamily: "var(--font-mono, monospace)",
-            color: accent ? "oklch(0.820 0.120 195)" : "oklch(0.930 0.008 210)",
-          }}
+        <p
+          className="text-[10px] font-semibold uppercase tracking-[0.14em]"
+          style={{ color: "var(--muted-foreground)" }}
         >
-          {value}
-        </span>
-        {sub && (
+          {label}
+        </p>
+        <div className="flex items-end gap-1 mt-auto">
           <span
-            className="font-medium mb-1"
+            className={`font-semibold tracking-tight leading-none ${large ? "text-[3.25rem]" : "text-[2rem]"}`}
             style={{
               fontFamily: "var(--font-mono, monospace)",
-              fontSize: large ? "1.25rem" : "1rem",
-              color: "rgba(255,255,255,0.35)",
+              color: accent ? "oklch(0.480 0.090 200)" : "var(--foreground)",
             }}
           >
-            {sub}
+            {value}
           </span>
-        )}
+          {sub && (
+            <span
+              className="font-medium mb-1"
+              style={{
+                fontFamily: "var(--font-mono, monospace)",
+                fontSize: large ? "1.25rem" : "1rem",
+                color: "var(--muted-foreground)",
+              }}
+            >
+              {sub}
+            </span>
+          )}
+        </div>
       </div>
     </div>
   )
