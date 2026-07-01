@@ -44,7 +44,25 @@ scp resume.tex root@<droplet-ip>:/opt/invictus/resumes/resume.tex
 
 Then set `BASE_RESUME_TEX=/opt/invictus/resumes/resume.tex` in `.env`.
 
-## 6. Run the provisioning script
+## 6. Seed the database
+
+Edit `setup/seed.py` — fill in your profile, preferences, watchlist, and tone examples. Then run:
+
+```bash
+python setup/seed.py
+```
+
+Run this once on the droplet after `.env` is filled. Re-run any time you update your preferences or watchlist.
+
+## 7. Embed your resume
+
+```bash
+python -c "from src.rag.embedder import embed_resumes; embed_resumes('resumes/')"
+```
+
+Re-run whenever `resumes/resume.tex` changes.
+
+## 8. Run the provisioning script
 
 ```bash
 bash /opt/invictus/setup/deploy.sh
@@ -52,7 +70,7 @@ bash /opt/invictus/setup/deploy.sh
 
 This installs Python 3.11, all dependencies, Playwright Chromium, and registers the hourly cron job.
 
-## 7. Verify
+## 9. Verify
 
 ```bash
 # Manual test run (as service user)
