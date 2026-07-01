@@ -30,7 +30,7 @@ export function Sidebar() {
         alignSelf: "flex-start",
         transition: "width 0.38s cubic-bezier(0.32, 0.72, 0, 1)",
         backgroundColor: "var(--sidebar)",
-        borderRadius: "1.25rem",
+        borderRadius: "9999px",
         border: "1px solid var(--sidebar-border)",
         boxShadow: "0 8px 32px oklch(0.118 0.010 228 / 0.22), 0 2px 8px oklch(0.118 0.010 228 / 0.12)",
         overflow: "hidden",
@@ -124,12 +124,14 @@ export function Sidebar() {
                 />
               )}
               <Icon
-                size={15}
-                weight={active ? "fill" : "regular"}
+                size={16}
+                weight={active ? "fill" : "duotone"}
                 style={{
-                  color: active ? "oklch(0.640 0.120 200)" : "var(--sidebar-foreground)",
-                  opacity: active ? 1 : 0.45,
+                  color: active ? "oklch(0.680 0.130 195)" : "oklch(0.780 0.012 228)",
+                  opacity: 1,
                   flexShrink: 0,
+                  filter: active ? "drop-shadow(0 0 6px oklch(0.560 0.115 200 / 0.55))" : "none",
+                  transition: "color 0.2s ease, filter 0.2s ease",
                 }}
               />
               {!collapsed && label}
