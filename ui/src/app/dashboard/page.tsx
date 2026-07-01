@@ -19,16 +19,14 @@ async function fetchDashboardData() {
   ])
 
   const apps = (appsResult.data ?? []) as Application[]
-  const outreach24h = (outreachResult.data ?? []).length
-  const replies24h = (repliesResult.data ?? []).length
 
   return {
-    total: apps.length,
-    interviews: apps.filter((a) => a.status === "interview").length,
-    rejections: apps.filter((a) => a.status === "rejection").length,
-    outreach24h,
-    replies24h,
-    recent: apps.slice(0, 8),
+    total:       apps.length,
+    interviews:  apps.filter((a) => a.status === "interview").length,
+    rejections:  apps.filter((a) => a.status === "rejection").length,
+    outreach24h: (outreachResult.data ?? []).length,
+    replies24h:  (repliesResult.data ?? []).length,
+    recent:      apps.slice(0, 10),
   }
 }
 
@@ -43,114 +41,165 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-semibold" style={{ color: "var(--foreground)" }}>
-          Dashboard
-        </h1>
-        <p className="text-sm mt-1" style={{ color: "var(--muted-foreground)" }}>
-          System activity overview
-        </p>
+      <div className="animate-fade-up flex items-start justify-between">
+        <div>
+          <p
+            className="text-[11px] font-semibold uppercase tracking-widest mb-1"
+            style={{ color: "var(--primary)" }}
+          >
+            Overview
+          </p>
+          <h1
+            className="text-[1.75rem] font-semibold tracking-tight"
+            style={{ color: "var(--foreground)" }}
+          >
+            Dashboard
+          </h1>
+        </div>
+        <div
+          className="flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-medium"
+          style={{
+            border: "1px solid var(--border)",
+            color: "var(--muted-foreground)",
+            backgroundColor: "var(--card)",
+          }}
+        >
+          <span
+            className="w-1.5 h-1.5 rounded-full"
+            style={{ backgroundColor: "oklch(0.580 0.100 200)" }}
+          />
+          Agent running
+        </div>
       </div>
 
-      {/* Stat cards */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard label="Total Applied" value={data.total} />
-        <StatCard label="Interviews" value={data.interviews} />
-        <StatCard label="Rejections" value={data.rejections} />
-        <StatCard label="Response Rate" value={responseRate} sub="%" />
+      {/* Asymmetric stat grid: 2fr + 1fr + 1fr then 1fr + 1fr */}
+      <div
+        className="grid gap-3"
+        style={{ gridTemplateColumns: "2fr 1fr 1fr" }}
+      >
+        <StatCard label="Total Applied" value={data.total} large index={0} />
+        <StatCard label="Interviews"    value={data.interviews}  index={1} />
+        <StatCard label="Response Rate" value={responseRate} sub="%" index={2} />
       </div>
 
-      {/* Secondary row */}
-      <div className="grid grid-cols-2 gap-4">
-        <StatCard label="Outreach Sent (24h)" value={data.outreach24h} />
-        <StatCard label="Replies Received (24h)" value={data.replies24h} />
+      <div className="grid grid-cols-2 gap-3">
+        <StatCard label="Rejections"         value={data.rejections}   index={3} />
+        <StatCard label="Outreach Sent (24h)" value={data.outreach24h} index={4} />
       </div>
 
       {/* Recent applications */}
-      <div>
+      <div className="animate-fade-up" style={{ animationDelay: "300ms" }}>
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-base font-semibold" style={{ color: "var(--foreground)" }}>
+          <h2
+            className="text-[13px] font-semibold uppercase tracking-wider"
+            style={{ color: "var(--muted-foreground)" }}
+          >
             Recent Applications
           </h2>
           <a
             href="/applications"
-            className="text-sm font-medium transition-colors"
+            className="text-[12px] font-medium transition-premium"
             style={{ color: "var(--primary)" }}
           >
-            View all
+            View all →
           </a>
         </div>
 
-        <div className="rounded-lg overflow-hidden" style={{ border: "1px solid var(--border)" }}>
-          <table className="w-full text-sm">
-            <thead>
-              <tr style={{ backgroundColor: "var(--muted)", borderBottom: "1px solid var(--border)" }}>
-                <th className="text-left px-4 py-3 font-medium" style={{ color: "var(--muted-foreground)" }}>
-                  Company
-                </th>
-                <th className="text-left px-4 py-3 font-medium" style={{ color: "var(--muted-foreground)" }}>
-                  Role
-                </th>
-                <th className="text-left px-4 py-3 font-medium" style={{ color: "var(--muted-foreground)" }}>
-                  Status
-                </th>
-                <th className="text-left px-4 py-3 font-medium" style={{ color: "var(--muted-foreground)" }}>
-                  Date
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.recent.map((app, i) => (
-                <tr
-                  key={app.id}
-                  style={{
-                    borderBottom: i < data.recent.length - 1 ? "1px solid var(--border)" : "none",
-                  }}
-                >
-                  <td className="px-4 py-3 font-medium" style={{ color: "var(--foreground)" }}>
-                    {app.company ?? "—"}
-                  </td>
-                  <td className="px-4 py-3" style={{ color: "var(--muted-foreground)" }}>
-                    {app.title ? (
-                      <a
-                        href={app.job_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="hover:underline"
-                        style={{ color: "var(--primary)" }}
-                      >
-                        {app.title}
-                      </a>
-                    ) : (
-                      "—"
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    <StatusBadge status={app.status as ApplicationStatus} />
-                  </td>
-                  <td className="px-4 py-3" style={{ color: "var(--muted-foreground)" }}>
-                    {new Date(app.submitted_at).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                    })}
-                  </td>
+        <div
+          className="rounded-xl overflow-hidden"
+          style={{ border: "1px solid var(--border)" }}
+        >
+          {data.recent.length === 0 ? (
+            <EmptyApplications />
+          ) : (
+            <table className="w-full text-[13px]">
+              <thead>
+                <tr style={{ backgroundColor: "var(--muted)", borderBottom: "1px solid var(--border)" }}>
+                  {["Company", "Role", "Status", "Date"].map((h) => (
+                    <th
+                      key={h}
+                      className="text-left px-4 py-3 font-medium"
+                      style={{ color: "var(--muted-foreground)" }}
+                    >
+                      {h}
+                    </th>
+                  ))}
                 </tr>
-              ))}
-              {data.recent.length === 0 && (
-                <tr>
-                  <td
-                    colSpan={4}
-                    className="px-4 py-12 text-center text-sm"
-                    style={{ color: "var(--muted-foreground)" }}
+              </thead>
+              <tbody>
+                {data.recent.map((app, i) => (
+                  <tr
+                    key={app.id}
+                    className="transition-premium"
+                    style={{
+                      borderBottom: i < data.recent.length - 1 ? "1px solid var(--border)" : "none",
+                    }}
                   >
-                    No applications yet. The agent will populate this on its first run.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                    <td
+                      className="px-4 py-3 font-medium"
+                      style={{ color: "var(--foreground)" }}
+                    >
+                      {app.company ?? "—"}
+                    </td>
+                    <td className="px-4 py-3" style={{ color: "var(--muted-foreground)" }}>
+                      {app.title ? (
+                        <a
+                          href={app.job_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="transition-premium hover:underline"
+                          style={{ color: "var(--primary)" }}
+                        >
+                          {app.title}
+                        </a>
+                      ) : "—"}
+                    </td>
+                    <td className="px-4 py-3">
+                      <StatusBadge status={app.status as ApplicationStatus} />
+                    </td>
+                    <td
+                      className="px-4 py-3"
+                      style={{
+                        color: "var(--muted-foreground)",
+                        fontFamily: "var(--font-mono, monospace)",
+                        fontSize: "12px",
+                      }}
+                    >
+                      {new Date(app.submitted_at).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                      })}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
+    </div>
+  )
+}
+
+function EmptyApplications() {
+  return (
+    <div className="px-8 py-16 text-center">
+      <div
+        className="w-10 h-10 rounded-full mx-auto mb-4 flex items-center justify-center"
+        style={{ backgroundColor: "var(--muted)" }}
+      >
+        <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5"
+          style={{ color: "var(--muted-foreground)" }}>
+          <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" />
+          <rect x="9" y="3" width="6" height="4" rx="1" />
+        </svg>
+      </div>
+      <p className="text-[13px] font-medium mb-1" style={{ color: "var(--foreground)" }}>
+        No applications yet
+      </p>
+      <p className="text-[12px]" style={{ color: "var(--muted-foreground)" }}>
+        The agent will populate this on its first hourly run.
+      </p>
     </div>
   )
 }

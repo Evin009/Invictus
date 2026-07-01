@@ -2,41 +2,16 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import {
+  SquaresFour,
+  ClipboardText,
+  Sliders,
+} from "@phosphor-icons/react"
 
 const NAV = [
-  {
-    href: "/dashboard",
-    label: "Dashboard",
-    icon: (
-      <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.75" viewBox="0 0 24 24">
-        <rect x="3" y="3" width="7" height="7" rx="1" />
-        <rect x="14" y="3" width="7" height="7" rx="1" />
-        <rect x="3" y="14" width="7" height="7" rx="1" />
-        <rect x="14" y="14" width="7" height="7" rx="1" />
-      </svg>
-    ),
-  },
-  {
-    href: "/applications",
-    label: "Applications",
-    icon: (
-      <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.75" viewBox="0 0 24 24">
-        <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" />
-        <rect x="9" y="3" width="6" height="4" rx="1" />
-        <path d="M9 12h6M9 16h4" />
-      </svg>
-    ),
-  },
-  {
-    href: "/settings",
-    label: "Settings",
-    icon: (
-      <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.75" viewBox="0 0 24 24">
-        <circle cx="12" cy="12" r="3" />
-        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-      </svg>
-    ),
-  },
+  { href: "/dashboard",    label: "Dashboard",    Icon: SquaresFour },
+  { href: "/applications", label: "Applications", Icon: ClipboardText },
+  { href: "/settings",     label: "Settings",     Icon: Sliders },
 ]
 
 export function Sidebar() {
@@ -44,54 +19,94 @@ export function Sidebar() {
 
   return (
     <aside
-      className="w-56 shrink-0 flex flex-col min-h-screen"
-      style={{ backgroundColor: "var(--sidebar)", borderRight: "1px solid var(--sidebar-border)" }}
+      className="w-[224px] shrink-0 flex flex-col min-h-screen"
+      style={{
+        backgroundColor: "var(--sidebar)",
+        borderRight: "1px solid var(--sidebar-border)",
+      }}
     >
       {/* Wordmark */}
-      <div className="px-5 py-5 flex items-center gap-2.5" style={{ borderBottom: "1px solid var(--sidebar-border)" }}>
+      <div
+        className="px-5 h-[60px] flex items-center gap-3 shrink-0"
+        style={{ borderBottom: "1px solid var(--sidebar-border)" }}
+      >
         <div
-          className="w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-bold shrink-0"
-          style={{ backgroundColor: "var(--primary)", color: "var(--primary-foreground)" }}
+          className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+          style={{ backgroundColor: "var(--primary)" }}
         >
-          I
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path
+              d="M7 1.5L12.5 4.75V10.25L7 13.5L1.5 10.25V4.75L7 1.5Z"
+              stroke="white"
+              strokeWidth="1.5"
+              strokeLinejoin="round"
+            />
+            <path d="M7 1.5V13.5M1.5 4.75L12.5 4.75M1.5 10.25L12.5 10.25" stroke="white" strokeWidth="1.5" />
+          </svg>
         </div>
-        <span className="text-sm font-semibold tracking-tight" style={{ color: "var(--sidebar-accent-foreground)" }}>
+        <span
+          className="text-[13px] font-semibold tracking-tight"
+          style={{ color: "var(--sidebar-accent-foreground)" }}
+        >
           Invictus
         </span>
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-3 py-4 flex flex-col gap-0.5">
-        {NAV.map((item) => {
-          const active = pathname.startsWith(item.href)
+      <nav className="flex-1 px-3 py-3 flex flex-col gap-0.5">
+        <p
+          className="px-3 pt-1 pb-2 text-[10px] font-semibold uppercase tracking-widest"
+          style={{ color: "var(--sidebar-foreground)", opacity: 0.35 }}
+        >
+          Monitor
+        </p>
+        {NAV.map(({ href, label, Icon }) => {
+          const active = pathname.startsWith(href)
           return (
             <Link
-              key={item.href}
-              href={item.href}
-              className="flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium transition-colors duration-150"
+              key={href}
+              href={href}
+              className="group flex items-center gap-2.5 px-3 py-2 rounded-md text-[13px] font-medium transition-premium"
               style={{
                 backgroundColor: active ? "var(--sidebar-accent)" : "transparent",
                 color: active ? "var(--sidebar-accent-foreground)" : "var(--sidebar-foreground)",
               }}
             >
-              <span
+              <Icon
+                size={16}
+                weight={active ? "fill" : "regular"}
                 style={{
                   color: active ? "var(--primary)" : "var(--sidebar-foreground)",
-                  opacity: active ? 1 : 0.7,
-                  transition: "color 150ms",
+                  opacity: active ? 1 : 0.6,
+                  transition: "color 0.2s ease, opacity 0.2s ease",
+                  flexShrink: 0,
                 }}
-              >
-                {item.icon}
-              </span>
-              {item.label}
+              />
+              {label}
             </Link>
           )
         })}
       </nav>
 
-      {/* Footer */}
-      <div className="px-5 py-4" style={{ borderTop: "1px solid var(--sidebar-border)" }}>
-        <p className="text-[11px]" style={{ color: "var(--sidebar-foreground)", opacity: 0.5 }}>
+      {/* System status */}
+      <div
+        className="px-5 py-4 flex items-center gap-2"
+        style={{ borderTop: "1px solid var(--sidebar-border)" }}
+      >
+        <span className="relative flex h-2 w-2 shrink-0">
+          <span
+            className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-60"
+            style={{ backgroundColor: "oklch(0.580 0.100 200)" }}
+          />
+          <span
+            className="relative inline-flex rounded-full h-2 w-2"
+            style={{ backgroundColor: "oklch(0.580 0.100 200)" }}
+          />
+        </span>
+        <p
+          className="text-[11px]"
+          style={{ color: "var(--sidebar-foreground)", opacity: 0.45 }}
+        >
           Running hourly
         </p>
       </div>
