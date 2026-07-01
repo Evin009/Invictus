@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
 import "./globals.css"
 import { Sidebar } from "@/components/sidebar"
+import { SidebarProvider } from "@/components/sidebar-context"
 
 const geist = Geist({
   subsets: ["latin"],
@@ -23,13 +24,18 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${geist.variable} ${geistMono.variable} h-full`}>
-      <body className="min-h-full flex antialiased">
-        <Sidebar />
-        <main className="flex-1 min-w-0 overflow-y-auto" style={{ backgroundColor: "var(--background)" }}>
-          <div className="max-w-[1200px] mx-auto px-8 py-8">
-            {children}
-          </div>
-        </main>
+      <body className="min-h-full flex antialiased" style={{ backgroundColor: "var(--background)" }}>
+        <SidebarProvider>
+          <Sidebar />
+          <main
+            className="flex-1 min-w-0 overflow-y-auto"
+            style={{ backgroundColor: "var(--background)" }}
+          >
+            <div className="max-w-[1100px] mx-auto px-8 py-9">
+              {children}
+            </div>
+          </main>
+        </SidebarProvider>
       </body>
     </html>
   )

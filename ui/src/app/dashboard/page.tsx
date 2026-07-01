@@ -43,18 +43,15 @@ export default async function DashboardPage() {
       {/* Header */}
       <div className="animate-fade-up flex items-start justify-between">
         <div>
-          <p
-            className="text-[11px] font-semibold uppercase tracking-widest mb-1"
-            style={{ color: "var(--primary)" }}
-          >
-            Overview
-          </p>
           <h1
-            className="text-[1.75rem] font-semibold tracking-tight"
+            className="text-[1.625rem] font-semibold tracking-tight"
             style={{ color: "var(--foreground)" }}
           >
             Dashboard
           </h1>
+          <p className="text-[13px] mt-0.5" style={{ color: "var(--muted-foreground)" }}>
+            Live overview of your autonomous job search.
+          </p>
         </div>
         <div
           className="flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-medium"
@@ -77,7 +74,7 @@ export default async function DashboardPage() {
         className="grid gap-3"
         style={{ gridTemplateColumns: "2fr 1fr 1fr" }}
       >
-        <StatCard label="Total Applied" value={data.total} large index={0} />
+        <StatCard label="Total Applied" value={data.total} large index={0} accent />
         <StatCard label="Interviews"    value={data.interviews}  index={1} />
         <StatCard label="Response Rate" value={responseRate} sub="%" index={2} />
       </div>
@@ -91,8 +88,8 @@ export default async function DashboardPage() {
       <div className="animate-fade-up" style={{ animationDelay: "300ms" }}>
         <div className="flex items-center justify-between mb-3">
           <h2
-            className="text-[13px] font-semibold uppercase tracking-wider"
-            style={{ color: "var(--muted-foreground)" }}
+            className="text-[13px] font-semibold"
+            style={{ color: "var(--foreground)" }}
           >
             Recent Applications
           </h2>
