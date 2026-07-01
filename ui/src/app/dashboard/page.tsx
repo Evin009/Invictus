@@ -3,19 +3,24 @@ export const dynamic = "force-dynamic"
 import { createClient } from "@/lib/supabase"
 import { StatCard } from "@/components/stat-card"
 import { StatusBadge } from "@/components/status-badge"
-import type { Application, ApplicationStatus } from "@/lib/types"
+import { DiscoveredJobCard } from "@/components/discovered-job-card"
+import type { Application, ApplicationStatus, DiscoveredJob } from "@/lib/types"
 
 async function fetchDashboardData() {
   const db = createClient()
   const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
 
-  const [appsResult, outreachResult, repliesResult] = await Promise.all([
+  const [appsResult, outreachResult, discoveredResult] = await Promise.all([
     db
       .from("applications")
       .select("id,job_url,title,company,ats_platform,status,submission_type,submitted_at")
       .order("submitted_at", { ascending: false }),
     db.from("outreach_log").select("id").gte("sent_at", since24h),
-    db.from("reply_log").select("id,classification").gte("received_at", since24h),
+    db
+      .from("jobs_seen")
+      .select("id,url,title,company,source,discovered_at")
+      .order("discovered_at", { ascending: false })
+      .limit(6),
   ])
 
   const apps = (appsResult.data ?? []) as Application[]
@@ -25,7 +30,7 @@ async function fetchDashboardData() {
     interviews:  apps.filter((a) => a.status === "interview").length,
     rejections:  apps.filter((a) => a.status === "rejection").length,
     outreach24h: (outreachResult.data ?? []).length,
-    replies24h:  (repliesResult.data ?? []).length,
+    discovered:  (discoveredResult.data ?? []) as DiscoveredJob[],
     recent:      apps.slice(0, 10),
   }
 }
@@ -66,7 +71,7 @@ export default async function DashboardPage() {
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-55"
               style={{ backgroundColor: "oklch(0.640 0.120 200)" }} />
             <span className="relative inline-flex rounded-full h-1.5 w-1.5"
-              style={{ backgroundColor: "oklch(0.640 0.120 200)", boxShadow: "0 0 6px oklch(0.560 0.115 200 / 0.55)" }} />
+              style={{ backgroundColor: "oklch(0.560 0.115 200)", boxShadow: "0 0 6px oklch(0.560 0.115 200 / 0.55)" }} />
           </span>
           Agent running
           <span
@@ -78,7 +83,7 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      {/* Asymmetric bento — 2fr 1fr 1fr */}
+      {/* Stats — asymmetric bento */}
       <div className="grid gap-3" style={{ gridTemplateColumns: "2fr 1fr 1fr" }}>
         <StatCard label="Total Applied"  value={data.total}       large accent index={0} />
         <StatCard label="Interviews"     value={data.interviews}        index={1} />
@@ -89,17 +94,37 @@ export default async function DashboardPage() {
         <StatCard label="Outreach Sent (24h)" value={data.outreach24h}  index={4} />
       </div>
 
-      {/* Recent applications */}
+      {/* Discovered jobs — horizontal scroll cards (Tsenta-inspired) */}
+      {data.discovered.length > 0 && (
+        <div className="animate-fade-up" style={{ animationDelay: "220ms" }}>
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h2 className="text-[13px] font-semibold" style={{ color: "var(--foreground)" }}>
+                Top Job Matches
+              </h2>
+              <p className="text-[11px] mt-0.5" style={{ color: "var(--muted-foreground)" }}>
+                Recently discovered by the agent
+              </p>
+            </div>
+          </div>
+          <div
+            className="flex gap-3 overflow-x-auto pb-2"
+            style={{ scrollbarWidth: "none" } as React.CSSProperties}
+          >
+            {data.discovered.map((job, i) => (
+              <DiscoveredJobCard key={job.id} job={job} index={i} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Recent applications table */}
       <div className="animate-fade-up" style={{ animationDelay: "280ms" }}>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-[13px] font-semibold" style={{ color: "var(--foreground)" }}>
-            Recent Applications
+            All Applications
           </h2>
-          <a
-            href="/applications"
-            className="text-[12px] font-medium transition-premium"
-            style={{ color: "var(--primary)" }}
-          >
+          <a href="/applications" className="text-[12px] font-medium transition-premium" style={{ color: "var(--primary)" }}>
             View all →
           </a>
         </div>
@@ -129,8 +154,13 @@ export default async function DashboardPage() {
                       onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.backgroundColor = "var(--muted)")}
                       onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.backgroundColor = "transparent")}
                     >
-                      <td className="px-4 py-3 font-medium" style={{ color: "var(--foreground)" }}>
-                        {app.company ?? "—"}
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2.5">
+                          <CompanyAvatar name={app.company} />
+                          <span className="font-medium" style={{ color: "var(--foreground)" }}>
+                            {app.company ?? "—"}
+                          </span>
+                        </div>
                       </td>
                       <td className="px-4 py-3">
                         {app.title ? (
@@ -155,6 +185,24 @@ export default async function DashboardPage() {
           </div>
         </div>
       </div>
+    </div>
+  )
+}
+
+export function CompanyAvatar({ name }: { name: string | null }) {
+  const initials = name ? name.slice(0, 2).toUpperCase() : "?"
+  const hue = name
+    ? (name.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0) * 37) % 360
+    : 200
+  return (
+    <div
+      className="w-6 h-6 rounded-lg shrink-0 flex items-center justify-center text-[9px] font-bold"
+      style={{
+        background: `oklch(0.88 0.055 ${hue})`,
+        color: `oklch(0.30 0.090 ${hue})`,
+      }}
+    >
+      {initials}
     </div>
   )
 }

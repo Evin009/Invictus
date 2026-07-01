@@ -39,6 +39,15 @@ export interface Preferences {
   role_keywords: string[] | null
 }
 
+export interface DiscoveredJob {
+  id: string
+  url: string
+  title: string | null
+  company: string | null
+  source: string | null
+  discovered_at: string
+}
+
 export interface WatchlistEntry {
   id: string
   company_name: string | null

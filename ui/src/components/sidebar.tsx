@@ -19,8 +19,7 @@ export function Sidebar() {
       style={{
         backgroundColor: "var(--sidebar)",
         borderRight: "1px solid var(--sidebar-border)",
-        /* Subtle inner right highlight */
-        boxShadow: "inset -1px 0 0 oklch(0.200 0.010 228 / 0.5), 4px 0 24px oklch(0.118 0.010 228 / 0.10)",
+        boxShadow: "var(--shadow-sm)",
       }}
     >
       {/* Wordmark */}
@@ -28,12 +27,12 @@ export function Sidebar() {
         className="px-5 h-[58px] flex items-center gap-3 shrink-0"
         style={{ borderBottom: "1px solid var(--sidebar-border)" }}
       >
-        {/* Double-bezel logo */}
+        {/* Double-bezel logo mark */}
         <div
           className="w-7 h-7 rounded-xl flex items-center justify-center shrink-0 p-[2px]"
           style={{
             background: "linear-gradient(145deg, oklch(0.640 0.120 200), oklch(0.480 0.100 210))",
-            boxShadow: "0 2px 8px oklch(0.560 0.115 200 / 0.40), inset 0 1px 0 rgba(255,255,255,0.20)",
+            boxShadow: "0 2px 8px oklch(0.560 0.115 200 / 0.35), inset 0 1px 0 rgba(255,255,255,0.25)",
           }}
         >
           <div
@@ -56,7 +55,7 @@ export function Sidebar() {
           </span>
           <span
             className="text-[10px] font-medium"
-            style={{ color: "var(--sidebar-foreground)", opacity: 0.4 }}
+            style={{ color: "var(--sidebar-foreground)", opacity: 0.65 }}
           >
             Job Autopilot
           </span>
@@ -67,7 +66,7 @@ export function Sidebar() {
       <nav className="flex-1 px-2.5 py-4 flex flex-col gap-0.5">
         <p
           className="px-3 pb-2 text-[9px] font-semibold uppercase"
-          style={{ color: "var(--sidebar-foreground)", opacity: 0.28, letterSpacing: "0.16em" }}
+          style={{ color: "var(--sidebar-foreground)", opacity: 0.45, letterSpacing: "0.16em" }}
         >
           Monitor
         </p>
@@ -80,20 +79,20 @@ export function Sidebar() {
               href={href}
               className="group relative flex items-center gap-2.5 px-3 py-[9px] rounded-xl text-[13px] font-medium transition-premium"
               style={{
-                backgroundColor: active ? "var(--sidebar-accent)" : "transparent",
+                backgroundColor: active ? "var(--card)" : "transparent",
                 color: active ? "var(--sidebar-accent-foreground)" : "var(--sidebar-foreground)",
-                boxShadow: active ? "inset 0 1px 0 rgba(255,255,255,0.06)" : "none",
+                boxShadow: active ? "var(--shadow-sm)" : "none",
               }}
             >
-              {/* Left glow stripe on active */}
+              {/* Left teal stripe on active */}
               {active && (
                 <span
                   className="absolute left-0 top-1/2 -translate-y-1/2 rounded-r-full"
                   style={{
                     width: "3px",
                     height: "18px",
-                    background: "linear-gradient(180deg, oklch(0.680 0.130 195), oklch(0.520 0.105 205))",
-                    boxShadow: "0 0 10px oklch(0.560 0.115 200 / 0.70)",
+                    background: "linear-gradient(180deg, oklch(0.640 0.130 195), oklch(0.480 0.100 205))",
+                    boxShadow: "0 0 8px oklch(0.560 0.115 200 / 0.50)",
                   }}
                 />
               )}
@@ -102,8 +101,8 @@ export function Sidebar() {
                 size={15}
                 weight={active ? "fill" : "regular"}
                 style={{
-                  color: active ? "oklch(0.640 0.120 200)" : "var(--sidebar-foreground)",
-                  opacity: active ? 1 : 0.5,
+                  color: active ? "oklch(0.540 0.115 200)" : "var(--sidebar-foreground)",
+                  opacity: active ? 1 : 0.55,
                   flexShrink: 0,
                   transition: "color 0.2s ease, opacity 0.2s ease",
                 }}
@@ -126,10 +125,10 @@ export function Sidebar() {
           />
           <span
             className="relative inline-flex rounded-full h-1.5 w-1.5"
-            style={{ backgroundColor: "oklch(0.640 0.120 200)", boxShadow: "0 0 6px oklch(0.560 0.115 200 / 0.60)" }}
+            style={{ backgroundColor: "oklch(0.560 0.115 200)", boxShadow: "0 0 5px oklch(0.560 0.115 200 / 0.50)" }}
           />
         </span>
-        <p className="text-[11px] font-medium" style={{ color: "var(--sidebar-foreground)", opacity: 0.40 }}>
+        <p className="text-[11px] font-medium" style={{ color: "var(--sidebar-foreground)", opacity: 0.55 }}>
           Running hourly
         </p>
       </div>
