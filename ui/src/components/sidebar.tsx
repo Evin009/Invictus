@@ -2,11 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import {
-  SquaresFour,
-  ClipboardText,
-  Sliders,
-} from "@phosphor-icons/react"
+import { SquaresFour, ClipboardText, Sliders } from "@phosphor-icons/react"
 
 const NAV = [
   { href: "/dashboard",    label: "Dashboard",    Icon: SquaresFour },
@@ -19,67 +15,97 @@ export function Sidebar() {
 
   return (
     <aside
-      className="w-[224px] shrink-0 flex flex-col min-h-screen"
+      className="w-[220px] shrink-0 flex flex-col min-h-screen"
       style={{
         backgroundColor: "var(--sidebar)",
         borderRight: "1px solid var(--sidebar-border)",
+        /* Subtle inner right highlight */
+        boxShadow: "inset -1px 0 0 oklch(0.200 0.010 228 / 0.5), 4px 0 24px oklch(0.118 0.010 228 / 0.10)",
       }}
     >
       {/* Wordmark */}
       <div
-        className="px-5 h-[60px] flex items-center gap-3 shrink-0"
+        className="px-5 h-[58px] flex items-center gap-3 shrink-0"
         style={{ borderBottom: "1px solid var(--sidebar-border)" }}
       >
+        {/* Double-bezel logo */}
         <div
-          className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
-          style={{ backgroundColor: "var(--primary)" }}
+          className="w-7 h-7 rounded-xl flex items-center justify-center shrink-0 p-[2px]"
+          style={{
+            background: "linear-gradient(145deg, oklch(0.640 0.120 200), oklch(0.480 0.100 210))",
+            boxShadow: "0 2px 8px oklch(0.560 0.115 200 / 0.40), inset 0 1px 0 rgba(255,255,255,0.20)",
+          }}
         >
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-            <path
-              d="M7 1.5L12.5 4.75V10.25L7 13.5L1.5 10.25V4.75L7 1.5Z"
-              stroke="white"
-              strokeWidth="1.5"
-              strokeLinejoin="round"
-            />
-            <path d="M7 1.5V13.5M1.5 4.75L12.5 4.75M1.5 10.25L12.5 10.25" stroke="white" strokeWidth="1.5" />
-          </svg>
+          <div
+            className="w-full h-full rounded-[calc(0.75rem-2px)] flex items-center justify-center"
+            style={{ background: "linear-gradient(145deg, oklch(0.600 0.115 200), oklch(0.460 0.095 212))" }}
+          >
+            <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
+              <path d="M7 1.5L12.5 4.75V10.25L7 13.5L1.5 10.25V4.75L7 1.5Z" stroke="white" strokeWidth="1.6" strokeLinejoin="round" />
+              <path d="M7 1.5V13.5M1.5 4.75L12.5 4.75M1.5 10.25L12.5 10.25" stroke="white" strokeWidth="1.1" />
+            </svg>
+          </div>
         </div>
-        <span
-          className="text-[13px] font-semibold tracking-tight"
-          style={{ color: "var(--sidebar-accent-foreground)" }}
-        >
-          Invictus
-        </span>
+
+        <div>
+          <span
+            className="text-[13px] font-semibold tracking-tight block"
+            style={{ color: "var(--sidebar-accent-foreground)" }}
+          >
+            Invictus
+          </span>
+          <span
+            className="text-[10px] font-medium"
+            style={{ color: "var(--sidebar-foreground)", opacity: 0.4 }}
+          >
+            Job Autopilot
+          </span>
+        </div>
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-3 py-3 flex flex-col gap-0.5">
+      <nav className="flex-1 px-2.5 py-4 flex flex-col gap-0.5">
         <p
-          className="px-3 pt-1 pb-2 text-[10px] font-semibold uppercase tracking-widest"
-          style={{ color: "var(--sidebar-foreground)", opacity: 0.35 }}
+          className="px-3 pb-2 text-[9px] font-semibold uppercase"
+          style={{ color: "var(--sidebar-foreground)", opacity: 0.28, letterSpacing: "0.16em" }}
         >
           Monitor
         </p>
+
         {NAV.map(({ href, label, Icon }) => {
           const active = pathname.startsWith(href)
           return (
             <Link
               key={href}
               href={href}
-              className="group flex items-center gap-2.5 px-3 py-2 rounded-md text-[13px] font-medium transition-premium"
+              className="group relative flex items-center gap-2.5 px-3 py-[9px] rounded-xl text-[13px] font-medium transition-premium"
               style={{
                 backgroundColor: active ? "var(--sidebar-accent)" : "transparent",
                 color: active ? "var(--sidebar-accent-foreground)" : "var(--sidebar-foreground)",
+                boxShadow: active ? "inset 0 1px 0 rgba(255,255,255,0.06)" : "none",
               }}
             >
+              {/* Left glow stripe on active */}
+              {active && (
+                <span
+                  className="absolute left-0 top-1/2 -translate-y-1/2 rounded-r-full"
+                  style={{
+                    width: "3px",
+                    height: "18px",
+                    background: "linear-gradient(180deg, oklch(0.680 0.130 195), oklch(0.520 0.105 205))",
+                    boxShadow: "0 0 10px oklch(0.560 0.115 200 / 0.70)",
+                  }}
+                />
+              )}
+
               <Icon
-                size={16}
+                size={15}
                 weight={active ? "fill" : "regular"}
                 style={{
-                  color: active ? "var(--primary)" : "var(--sidebar-foreground)",
-                  opacity: active ? 1 : 0.6,
-                  transition: "color 0.2s ease, opacity 0.2s ease",
+                  color: active ? "oklch(0.640 0.120 200)" : "var(--sidebar-foreground)",
+                  opacity: active ? 1 : 0.5,
                   flexShrink: 0,
+                  transition: "color 0.2s ease, opacity 0.2s ease",
                 }}
               />
               {label}
@@ -88,25 +114,22 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* System status */}
+      {/* Status footer */}
       <div
-        className="px-5 py-4 flex items-center gap-2"
+        className="px-5 py-4 flex items-center gap-2.5"
         style={{ borderTop: "1px solid var(--sidebar-border)" }}
       >
-        <span className="relative flex h-2 w-2 shrink-0">
+        <span className="relative flex h-1.5 w-1.5 shrink-0">
           <span
-            className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-60"
-            style={{ backgroundColor: "oklch(0.580 0.100 200)" }}
+            className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-55"
+            style={{ backgroundColor: "oklch(0.640 0.120 200)" }}
           />
           <span
-            className="relative inline-flex rounded-full h-2 w-2"
-            style={{ backgroundColor: "oklch(0.580 0.100 200)" }}
+            className="relative inline-flex rounded-full h-1.5 w-1.5"
+            style={{ backgroundColor: "oklch(0.640 0.120 200)", boxShadow: "0 0 6px oklch(0.560 0.115 200 / 0.60)" }}
           />
         </span>
-        <p
-          className="text-[11px]"
-          style={{ color: "var(--sidebar-foreground)", opacity: 0.45 }}
-        >
+        <p className="text-[11px] font-medium" style={{ color: "var(--sidebar-foreground)", opacity: 0.40 }}>
           Running hourly
         </p>
       </div>
