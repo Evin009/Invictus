@@ -39,6 +39,24 @@ export interface Preferences {
   role_keywords: string[] | null
 }
 
+export interface UserProfile {
+  id: string
+  full_name: string | null
+  email: string | null
+  phone: string | null
+  linkedin_url: string | null
+  github_url: string | null
+  education: Record<string, unknown>[] | null
+  work_history: Record<string, unknown>[] | null
+  skills: string[] | null
+}
+
+export interface Seed {
+  id: string
+  content: string | null
+  label: string | null
+}
+
 export interface DiscoveredJob {
   id: string
   url: string

@@ -2,37 +2,53 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { SquaresFour, ClipboardText, Sliders } from "@phosphor-icons/react"
+import {
+  SquaresFour, ClipboardText, Sliders, User,
+  CaretLeft, CaretRight,
+} from "@phosphor-icons/react"
+import { useSidebar } from "@/components/sidebar-context"
 
 const NAV = [
   { href: "/dashboard",    label: "Dashboard",    Icon: SquaresFour },
   { href: "/applications", label: "Applications", Icon: ClipboardText },
+  { href: "/profile",      label: "Profile",      Icon: User },
   { href: "/settings",     label: "Settings",     Icon: Sliders },
 ]
 
 export function Sidebar() {
   const pathname = usePathname()
+  const { collapsed, toggle } = useSidebar()
 
   return (
     <aside
-      className="w-[220px] shrink-0 flex flex-col min-h-screen"
+      className="shrink-0 flex flex-col min-h-screen relative"
       style={{
+        width: collapsed ? "64px" : "220px",
+        transition: "width 0.38s cubic-bezier(0.32, 0.72, 0, 1)",
         backgroundColor: "var(--sidebar)",
         borderRight: "1px solid var(--sidebar-border)",
-        boxShadow: "var(--shadow-sm)",
+        boxShadow: "4px 0 24px oklch(0.118 0.010 228 / 0.14)",
+        overflow: "hidden",
       }}
     >
       {/* Wordmark */}
       <div
-        className="px-5 h-[58px] flex items-center gap-3 shrink-0"
-        style={{ borderBottom: "1px solid var(--sidebar-border)" }}
+        className="flex items-center shrink-0"
+        style={{
+          height: "58px",
+          borderBottom: "1px solid var(--sidebar-border)",
+          padding: collapsed ? "0 18px" : "0 20px",
+          gap: "10px",
+          overflow: "hidden",
+        }}
       >
-        {/* Double-bezel logo mark */}
+        {/* Logo */}
         <div
-          className="w-7 h-7 rounded-xl flex items-center justify-center shrink-0 p-[2px]"
+          className="shrink-0 rounded-xl flex items-center justify-center p-[2px]"
           style={{
+            width: "28px", height: "28px",
             background: "linear-gradient(145deg, oklch(0.640 0.120 200), oklch(0.480 0.100 210))",
-            boxShadow: "0 2px 8px oklch(0.560 0.115 200 / 0.35), inset 0 1px 0 rgba(255,255,255,0.25)",
+            boxShadow: "0 2px 8px oklch(0.560 0.115 200 / 0.40), inset 0 1px 0 rgba(255,255,255,0.20)",
           }}
         >
           <div
@@ -46,30 +62,34 @@ export function Sidebar() {
           </div>
         </div>
 
-        <div>
-          <span
-            className="text-[13px] font-semibold tracking-tight block"
-            style={{ color: "var(--sidebar-accent-foreground)" }}
-          >
-            Invictus
-          </span>
-          <span
-            className="text-[10px] font-medium"
-            style={{ color: "var(--sidebar-foreground)", opacity: 0.65 }}
-          >
-            Job Autopilot
-          </span>
-        </div>
+        {!collapsed && (
+          <div style={{ opacity: collapsed ? 0 : 1, transition: "opacity 0.2s ease", minWidth: 0 }}>
+            <span className="text-[13px] font-semibold tracking-tight block"
+              style={{ color: "var(--sidebar-accent-foreground)" }}>
+              Invictus
+            </span>
+            <span className="text-[10px] font-medium"
+              style={{ color: "var(--sidebar-foreground)", opacity: 0.5 }}>
+              Job Autopilot
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-2.5 py-4 flex flex-col gap-0.5">
-        <p
-          className="px-3 pb-2 text-[9px] font-semibold uppercase"
-          style={{ color: "var(--sidebar-foreground)", opacity: 0.45, letterSpacing: "0.16em" }}
-        >
-          Monitor
-        </p>
+      <nav className="flex-1 flex flex-col gap-0.5" style={{ padding: collapsed ? "16px 8px" : "16px 10px" }}>
+        {!collapsed && (
+          <p className="pb-2 text-[9px] font-semibold uppercase"
+            style={{
+              paddingLeft: "12px",
+              color: "var(--sidebar-foreground)",
+              opacity: 0.28,
+              letterSpacing: "0.16em",
+              transition: "opacity 0.2s ease",
+            }}>
+            Monitor
+          </p>
+        )}
 
         {NAV.map(({ href, label, Icon }) => {
           const active = pathname.startsWith(href)
@@ -77,60 +97,85 @@ export function Sidebar() {
             <Link
               key={href}
               href={href}
-              className="group relative flex items-center gap-2.5 px-3 py-[9px] rounded-xl text-[13px] font-medium transition-premium"
+              title={collapsed ? label : undefined}
+              className="group relative flex items-center rounded-xl text-[13px] font-medium transition-premium"
               style={{
-                backgroundColor: active ? "var(--card)" : "transparent",
+                gap: collapsed ? 0 : "10px",
+                padding: collapsed ? "9px 0" : "9px 12px",
+                justifyContent: collapsed ? "center" : "flex-start",
+                backgroundColor: active ? "var(--sidebar-accent)" : "transparent",
                 color: active ? "var(--sidebar-accent-foreground)" : "var(--sidebar-foreground)",
-                boxShadow: active ? "var(--shadow-sm)" : "none",
+                boxShadow: active ? "inset 0 1px 0 rgba(255,255,255,0.06)" : "none",
               }}
             >
-              {/* Left teal stripe on active */}
               {active && (
                 <span
                   className="absolute left-0 top-1/2 -translate-y-1/2 rounded-r-full"
                   style={{
-                    width: "3px",
-                    height: "18px",
-                    background: "linear-gradient(180deg, oklch(0.640 0.130 195), oklch(0.480 0.100 205))",
-                    boxShadow: "0 0 8px oklch(0.560 0.115 200 / 0.50)",
+                    width: "3px", height: "18px",
+                    background: "linear-gradient(180deg, oklch(0.680 0.130 195), oklch(0.480 0.100 205))",
+                    boxShadow: "0 0 10px oklch(0.560 0.115 200 / 0.70)",
                   }}
                 />
               )}
-
               <Icon
                 size={15}
                 weight={active ? "fill" : "regular"}
                 style={{
-                  color: active ? "oklch(0.540 0.115 200)" : "var(--sidebar-foreground)",
-                  opacity: active ? 1 : 0.55,
+                  color: active ? "oklch(0.640 0.120 200)" : "var(--sidebar-foreground)",
+                  opacity: active ? 1 : 0.45,
                   flexShrink: 0,
-                  transition: "color 0.2s ease, opacity 0.2s ease",
                 }}
               />
-              {label}
+              {!collapsed && label}
             </Link>
           )
         })}
       </nav>
 
-      {/* Status footer */}
+      {/* Status dot + collapse toggle */}
       <div
-        className="px-5 py-4 flex items-center gap-2.5"
-        style={{ borderTop: "1px solid var(--sidebar-border)" }}
+        className="flex items-center shrink-0"
+        style={{
+          borderTop: "1px solid var(--sidebar-border)",
+          padding: collapsed ? "12px 0" : "12px 20px",
+          justifyContent: collapsed ? "center" : "space-between",
+          gap: "8px",
+        }}
       >
-        <span className="relative flex h-1.5 w-1.5 shrink-0">
-          <span
-            className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-55"
-            style={{ backgroundColor: "oklch(0.640 0.120 200)" }}
-          />
-          <span
-            className="relative inline-flex rounded-full h-1.5 w-1.5"
-            style={{ backgroundColor: "oklch(0.560 0.115 200)", boxShadow: "0 0 5px oklch(0.560 0.115 200 / 0.50)" }}
-          />
-        </span>
-        <p className="text-[11px] font-medium" style={{ color: "var(--sidebar-foreground)", opacity: 0.55 }}>
-          Running hourly
-        </p>
+        {!collapsed && (
+          <div className="flex items-center gap-2">
+            <span className="relative flex h-1.5 w-1.5 shrink-0">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-55"
+                style={{ backgroundColor: "oklch(0.640 0.120 200)" }} />
+              <span className="relative inline-flex rounded-full h-1.5 w-1.5"
+                style={{ backgroundColor: "oklch(0.560 0.115 200)", boxShadow: "0 0 5px oklch(0.560 0.115 200 / 0.50)" }} />
+            </span>
+            <p className="text-[11px] font-medium" style={{ color: "var(--sidebar-foreground)", opacity: 0.45 }}>
+              Running hourly
+            </p>
+          </div>
+        )}
+
+        <button
+          onClick={toggle}
+          className="flex items-center justify-center rounded-lg transition-premium"
+          style={{
+            width: "26px", height: "26px",
+            backgroundColor: "var(--sidebar-accent)",
+            color: "var(--sidebar-foreground)",
+            border: "1px solid var(--sidebar-border)",
+            flexShrink: 0,
+          }}
+          onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.opacity = "0.7")}
+          onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.opacity = "1")}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+        >
+          {collapsed
+            ? <CaretRight size={11} weight="bold" />
+            : <CaretLeft size={11} weight="bold" />
+          }
+        </button>
       </div>
     </aside>
   )

@@ -2,11 +2,13 @@
 
 import { useState } from "react"
 import { Plus, Trash } from "@phosphor-icons/react"
-import type { Preferences, WatchlistEntry } from "@/lib/types"
+import type { Preferences, WatchlistEntry, Seed } from "@/lib/types"
 
 interface SettingsFormProps {
   preferences: Preferences | null
   watchlist: WatchlistEntry[]
+  coverLetterSeeds: Seed[]
+  outreachSeeds: Seed[]
 }
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
@@ -58,7 +60,7 @@ function StyledInput({
   )
 }
 
-export function SettingsForm({ preferences, watchlist: initial }: SettingsFormProps) {
+export function SettingsForm({ preferences, watchlist: initial, coverLetterSeeds: initialCL, outreachSeeds: initialOutreach }: SettingsFormProps) {
   const [locations, setLocations] = useState((preferences?.locations ?? []).join(", "))
   const [keywords, setKeywords] = useState((preferences?.role_keywords ?? []).join(", "))
   const [salary, setSalary] = useState(String(preferences?.salary_floor ?? ""))
@@ -70,6 +72,16 @@ export function SettingsForm({ preferences, watchlist: initial }: SettingsFormPr
   const [newUrl, setNewUrl] = useState("")
   const [adding, setAdding] = useState(false)
   const [removing, setRemoving] = useState<string | null>(null)
+
+  // Seeds state
+  const [clSeeds, setClSeeds] = useState<Seed[]>(initialCL)
+  const [outreachSeeds, setOutreachSeeds] = useState<Seed[]>(initialOutreach)
+  const [newClLabel, setNewClLabel] = useState("")
+  const [newClContent, setNewClContent] = useState("")
+  const [newOrLabel, setNewOrLabel] = useState("")
+  const [newOrContent, setNewOrContent] = useState("")
+  const [addingSeed, setAddingSeed] = useState<string | null>(null)
+  const [removingSeed, setRemovingSeed] = useState<string | null>(null)
 
   async function savePreferences() {
     setSaving(true)
@@ -129,6 +141,40 @@ export function SettingsForm({ preferences, watchlist: initial }: SettingsFormPr
   }
 
   const canAdd = newCompany.trim().length > 0 && newUrl.trim().length > 0 && !adding
+
+  async function addSeed(table: "cover_letter_seeds" | "outreach_seeds", label: string, content: string) {
+    if (!label.trim() || !content.trim()) return
+    setAddingSeed(table)
+    try {
+      const res = await fetch("/api/seeds", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ table, label: label.trim(), content: content.trim() }),
+      })
+      if (res.ok) {
+        const entry = await res.json() as Seed
+        if (table === "cover_letter_seeds") {
+          setClSeeds((p) => [...p, entry])
+          setNewClLabel(""); setNewClContent("")
+        } else {
+          setOutreachSeeds((p) => [...p, entry])
+          setNewOrLabel(""); setNewOrContent("")
+        }
+      }
+    } finally { setAddingSeed(null) }
+  }
+
+  async function removeSeed(table: "cover_letter_seeds" | "outreach_seeds", id: string) {
+    setRemovingSeed(id)
+    await fetch("/api/seeds", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ table, id }),
+    })
+    if (table === "cover_letter_seeds") setClSeeds((p) => p.filter((e) => e.id !== id))
+    else setOutreachSeeds((p) => p.filter((e) => e.id !== id))
+    setRemovingSeed(null)
+  }
 
   return (
     <div className="space-y-8 max-w-2xl animate-fade-up">
@@ -309,6 +355,161 @@ export function SettingsForm({ preferences, watchlist: initial }: SettingsFormPr
           </button>
         </div>
       </section>
+
+      {/* Cover Letter Seeds */}
+      <SeedSection
+        title="Cover Letter Samples"
+        description="Sample cover letters the agent uses for tone matching. Add 2–3 examples."
+        seeds={clSeeds}
+        table="cover_letter_seeds"
+        newLabel={newClLabel}
+        newContent={newClContent}
+        onLabelChange={setNewClLabel}
+        onContentChange={setNewClContent}
+        onAdd={() => addSeed("cover_letter_seeds", newClLabel, newClContent)}
+        onRemove={(id) => removeSeed("cover_letter_seeds", id)}
+        adding={addingSeed === "cover_letter_seeds"}
+        removing={removingSeed}
+        placeholder="Dear Hiring Manager, I'm excited to apply for..."
+      />
+
+      {/* Outreach Seeds */}
+      <SeedSection
+        title="Cold Outreach Samples"
+        description="Sample LinkedIn/email messages the agent drafts outreach from."
+        seeds={outreachSeeds}
+        table="outreach_seeds"
+        newLabel={newOrLabel}
+        newContent={newOrContent}
+        onLabelChange={setNewOrLabel}
+        onContentChange={setNewOrContent}
+        onAdd={() => addSeed("outreach_seeds", newOrLabel, newOrContent)}
+        onRemove={(id) => removeSeed("outreach_seeds", id)}
+        adding={addingSeed === "outreach_seeds"}
+        removing={removingSeed}
+        placeholder="Hi [Name], I came across your work at [Company] and..."
+      />
     </div>
+  )
+}
+
+function SeedSection({
+  title, description, seeds, newLabel, newContent,
+  onLabelChange, onContentChange, onAdd, onRemove,
+  adding, removing, placeholder,
+}: {
+  title: string
+  description: string
+  seeds: Seed[]
+  table: string
+  newLabel: string
+  newContent: string
+  onLabelChange: (v: string) => void
+  onContentChange: (v: string) => void
+  onAdd: () => void
+  onRemove: (id: string) => void
+  adding: boolean
+  removing: string | null
+  placeholder: string
+}) {
+  return (
+    <section
+      className="rounded-xl p-6"
+      style={{ border: "1px solid var(--border)", backgroundColor: "var(--card)" }}
+    >
+      <div className="mb-5">
+        <SectionTitle>{title}</SectionTitle>
+        <p className="text-[12px] mt-0.5" style={{ color: "var(--muted-foreground)" }}>
+          {description}
+        </p>
+      </div>
+
+      {seeds.length > 0 && (
+        <div className="rounded-lg overflow-hidden mb-4" style={{ border: "1px solid var(--border)" }}>
+          {seeds.map((seed, i) => (
+            <div
+              key={seed.id}
+              className="px-4 py-3 transition-premium"
+              style={{
+                borderBottom: i < seeds.length - 1 ? "1px solid var(--border)" : "none",
+                opacity: removing === seed.id ? 0.4 : 1,
+              }}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <p className="text-[12px] font-semibold mb-1" style={{ color: "var(--foreground)" }}>
+                    {seed.label ?? "Untitled"}
+                  </p>
+                  <p className="text-[11px] leading-relaxed line-clamp-2"
+                    style={{ color: "var(--muted-foreground)" }}>
+                    {seed.content ?? ""}
+                  </p>
+                </div>
+                <button
+                  onClick={() => onRemove(seed.id)}
+                  disabled={removing === seed.id}
+                  className="p-2 rounded-md transition-premium active:scale-[0.92] shrink-0"
+                  style={{ color: "oklch(0.480 0.005 220)" }}
+                  onMouseEnter={(e) => {
+                    ;(e.currentTarget as HTMLElement).style.color = "oklch(0.350 0.140 15)"
+                    ;(e.currentTarget as HTMLElement).style.backgroundColor = "oklch(0.960 0.020 15)"
+                  }}
+                  onMouseLeave={(e) => {
+                    ;(e.currentTarget as HTMLElement).style.color = "oklch(0.480 0.005 220)"
+                    ;(e.currentTarget as HTMLElement).style.backgroundColor = "transparent"
+                  }}
+                  aria-label="Remove"
+                >
+                  <Trash size={13} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {seeds.length === 0 && (
+        <div
+          className="rounded-lg px-4 py-8 text-center mb-4"
+          style={{ border: "1px dashed var(--border)" }}
+        >
+          <p className="text-[13px] font-medium" style={{ color: "var(--foreground)" }}>No samples yet</p>
+          <p className="text-[12px] mt-1" style={{ color: "var(--muted-foreground)" }}>
+            Add a sample below to help the agent match your writing tone.
+          </p>
+        </div>
+      )}
+
+      <div className="space-y-2">
+        <StyledInput value={newLabel} onChange={onLabelChange} placeholder='Label, e.g. "Startup tone"' />
+        <div className="flex gap-2 items-start">
+          <textarea
+            value={newContent}
+            onChange={(e) => onContentChange(e.target.value)}
+            placeholder={placeholder}
+            rows={4}
+            className="flex-1 px-3 py-2 text-[13px] rounded-lg outline-none transition-premium resize-none"
+            style={{
+              border: "1px solid var(--border)",
+              backgroundColor: "var(--background)",
+              color: "var(--foreground)",
+            }}
+          />
+          <button
+            onClick={onAdd}
+            disabled={!newLabel.trim() || !newContent.trim() || adding}
+            className="shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-lg text-[13px] font-medium transition-premium active:scale-[0.98]"
+            style={{
+              backgroundColor: (newLabel.trim() && newContent.trim() && !adding) ? "var(--primary)" : "var(--muted)",
+              color: (newLabel.trim() && newContent.trim() && !adding) ? "var(--primary-foreground)" : "var(--muted-foreground)",
+              cursor: (newLabel.trim() && newContent.trim() && !adding) ? "pointer" : "not-allowed",
+            }}
+          >
+            <Plus size={13} weight="bold" />
+            {adding ? "Adding…" : "Add"}
+          </button>
+        </div>
+      </div>
+    </section>
   )
 }

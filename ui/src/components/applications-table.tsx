@@ -31,12 +31,18 @@ function CompanyAvatar({ name }: { name: string | null }) {
   )
 }
 
-export function ApplicationsTable({ applications }: { applications: Application[] }) {
+export function ApplicationsTable({ applications, initialSearch = "" }: { applications: Application[]; initialSearch?: string }) {
   const [filter, setFilter] = useState("all")
   const [hovered, setHovered] = useState<string | null>(null)
+  const [search] = useState(initialSearch)
 
-  const visible =
-    filter === "all" ? applications : applications.filter((a) => a.status === filter)
+  const filtered = filter === "all" ? applications : applications.filter((a) => a.status === filter)
+  const visible = search
+    ? filtered.filter((a) =>
+        a.company?.toLowerCase().includes(search.toLowerCase()) ||
+        a.title?.toLowerCase().includes(search.toLowerCase())
+      )
+    : filtered
 
   return (
     <div className="space-y-4 animate-fade-up">
