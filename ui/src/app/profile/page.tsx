@@ -10,8 +10,8 @@ export default async function ProfilePage() {
   const profile = (data?.[0] ?? null) as UserProfile | null
 
   return (
-    <div className="space-y-6">
-      <div>
+    <div className="space-y-6 max-w-2xl mx-auto">
+      <div className="text-center">
         <h1 className="text-[1.875rem] font-semibold tracking-tight" style={{ color: "var(--foreground)" }}>
           Profile
         </h1>

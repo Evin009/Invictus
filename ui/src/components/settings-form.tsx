@@ -177,7 +177,7 @@ export function SettingsForm({ preferences, watchlist: initial, coverLetterSeeds
   }
 
   return (
-    <div className="space-y-8 max-w-2xl animate-fade-up">
+    <div className="space-y-8 animate-fade-up">
 
       {/* Preferences */}
       <section

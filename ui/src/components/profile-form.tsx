@@ -110,7 +110,7 @@ export function ProfileForm({ profile }: Props) {
   const skillList = skills.split(",").map((s) => s.trim()).filter(Boolean)
 
   return (
-    <div className="space-y-6 max-w-2xl animate-fade-up">
+    <div className="space-y-6 animate-fade-up">
 
       {/* Avatar + identity */}
       <Section>
