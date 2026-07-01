@@ -45,78 +45,79 @@ export default async function DashboardPage() {
         <div>
           <h1
             className="text-[1.625rem] font-semibold tracking-tight"
-            style={{ color: "var(--foreground)" }}
+            style={{ color: "oklch(0.930 0.008 210)" }}
           >
             Dashboard
           </h1>
-          <p className="text-[13px] mt-0.5" style={{ color: "var(--muted-foreground)" }}>
+          <p className="text-[13px] mt-0.5" style={{ color: "rgba(255,255,255,0.32)" }}>
             Live overview of your autonomous job search.
           </p>
         </div>
         <div
           className="flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-medium"
           style={{
-            border: "1px solid var(--border)",
-            color: "var(--muted-foreground)",
-            backgroundColor: "var(--card)",
+            background: "rgba(255,255,255,0.06)",
+            border: "1px solid rgba(255,255,255,0.09)",
+            backdropFilter: "blur(12px)",
+            boxShadow: "inset 0 1px 0 rgba(255,255,255,0.12)",
+            color: "rgba(255,255,255,0.45)",
           }}
         >
           <span
             className="w-1.5 h-1.5 rounded-full"
-            style={{ backgroundColor: "oklch(0.580 0.100 200)" }}
+            style={{ backgroundColor: "oklch(0.720 0.130 195)", boxShadow: "0 0 6px oklch(0.720 0.130 195 / 0.60)" }}
           />
           Agent running
         </div>
       </div>
 
-      {/* Asymmetric stat grid: 2fr + 1fr + 1fr then 1fr + 1fr */}
-      <div
-        className="grid gap-3"
-        style={{ gridTemplateColumns: "2fr 1fr 1fr" }}
-      >
-        <StatCard label="Total Applied" value={data.total} large index={0} accent />
-        <StatCard label="Interviews"    value={data.interviews}  index={1} />
-        <StatCard label="Response Rate" value={responseRate} sub="%" index={2} />
+      {/* Asymmetric stat grid */}
+      <div className="grid gap-3" style={{ gridTemplateColumns: "2fr 1fr 1fr" }}>
+        <StatCard label="Total Applied"   value={data.total}       large index={0} accent />
+        <StatCard label="Interviews"      value={data.interviews}        index={1} />
+        <StatCard label="Response Rate"   value={responseRate} sub="%" index={2} />
       </div>
-
       <div className="grid grid-cols-2 gap-3">
-        <StatCard label="Rejections"         value={data.rejections}   index={3} />
-        <StatCard label="Outreach Sent (24h)" value={data.outreach24h} index={4} />
+        <StatCard label="Rejections"          value={data.rejections}   index={3} />
+        <StatCard label="Outreach Sent (24h)" value={data.outreach24h}  index={4} />
       </div>
 
       {/* Recent applications */}
       <div className="animate-fade-up" style={{ animationDelay: "300ms" }}>
         <div className="flex items-center justify-between mb-3">
-          <h2
-            className="text-[13px] font-semibold"
-            style={{ color: "var(--foreground)" }}
-          >
+          <h2 className="text-[13px] font-semibold" style={{ color: "oklch(0.930 0.008 210)" }}>
             Recent Applications
           </h2>
           <a
             href="/applications"
             className="text-[12px] font-medium transition-premium"
-            style={{ color: "var(--primary)" }}
+            style={{ color: "oklch(0.720 0.130 195)" }}
           >
             View all →
           </a>
         </div>
 
         <div
-          className="rounded-xl overflow-hidden"
-          style={{ border: "1px solid var(--border)" }}
+          className="rounded-2xl overflow-hidden"
+          style={{
+            background: "linear-gradient(145deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.03) 100%)",
+            backdropFilter: "blur(28px) saturate(150%)",
+            WebkitBackdropFilter: "blur(28px) saturate(150%)",
+            border: "1px solid rgba(255,255,255,0.09)",
+            boxShadow: "inset 0 1px 0 rgba(255,255,255,0.14), 0 8px 32px rgba(0,0,0,0.24)",
+          }}
         >
           {data.recent.length === 0 ? (
             <EmptyApplications />
           ) : (
             <table className="w-full text-[13px]">
               <thead>
-                <tr style={{ backgroundColor: "var(--muted)", borderBottom: "1px solid var(--border)" }}>
+                <tr style={{ background: "rgba(255,255,255,0.02)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
                   {["Company", "Role", "Status", "Date"].map((h) => (
                     <th
                       key={h}
                       className="text-left px-4 py-3 font-medium"
-                      style={{ color: "var(--muted-foreground)" }}
+                      style={{ color: "rgba(255,255,255,0.28)", fontSize: "11px", letterSpacing: "0.06em" }}
                     >
                       {h}
                     </th>
@@ -129,23 +130,20 @@ export default async function DashboardPage() {
                     key={app.id}
                     className="transition-premium"
                     style={{
-                      borderBottom: i < data.recent.length - 1 ? "1px solid var(--border)" : "none",
+                      borderBottom: i < data.recent.length - 1 ? "1px solid rgba(255,255,255,0.05)" : "none",
                     }}
                   >
-                    <td
-                      className="px-4 py-3 font-medium"
-                      style={{ color: "var(--foreground)" }}
-                    >
+                    <td className="px-4 py-3 font-medium" style={{ color: "oklch(0.900 0.008 210)" }}>
                       {app.company ?? "—"}
                     </td>
-                    <td className="px-4 py-3" style={{ color: "var(--muted-foreground)" }}>
+                    <td className="px-4 py-3" style={{ color: "rgba(255,255,255,0.45)" }}>
                       {app.title ? (
                         <a
                           href={app.job_url}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="transition-premium hover:underline"
-                          style={{ color: "var(--primary)" }}
+                          style={{ color: "oklch(0.720 0.130 195)" }}
                         >
                           {app.title}
                         </a>
@@ -157,7 +155,7 @@ export default async function DashboardPage() {
                     <td
                       className="px-4 py-3"
                       style={{
-                        color: "var(--muted-foreground)",
+                        color: "rgba(255,255,255,0.28)",
                         fontFamily: "var(--font-mono, monospace)",
                         fontSize: "12px",
                       }}
@@ -183,18 +181,18 @@ function EmptyApplications() {
     <div className="px-8 py-16 text-center">
       <div
         className="w-10 h-10 rounded-full mx-auto mb-4 flex items-center justify-center"
-        style={{ backgroundColor: "var(--muted)" }}
+        style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.09)" }}
       >
-        <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5"
-          style={{ color: "var(--muted-foreground)" }}>
+        <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5"
+          style={{ color: "rgba(255,255,255,0.30)" }}>
           <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" />
           <rect x="9" y="3" width="6" height="4" rx="1" />
         </svg>
       </div>
-      <p className="text-[13px] font-medium mb-1" style={{ color: "var(--foreground)" }}>
+      <p className="text-[13px] font-medium mb-1" style={{ color: "oklch(0.930 0.008 210)" }}>
         No applications yet
       </p>
-      <p className="text-[12px]" style={{ color: "var(--muted-foreground)" }}>
+      <p className="text-[12px]" style={{ color: "rgba(255,255,255,0.28)" }}>
         The agent will populate this on its first hourly run.
       </p>
     </div>
