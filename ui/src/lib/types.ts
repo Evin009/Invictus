@@ -1,0 +1,47 @@
+export type ApplicationStatus =
+  | "applied"
+  | "interview"
+  | "rejection"
+  | "ghosted"
+  | "manual_pending"
+
+export interface Application {
+  id: string
+  job_url: string
+  title: string | null
+  company: string | null
+  ats_platform: string | null
+  status: ApplicationStatus
+  submission_type: string | null
+  resume_pdf_path: string | null
+  cover_letter_path: string | null
+  submitted_at: string
+}
+
+export interface OutreachLog {
+  id: string
+  job_url: string | null
+  company: string | null
+  contact_name: string | null
+  contact_email: string | null
+  contact_linkedin: string | null
+  channel: "email" | "linkedin"
+  message_text: string | null
+  sent_at: string
+  reply_received: boolean
+}
+
+export interface Preferences {
+  id: string
+  locations: string[] | null
+  seniority: string[] | null
+  salary_floor: number | null
+  role_keywords: string[] | null
+}
+
+export interface WatchlistEntry {
+  id: string
+  company_name: string | null
+  careers_url: string | null
+  role_keywords: string[] | null
+}
