@@ -16,18 +16,28 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${geist.variable} ${geistMono.variable} h-full`}>
-      <body className="min-h-full flex antialiased" style={{ backgroundColor: "var(--background)" }}>
+      <body
+        className="min-h-full flex gap-4 p-4 antialiased"
+        style={{ backgroundColor: "var(--background)" }}
+      >
         <SidebarProvider>
           <Sidebar />
-          <div className="flex-1 min-w-0 flex flex-col">
-            {/* Top search bar */}
+
+          {/* Main content column */}
+          <div
+            className="flex-1 min-w-0 flex flex-col rounded-2xl overflow-hidden"
+            style={{
+              backgroundColor: "var(--card)",
+              border: "1px solid var(--border)",
+              boxShadow: "var(--shadow-card)",
+            }}
+          >
             <header
               className="shrink-0 flex items-center px-8"
               style={{
                 height: "58px",
                 borderBottom: "1px solid var(--border)",
                 backgroundColor: "var(--card)",
-                boxShadow: "0 1px 0 var(--border)",
               }}
             >
               <SearchBar />

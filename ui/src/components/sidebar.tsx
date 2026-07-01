@@ -21,13 +21,18 @@ export function Sidebar() {
 
   return (
     <aside
-      className="shrink-0 flex flex-col min-h-screen relative"
+      className="shrink-0 flex flex-col relative"
       style={{
         width: collapsed ? "64px" : "220px",
+        height: "calc(100vh - 32px)",
+        position: "sticky",
+        top: 0,
+        alignSelf: "flex-start",
         transition: "width 0.38s cubic-bezier(0.32, 0.72, 0, 1)",
         backgroundColor: "var(--sidebar)",
-        borderRight: "1px solid var(--sidebar-border)",
-        boxShadow: "4px 0 24px oklch(0.118 0.010 228 / 0.14)",
+        borderRadius: "1.25rem",
+        border: "1px solid var(--sidebar-border)",
+        boxShadow: "0 8px 32px oklch(0.118 0.010 228 / 0.22), 0 2px 8px oklch(0.118 0.010 228 / 0.12)",
         overflow: "hidden",
       }}
     >
