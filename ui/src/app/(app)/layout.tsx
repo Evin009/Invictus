@@ -4,7 +4,7 @@ import { SearchBar } from "@/components/search-bar"
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-full flex gap-4 p-4">
+    <div className="min-h-full p-4">
       <SidebarProvider>
         <Sidebar />
         <div

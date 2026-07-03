@@ -27,7 +27,17 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <SidebarContext.Provider value={{ collapsed, toggle }}>
-      {children}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: collapsed ? "68px 1fr" : "224px 1fr",
+          gap: "16px",
+          minHeight: "100%",
+          transition: "grid-template-columns 0.40s cubic-bezier(0.32, 0.72, 0, 1)",
+        }}
+      >
+        {children}
+      </div>
     </SidebarContext.Provider>
   )
 }

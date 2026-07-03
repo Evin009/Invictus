@@ -23,12 +23,11 @@ export function Sidebar() {
     <aside
       className="shrink-0 flex flex-col"
       style={{
-        width: collapsed ? "68px" : "224px",
+        width: "100%",
         height: "calc(100vh - 32px)",
         position: "sticky",
         top: 0,
         alignSelf: "flex-start",
-        transition: "width 0.40s cubic-bezier(0.32, 0.72, 0, 1)",
         backgroundColor: "var(--sidebar)",
         borderRadius: "2rem",
         border: "1px solid var(--sidebar-border)",
@@ -52,7 +51,7 @@ export function Sidebar() {
         }}
       >
         <div
-          className="shrink-0 rounded-xl flex items-center justify-center p-[2px]"
+          className="shrink-0 rounded-xl flex items-center justify-center p-0.5"
           style={{
             width: "30px", height: "30px",
             background: "linear-gradient(145deg, oklch(0.660 0.125 200), oklch(0.480 0.100 210))",
