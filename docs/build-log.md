@@ -203,4 +203,34 @@ Record of every phase merged — aim, what got built, decisions made.
 - System-level cron file used instead of user-level crontab — survives user changes, survives reboots, easier to audit
 - Log rotation configured at 14 days — enough history to debug a problem from the previous week without risking disk fill
 
+## Phase 9: Dashboard UI
+**Branch:** `feat/seed-script` | **PR:** #10 | **Merged:** 2026-07-03
+
+**Aim:** Build a read-only control room — a web app that shows what the autonomous system is doing in real time. Stats, job applications, outreach, settings, profile — all in one place so you never need to open the database directly.
+
+**What got built:**
+- Full web app that runs separately from the Python backend — sits in its own folder with its own dependencies
+- Login page: split screen — auth form on the left, animated pipeline diagram on the right showing all 8 agents and the flow between them; data packets travel along the connections; background has drifting light orbs and floating dots
+- Login / sign up: one page handles both modes with a tab switcher; supports email + password and Google sign-in; redirects to the control room after success
+- Onboarding wizard: five-step setup flow — name, locations, seniority, salary floor, target companies, and tone samples; writes all settings to the database before landing on the dashboard
+- Dashboard: live stats bar (total applied, interviews, rejections, outreach sent); scrollable list of recent job applications with status badges; card grid of recently discovered jobs
+- Applications page: full table of all applications with title, company, platform, date, and status; search bar filters by title or company
+- Settings page: edit preferred locations, role keywords, and salary floor; manage the target-companies watchlist; add/remove tone sample files for email and cold outreach; all edits save back to the database
+- Profile page: edit your full name, email, phone, LinkedIn, GitHub, education, work history, and skills — the fields the submission agent reads when filling job application forms
+- Sidebar: collapsible left rail with navigation; remembers collapsed state across visits; smooth width transition with no jank; shows a live "running hourly" status dot
+- Auth guard: every protected page checks for a valid session and redirects to login if missing; session is verified against the auth server, not just a stored cookie
+
+**Bugs caught before merge (code review):**
+- Preferences never actually saved — the settings page was sending the data in the wrong shape, so the server received it and wrote nothing; no error shown to user; fixed by wrapping the payload correctly
+- Dashboard crashed at runtime — it was trying to read a column called `discovered_at` that does not exist in the database; the real column is called `created_at`; silent failure returned no jobs
+- Onboarding wizard was writing the seniority preference to a column that doesn't exist (`seniority_levels`) instead of the real one (`seniority`); new user setups completed with no seniority saved
+- Background animation system was mixing two incompatible animation libraries in the same component tree — replaced the conflicting pieces with pure browser-native CSS animations so only one animation system runs on the login page
+
+**Decisions made:**
+- Web app completely separate from Python backend — own package file, own server — backend and frontend can be deployed and updated independently
+- All database reads on page load happen on the server before the page is sent to the browser — no loading spinners on first paint, no credentials exposed to the browser
+- Only interactive pieces (settings form, sidebar toggle, show/hide password) run in the browser — everything else is static server-rendered HTML
+- Sidebar collapse driven by a CSS grid column width transition on the wrapper — avoids animating the `width` property directly, which is slower and causes layout shifts
+- Two animation libraries kept strictly separated — background orbs and particles use CSS keyframe animations, foreground pipeline nodes use the React animation library — never mixed in the same component
+
 <!-- New phases appended below as they merge -->
