@@ -593,36 +593,30 @@ export default function LoginPage() {
           {/* Inner padding wrapper */}
           <div style={{ display: "flex", flexDirection: "column", flex: 1, padding: "32px 48px 36px", minHeight: 0 }}>
 
-            {/* Brand */}
+            {/* Brand — top-left, custom icon, no box */}
             <motion.div
               initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, ease: [0.23, 1, 0.32, 1] }}
-              style={{ display: "flex", alignItems: "center", gap: "12px", flexShrink: 0 }}
+              style={{ display: "flex", alignItems: "center", gap: "9px", flexShrink: 0 }}
             >
-              {/* Double-bezel logo mark */}
-              <div style={{
-                padding: "3px", borderRadius: "13px", flexShrink: 0,
-                background: "oklch(0.955 0.008 218)",
-                border: "1px solid oklch(0.895 0.010 218)",
-                boxShadow: "0 2px 8px oklch(0.118 0.010 228 / 0.06)",
-              }}>
-                <div style={{
-                  width: 36, height: 36, borderRadius: "10px",
-                  background: "linear-gradient(145deg, oklch(0.650 0.148 193), oklch(0.470 0.108 212))",
-                  boxShadow: "inset 0 1px 0 oklch(1 0 0 / 0.28), 0 4px 14px oklch(0.580 0.130 195 / 0.40)",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                }}>
-                  <svg width="17" height="17" viewBox="0 0 14 14" fill="none">
-                    <path d="M7 1.5L12.5 4.75V10.25L7 13.5L1.5 10.25V4.75L7 1.5Z" stroke="white" strokeWidth="1.6" strokeLinejoin="round" />
-                    <path d="M7 1.5V13.5M1.5 4.75L12.5 4.75M1.5 10.25L12.5 10.25" stroke="white" strokeWidth="1.1" />
-                  </svg>
-                </div>
-              </div>
-              <div>
-                <span style={{ fontSize: "16px", fontWeight: 700, letterSpacing: "-0.03em", color: "oklch(0.130 0.014 226)", display: "block", lineHeight: 1.15 }}>Invictus</span>
-                <span style={{ fontSize: "10.5px", fontWeight: 500, color: "oklch(0.560 0.014 220)", letterSpacing: "0.01em" }}>Autonomous job search</span>
-              </div>
+              {/* Custom icon — circuit-arrow, stands alone */}
+              <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+                {/* Upward-pointing arrow shaft */}
+                <path d="M14 22V9" stroke="oklch(0.560 0.148 195)" strokeWidth="2.2" strokeLinecap="round" />
+                {/* Arrowhead */}
+                <path d="M9 13.5L14 8.5L19 13.5" stroke="oklch(0.650 0.155 195)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                {/* Horizontal circuit rail — bottom */}
+                <path d="M7 22H21" stroke="oklch(0.560 0.148 195 / 0.55)" strokeWidth="1.6" strokeLinecap="round" />
+                {/* Node dots on rail */}
+                <circle cx="7"  cy="22" r="1.8" fill="oklch(0.650 0.155 195)" />
+                <circle cx="21" cy="22" r="1.8" fill="oklch(0.650 0.155 195)" />
+                {/* Accent tick — top right */}
+                <circle cx="21" cy="8" r="1.4" fill="oklch(0.640 0.148 195 / 0.50)" />
+              </svg>
+              <span style={{ fontSize: "16px", fontWeight: 720, letterSpacing: "-0.035em", color: "oklch(0.118 0.014 226)" }}>
+                Invictus
+              </span>
             </motion.div>
 
             {/* Form content */}
