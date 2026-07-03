@@ -17,7 +17,7 @@ export default async function ApplicationsPage({ searchParams }: Props) {
     .select("id,job_url,title,company,ats_platform,status,submission_type,resume_pdf_path,cover_letter_path,submitted_at")
     .order("submitted_at", { ascending: false })
 
-  if (q) {
+  if (q && q.length < 200) {
     query = query.or(`company.ilike.%${q}%,title.ilike.%${q}%`)
   }
 

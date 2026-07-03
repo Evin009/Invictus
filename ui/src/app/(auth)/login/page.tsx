@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { motion, useReducedMotion, type Variants } from "framer-motion"
 import { createBrowserSupabaseClient } from "@/lib/supabase-browser"
@@ -430,7 +430,7 @@ export default function LoginPage() {
   const [error, setError]                 = useState<string | null>(null)
   const [message, setMessage]             = useState<string | null>(null)
 
-  const supabase = createBrowserSupabaseClient()
+  const supabase = useMemo(() => createBrowserSupabaseClient(), [])
 
   async function handleGoogle() {
     setGoogleLoading(true); setError(null)
