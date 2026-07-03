@@ -63,7 +63,7 @@ export interface DiscoveredJob {
   title: string | null
   company: string | null
   source: string | null
-  discovered_at: string
+  created_at: string
 }
 
 export interface WatchlistEntry {

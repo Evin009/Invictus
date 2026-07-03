@@ -18,8 +18,8 @@ async function fetchDashboardData() {
     db.from("outreach_log").select("id").gte("sent_at", since24h),
     db
       .from("jobs_seen")
-      .select("id,url,title,company,source,discovered_at")
-      .order("discovered_at", { ascending: false })
+      .select("id,url,title,company,source,created_at")
+      .order("created_at", { ascending: false })
       .limit(6),
   ])
 

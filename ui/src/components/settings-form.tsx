@@ -91,9 +91,11 @@ export function SettingsForm({ preferences, watchlist: initial, coverLetterSeeds
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          locations:    locations.split(",").map((s) => s.trim()).filter(Boolean),
-          role_keywords: keywords.split(",").map((s) => s.trim()).filter(Boolean),
-          salary_floor: salary ? parseInt(salary, 10) : null,
+          preferences: {
+            locations:    locations.split(",").map((s) => s.trim()).filter(Boolean),
+            role_keywords: keywords.split(",").map((s) => s.trim()).filter(Boolean),
+            salary_floor: salary ? parseInt(salary, 10) : null,
+          },
         }),
       })
       setSaveState(res.ok ? "saved" : "error")

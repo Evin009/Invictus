@@ -135,7 +135,7 @@ export function OnboardWizard() {
           body: JSON.stringify({
             preferences: {
               locations,
-              seniority_levels: seniority,
+              seniority: seniority,
               salary_floor: salaryFloor ? parseInt(salaryFloor) : null,
               role_keywords: keywords,
             },

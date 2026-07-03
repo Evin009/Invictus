@@ -1,9 +1,8 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { motion, useReducedMotion, type Variants } from "framer-motion"
-import { gsap } from "gsap"
 import { createBrowserSupabaseClient } from "@/lib/supabase-browser"
 import { Envelope, Lock, Eye, EyeSlash } from "@phosphor-icons/react"
 
@@ -77,32 +76,8 @@ const PARTICLES = [
 ]
 
 function FloatingParticles() {
-  const containerRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    const container = containerRef.current
-    if (!container) return
-    const els  = container.querySelectorAll<HTMLElement>(".fp")
-    const mm   = gsap.matchMedia()
-    const tweens: gsap.core.Tween[] = []
-
-    mm.add("(prefers-reduced-motion: no-preference)", () => {
-      els.forEach((el, i) => {
-        tweens.push(gsap.to(el, {
-          x: ((i % 3) - 1) * 16, y: -20 - (i % 4) * 8,
-          opacity: 0.07 + (i % 3) * 0.04,
-          duration: 7 + (i % 5) * 2.2,
-          delay: PARTICLES[i].d,
-          repeat: -1, yoyo: true, ease: "sine.inOut",
-        }))
-      })
-      return () => tweens.forEach(t => t.kill())
-    })
-    return () => { tweens.forEach(t => t.kill()); mm.revert() }
-  }, [])
-
   return (
-    <div ref={containerRef} style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "hidden" }}>
+    <div style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "hidden" }}>
       {PARTICLES.map((p, i) => (
         <div key={i} className="fp" style={{
           position: "absolute", left: p.l, top: p.t,
@@ -112,6 +87,7 @@ function FloatingParticles() {
           boxShadow: p.teal
             ? `0 0 ${p.s * 4}px oklch(0.650 0.155 195 / 0.55)`
             : `0 0 ${p.s * 3}px oklch(0.700 0.065 245 / 0.40)`,
+          animation: `fp-drift ${7 + (i % 5) * 2.2}s ${p.d}s ease-in-out infinite alternate`,
           willChange: "transform, opacity",
         }} />
       ))}
@@ -124,67 +100,36 @@ function FloatingParticles() {
 // ─────────────────────────────────────────────────────────
 
 function AmbientOrbs() {
-  const r1 = useRef<HTMLDivElement>(null)
-  const r2 = useRef<HTMLDivElement>(null)
-  const r3 = useRef<HTMLDivElement>(null)
-  const r4 = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    const mm = gsap.matchMedia()
-    mm.add("(prefers-reduced-motion: no-preference)", () => {
-      const tl1 = gsap.timeline({ repeat: -1 })
-      tl1.to(r1.current, { x: -70, y:  55, scale: 1.12, duration: 13, ease: "sine.inOut" })
-         .to(r1.current, { x:  30, y: -30, scale: 0.94, duration: 11, ease: "sine.inOut" })
-         .to(r1.current, { x: -20, y:  70, scale: 1.06, duration: 15, ease: "sine.inOut" })
-         .to(r1.current, { x:   0, y:   0, scale:    1, duration: 12, ease: "sine.inOut" })
-
-      const tl2 = gsap.timeline({ repeat: -1, delay: 4 })
-      tl2.to(r2.current, { x:  62, y: -65, scale: 1.10, duration: 17, ease: "sine.inOut" })
-         .to(r2.current, { x: -25, y: -20, scale: 0.92, duration: 12, ease: "sine.inOut" })
-         .to(r2.current, { x:  45, y: -80, scale: 1.08, duration: 14, ease: "sine.inOut" })
-         .to(r2.current, { x:   0, y:   0, scale:    1, duration: 11, ease: "sine.inOut" })
-
-      const tl3 = gsap.timeline({ repeat: -1, delay: 8 })
-      tl3.to(r3.current, { x: -50, y:  42, scale: 1.14, duration: 20, ease: "sine.inOut" })
-         .to(r3.current, { x:  30, y:  60, scale: 0.90, duration: 16, ease: "sine.inOut" })
-         .to(r3.current, { x:   0, y:   0, scale:    1, duration: 18, ease: "sine.inOut" })
-
-      const tl4 = gsap.timeline({ repeat: -1, delay: 11 })
-      tl4.to(r4.current, { x:  40, y: -35, scale: 1.08, duration: 14, ease: "sine.inOut" })
-         .to(r4.current, { x: -30, y:  20, scale: 0.94, duration: 12, ease: "sine.inOut" })
-         .to(r4.current, { x:   0, y:   0, scale:    1, duration: 16, ease: "sine.inOut" })
-
-      return () => { tl1.kill(); tl2.kill(); tl3.kill(); tl4.kill() }
-    })
-    return () => mm.revert()
-  }, [])
-
   return (
     <>
-      <div ref={r1} style={{
+      <div style={{
         position: "absolute", top: -160, right: -120,
         width: 620, height: 620,
         background: "radial-gradient(circle, oklch(0.610 0.148 195 / 0.18) 0%, transparent 62%)",
         borderRadius: "50%", pointerEvents: "none", willChange: "transform",
+        animation: "orb1 51s ease-in-out infinite",
       }} />
-      <div ref={r2} style={{
+      <div style={{
         position: "absolute", bottom: -140, left: -100,
         width: 560, height: 560,
         background: "radial-gradient(circle, oklch(0.380 0.100 262 / 0.14) 0%, transparent 62%)",
         borderRadius: "50%", pointerEvents: "none", willChange: "transform",
+        animation: "orb2 54s 4s ease-in-out infinite",
       }} />
-      <div ref={r3} style={{
+      <div style={{
         position: "absolute",
         top: "calc(38% - 200px)", left: "calc(28% - 220px)",
         width: 480, height: 440,
         background: "radial-gradient(ellipse at center, oklch(0.480 0.100 210 / 0.12) 0%, transparent 68%)",
         borderRadius: "50%", pointerEvents: "none", willChange: "transform",
+        animation: "orb3 54s 8s ease-in-out infinite",
       }} />
-      <div ref={r4} style={{
+      <div style={{
         position: "absolute", top: -70, left: "28%",
         width: 360, height: 320,
         background: "radial-gradient(ellipse at center, oklch(0.540 0.120 195 / 0.10) 0%, transparent 70%)",
         borderRadius: "50%", pointerEvents: "none", willChange: "transform",
+        animation: "orb4 42s 11s ease-in-out infinite",
       }} />
     </>
   )
@@ -554,9 +499,42 @@ export default function LoginPage() {
         .right-panel { display: none; }
         @media (min-width: 900px) { .right-panel { display: flex !important; } }
 
+        @keyframes fp-drift {
+          from { transform: translate(0, 0); opacity: 0.10; }
+          to   { transform: translate(var(--fp-x, 12px), var(--fp-y, -18px)); opacity: 0.15; }
+        }
+
+        @keyframes orb1 {
+          0%   { transform: translate(0, 0) scale(1); }
+          25%  { transform: translate(-70px, 55px) scale(1.12); }
+          50%  { transform: translate(30px, -30px) scale(0.94); }
+          75%  { transform: translate(-20px, 70px) scale(1.06); }
+          100% { transform: translate(0, 0) scale(1); }
+        }
+        @keyframes orb2 {
+          0%   { transform: translate(0, 0) scale(1); }
+          25%  { transform: translate(62px, -65px) scale(1.10); }
+          50%  { transform: translate(-25px, -20px) scale(0.92); }
+          75%  { transform: translate(45px, -80px) scale(1.08); }
+          100% { transform: translate(0, 0) scale(1); }
+        }
+        @keyframes orb3 {
+          0%   { transform: translate(0, 0) scale(1); }
+          33%  { transform: translate(-50px, 42px) scale(1.14); }
+          66%  { transform: translate(30px, 60px) scale(0.90); }
+          100% { transform: translate(0, 0) scale(1); }
+        }
+        @keyframes orb4 {
+          0%   { transform: translate(0, 0) scale(1); }
+          33%  { transform: translate(40px, -35px) scale(1.08); }
+          66%  { transform: translate(-30px, 20px) scale(0.94); }
+          100% { transform: translate(0, 0) scale(1); }
+        }
+
         @media (prefers-reduced-motion: reduce) {
           .agent-node { animation: none !important; }
           .fp { animation: none !important; }
+          [style*="orb1"], [style*="orb2"], [style*="orb3"], [style*="orb4"] { animation: none !important; }
         }
 
         /* Placeholder contrast — meets 4.5:1 on the tinted input bg */
