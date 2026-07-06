@@ -7,6 +7,7 @@ import { createBrowserSupabaseClient } from "@/lib/supabase-browser"
 const CSS = `
   .sb-item:hover { background: rgba(0,49,53,0.06) !important; }
   .sb-logout:hover { background: rgba(0,49,53,0.06) !important; }
+  .sb-collapse:hover { background: #024950 !important; }
 `
 
 const NAV = [
@@ -61,7 +62,7 @@ export function AppSidebar() {
       }}>
 
         {/* Logo row */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 10px 22px" }}>
+        <div style={{ display: "flex", alignItems: "center", padding: "6px 10px 22px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: collapsed ? 0 : 9, overflow: "hidden" }}>
             <svg viewBox="0 0 100 100" width={22} height={22} style={{ flexShrink: 0 }}>
               <path d="M50 6 L94 50 L50 94 L6 50 Z" fill="none" stroke="#003135" strokeWidth="8" strokeLinejoin="round" strokeLinecap="round" />
@@ -70,16 +71,6 @@ export function AppSidebar() {
             </svg>
             <span style={{ fontSize: 17, fontWeight: 700, whiteSpace: "nowrap", opacity: collapsed ? 0 : 1, width: collapsed ? 0 : "auto", overflow: "hidden", transition: "opacity 0.15s ease, width 0.15s ease" }}>Invictus</span>
           </div>
-          <span
-            onClick={() => setCollapsed(p => !p)}
-            style={{ cursor: "pointer", color: "rgba(0,49,53,0.35)", flexShrink: 0, display: "flex", alignItems: "center", padding: 4, borderRadius: 6, transition: "background 0.15s ease" }}
-          >
-            {collapsed ? (
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-            ) : (
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-            )}
-          </span>
         </div>
 
         {/* Nav items */}
@@ -107,6 +98,27 @@ export function AppSidebar() {
               </div>
             )
           })}
+        </div>
+
+        {/* Collapse toggle */}
+        <div style={{ display: "flex", justifyContent: collapsed ? "center" : "flex-start", padding: "10px 12px 6px" }}>
+          <button
+            className="sb-collapse"
+            onClick={() => setCollapsed(p => !p)}
+            style={{
+              width: 32, height: 32, borderRadius: "50%",
+              background: "#003135", border: "none",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              cursor: "pointer", color: "#fff", flexShrink: 0,
+              transition: "background 0.15s ease",
+            }}
+          >
+            {collapsed ? (
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            ) : (
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            )}
+          </button>
         </div>
 
         {/* Logout */}
