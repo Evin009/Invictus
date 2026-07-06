@@ -1,35 +1,17 @@
-import { Sidebar } from "@/components/sidebar"
-import { SidebarProvider } from "@/components/sidebar-context"
-import { SearchBar } from "@/components/search-bar"
+import { AppSidebar } from "@/components/app-sidebar"
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-full p-4">
-      <SidebarProvider>
-        <Sidebar />
-        <div
-          className="flex-1 min-w-0 flex flex-col rounded-2xl overflow-hidden"
-          style={{
-            backgroundColor: "var(--card)",
-            border: "1px solid var(--border)",
-            boxShadow: "var(--shadow-card)",
-          }}
-        >
-          <header
-            className="shrink-0 flex items-center px-8"
-            style={{
-              height: "58px",
-              borderBottom: "1px solid var(--border)",
-              backgroundColor: "var(--card)",
-            }}
-          >
-            <SearchBar />
-          </header>
-          <main className="flex-1 overflow-y-auto">
-            <div className="max-w-[1200px] mx-auto px-8 py-8">{children}</div>
-          </main>
-        </div>
-      </SidebarProvider>
+    <div style={{
+      height: "100vh", width: "100%", background: "#EFF3F1",
+      fontFamily: "var(--font-space-grotesk, 'Space Grotesk', sans-serif)",
+      color: "#003135", display: "flex", gap: 20,
+      overflow: "hidden", padding: 20,
+    }}>
+      <AppSidebar />
+      <main style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column", gap: 18, minWidth: 0 }}>
+        {children}
+      </main>
     </div>
   )
 }

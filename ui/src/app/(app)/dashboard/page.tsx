@@ -1,227 +1,312 @@
-export const dynamic = "force-dynamic"
+"use client"
 
-import { createClient } from "@/lib/supabase"
-import { StatCard } from "@/components/stat-card"
-import { StatusBadge } from "@/components/status-badge"
-import { DiscoveredJobCard } from "@/components/discovered-job-card"
-import type { Application, ApplicationStatus, DiscoveredJob } from "@/lib/types"
+import { useEffect, useRef, useState } from "react"
+import type { Application, ApplicationStatus } from "@/lib/types"
 
-async function fetchDashboardData() {
-  const db = createClient()
-  const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+// ─── Types ────────────────────────────────────────────────────────────────────
+type StatusTab = { label: string; filter: ApplicationStatus | "all" }
 
-  const [appsResult, outreachResult, discoveredResult] = await Promise.all([
-    db
-      .from("applications")
-      .select("id,job_url,title,company,ats_platform,status,submission_type,submitted_at")
-      .order("submitted_at", { ascending: false }),
-    db.from("outreach_log").select("id").gte("sent_at", since24h),
-    db
-      .from("jobs_seen")
-      .select("id,url,title,company,source,created_at")
-      .order("created_at", { ascending: false })
-      .limit(6),
-  ])
+const STATUS_TABS: StatusTab[] = [
+  { label: "All",       filter: "all" },
+  { label: "Applied",   filter: "applied" },
+  { label: "Interview", filter: "interview" },
+  { label: "Pending",   filter: "manual_pending" },
+  { label: "Rejected",  filter: "rejection" },
+  { label: "Ghosted",   filter: "ghosted" },
+]
 
-  const apps = (appsResult.data ?? []) as Application[]
-
-  return {
-    total:       apps.length,
-    interviews:  apps.filter((a) => a.status === "interview").length,
-    rejections:  apps.filter((a) => a.status === "rejection").length,
-    outreach24h: (outreachResult.data ?? []).length,
-    discovered:  (discoveredResult.data ?? []) as DiscoveredJob[],
-    recent:      apps.slice(0, 10),
-  }
+const FILTER_OPTIONS: Record<string, string[]> = {
+  Date:          ["Any time", "Past 24 hours", "Past week", "Past month"],
+  Location:      ["Remote", "San Francisco, CA", "New York, NY", "Austin, TX"],
+  Workplace:     ["Remote", "Hybrid", "Onsite"],
+  Companies:     ["Stripe", "Figma", "Google", "Startups only"],
+  "Degree Level":   ["High school", "Associate", "Bachelor's", "Master's", "PhD"],
+  "Max Experience": ["Entry level", "1–3 years", "3–5 years", "5+ years"],
+  "Sponsors Visa":  ["Yes", "No", "Any"],
+  Role:          ["Engineering", "Design", "Product", "Data", "Marketing"],
+  "Job Type":    ["Full-time", "Part-time", "Internship", "Contract"],
 }
 
-export default async function DashboardPage() {
-  const data = await fetchDashboardData()
+const FILTER_KEYS = Object.keys(FILTER_OPTIONS)
 
-  const responseRate =
-    data.total > 0
-      ? Math.round(((data.interviews + data.rejections) / data.total) * 100)
-      : 0
+const SHIMMER_CSS = `
+  @keyframes dash-shimmer { 0%{background-position:100% 0} 100%{background-position:0 0} }
+  .dash-shimmer { background: linear-gradient(90deg, #EDF2F0 25%, #F6F9F8 37%, #EDF2F0 63%); background-size: 400% 100%; animation: dash-shimmer 1.4s ease infinite; border-radius: 6px; }
+  input::placeholder { color: rgba(0,49,53,0.4); }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-thumb { background: rgba(0,49,53,0.14); border-radius: 8px; }
+  .pill-filter:hover { opacity: 0.85; }
+  .app-row:hover { background: rgba(0,49,53,0.02); }
+  .dash-btn:hover { opacity: 0.85; }
+`
 
+function statusColor(status: ApplicationStatus) {
+  if (status === "applied")        return "#0FA4AF"
+  if (status === "interview")      return "#4FD1B5"
+  if (status === "manual_pending") return "#D9B25C"
+  if (status === "rejection")      return "#E39C88"
+  return "rgba(0,49,53,0.4)"
+}
+
+function statusLabel(status: ApplicationStatus) {
+  if (status === "applied")        return "Applied"
+  if (status === "interview")      return "Interview"
+  if (status === "manual_pending") return "Pending"
+  if (status === "rejection")      return "Rejected"
+  if (status === "ghosted")        return "Ghosted"
+  return status
+}
+
+function getInitials(company: string | null) {
+  if (!company) return "—"
+  return company.split(/\s+/).slice(0, 2).map(w => w[0]).join("").toUpperCase()
+}
+
+const AVATAR_COLORS = ["#F6D9CF", "#CDEFF2", "#D8EFE1", "#E4D9F2", "#D9EEF6", "#F2E4D9"]
+function avatarColor(company: string | null) {
+  const n = (company ?? "").split("").reduce((a, c) => a + c.charCodeAt(0), 0)
+  return AVATAR_COLORS[n % AVATAR_COLORS.length]
+}
+
+function timeAgo(iso: string) {
+  const diff = Date.now() - new Date(iso).getTime()
+  const h = Math.floor(diff / 3600000)
+  if (h < 1) return "just now"
+  if (h < 24) return `${h}h ago`
+  const d = Math.floor(h / 24)
+  return `${d}d ago`
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
+export default function DashboardPage() {
+  const [apps, setApps]         = useState<Application[]>([])
+  const [loading, setLoading]   = useState(true)
+  const [activeTab, setActiveTab] = useState<StatusTab["filter"]>("all")
+  const [search, setSearch]     = useState("")
+  const [openFilter, setOpenFilter] = useState<string | null>(null)
+  const [filterValues, setFilterValues] = useState<Record<string, string>>({})
+  const closeRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    fetch("/api/applications")
+      .then(r => r.json())
+      .then(data => { setApps(Array.isArray(data) ? data : []); setLoading(false) })
+      .catch(() => setLoading(false))
+  }, [])
+
+  // Close filter dropdown on outside click
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (openFilter && !(e.target as Element).closest("[data-filter-pill]")) {
+        setOpenFilter(null)
+      }
+    }
+    document.addEventListener("mousedown", handler)
+    return () => document.removeEventListener("mousedown", handler)
+  }, [openFilter])
+
+  const filtered = apps.filter(a => {
+    if (activeTab !== "all" && a.status !== activeTab) return false
+    if (search) {
+      const q = search.toLowerCase()
+      return (a.title?.toLowerCase().includes(q) || a.company?.toLowerCase().includes(q))
+    }
+    return true
+  })
+
+  const countFor = (f: StatusTab["filter"]) =>
+    f === "all" ? apps.length : apps.filter(a => a.status === f).length
+
+  // ─── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="space-y-7">
+    <>
+      <style dangerouslySetInnerHTML={{ __html: SHIMMER_CSS }} />
 
-      {/* Header */}
-      <div className="animate-fade-up flex items-start justify-between">
-        <div>
-          <h1 className="text-[1.875rem] font-semibold tracking-tight" style={{ color: "var(--foreground)" }}>
-            Dashboard
-          </h1>
-          <p className="text-[13px] mt-1" style={{ color: "var(--muted-foreground)" }}>
-            Live overview of your autonomous job search.
-          </p>
-        </div>
-
-        {/* Agent pill — button-in-button */}
-        <div
-          className="flex items-center gap-2 pl-3 pr-1.5 py-1.5 rounded-full text-[11px] font-medium"
-          style={{
-            backgroundColor: "var(--card)",
-            border: "1px solid var(--border)",
-            boxShadow: "var(--shadow-sm)",
-            color: "var(--muted-foreground)",
-          }}
-        >
-          <span className="relative flex h-1.5 w-1.5 shrink-0">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-55"
-              style={{ backgroundColor: "oklch(0.640 0.120 200)" }} />
-            <span className="relative inline-flex rounded-full h-1.5 w-1.5"
-              style={{ backgroundColor: "oklch(0.560 0.115 200)", boxShadow: "0 0 6px oklch(0.560 0.115 200 / 0.55)" }} />
-          </span>
-          Agent running
-          <span
-            className="px-2 py-0.5 rounded-full text-[10px] font-semibold"
-            style={{ backgroundColor: "var(--muted)", color: "var(--primary)", border: "1px solid var(--border)" }}
-          >
-            Hourly
-          </span>
-        </div>
-      </div>
-
-      {/* Stats — asymmetric bento */}
-      <div className="grid gap-3" style={{ gridTemplateColumns: "2fr 1fr 1fr" }}>
-        <StatCard label="Total Applied"  value={data.total}       large accent index={0} />
-        <StatCard label="Interviews"     value={data.interviews}        index={1} />
-        <StatCard label="Response Rate"  value={responseRate} sub="%" index={2} />
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        <StatCard label="Rejections"          value={data.rejections}   index={3} />
-        <StatCard label="Outreach Sent (24h)" value={data.outreach24h}  index={4} />
-      </div>
-
-      {/* Discovered jobs — horizontal scroll cards (Tsenta-inspired) */}
-      {data.discovered.length > 0 && (
-        <div className="animate-fade-up" style={{ animationDelay: "220ms" }}>
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <h2 className="text-[13px] font-semibold" style={{ color: "var(--foreground)" }}>
-                Top Job Matches
-              </h2>
-              <p className="text-[11px] mt-0.5" style={{ color: "var(--muted-foreground)" }}>
-                Recently discovered by the agent
-              </p>
-            </div>
-          </div>
-          <div
-            className="flex gap-3 overflow-x-auto pb-2"
-            style={{ scrollbarWidth: "none" } as React.CSSProperties}
-          >
-            {data.discovered.map((job, i) => (
-              <DiscoveredJobCard key={job.id} job={job} index={i} />
-            ))}
+      {/* ── Toolbar card ── */}
+      <div style={{ background: "#fff", borderRadius: 18, boxShadow: "0 1px 3px rgba(0,49,53,0.05)", padding: "18px 20px", flexShrink: 0 }}>
+        {/* Search */}
+        <div style={{ display: "flex", gap: 12, marginBottom: 14 }}>
+          <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 10, background: "#F5F8F7", borderRadius: 10, padding: "0 16px" }}>
+            <span style={{ color: "rgba(0,49,53,0.35)", fontSize: 16 }}>⌕</span>
+            <input
+              type="text" placeholder="Search by title or keyword…"
+              value={search} onChange={e => setSearch(e.target.value)}
+              style={{ flex: 1, border: "none", outline: "none", background: "transparent", fontFamily: "inherit", fontSize: 14, padding: "12px 0", color: "#003135" }}
+            />
           </div>
         </div>
-      )}
 
-      {/* Recent applications table */}
-      <div className="animate-fade-up" style={{ animationDelay: "280ms" }}>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-[13px] font-semibold" style={{ color: "var(--foreground)" }}>
-            All Applications
-          </h2>
-          <a href="/applications" className="text-[12px] font-medium transition-premium" style={{ color: "var(--primary)" }}>
-            View all →
-          </a>
-        </div>
+        {/* Filter pills */}
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", position: "relative" }}>
+          {FILTER_KEYS.map(key => {
+            const selected = filterValues[key]
+            const active = !!selected
+            const isOpen = openFilter === key
+            return (
+              <div key={key} style={{ position: "relative" }} data-filter-pill>
+                <div
+                  className="pill-filter"
+                  onClick={() => setOpenFilter(p => p === key ? null : key)}
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 8,
+                    borderRadius: 20, padding: "9px 16px", cursor: "pointer",
+                    background: active ? "#024950" : "#F5F8F7",
+                    color: active ? "#fff" : "#003135",
+                  }}
+                >
+                  <span style={{ fontSize: 13, fontWeight: 600 }}>{selected ? `${key}: ${selected}` : key}</span>
+                  {active
+                    ? <span onClick={e => { e.stopPropagation(); setFilterValues(p => { const n = { ...p }; delete n[key]; return n }) }} style={{ cursor: "pointer", opacity: 0.7 }}>×</span>
+                    : <span style={{ opacity: 0.4, fontSize: 11 }}>▾</span>
+                  }
+                </div>
 
-        <div className="bezel-shell">
-          <div className="bezel-core overflow-hidden">
-            {data.recent.length === 0 ? (
-              <EmptyApplications />
-            ) : (
-              <table className="w-full text-[13px]">
-                <thead>
-                  <tr style={{ backgroundColor: "var(--muted)", borderBottom: "1px solid var(--border)" }}>
-                    {["Company", "Role", "Status", "Date"].map((h) => (
-                      <th key={h} className="text-left px-4 py-3 font-medium"
-                        style={{ color: "var(--muted-foreground)", fontSize: "11px", letterSpacing: "0.05em" }}>
-                        {h}
-                      </th>
+                {isOpen && (
+                  <div style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, minWidth: 190, background: "#fff", borderRadius: 12, boxShadow: "0 8px 24px rgba(0,49,53,0.14)", padding: 6, zIndex: 50, display: "flex", flexDirection: "column", gap: 2, maxHeight: 260, overflowY: "auto" }}>
+                    {FILTER_OPTIONS[key].map(opt => (
+                      <div
+                        key={opt}
+                        onClick={() => { setFilterValues(p => ({ ...p, [key]: opt })); setOpenFilter(null) }}
+                        style={{ padding: "10px 14px", fontSize: 13, fontWeight: opt === selected ? 700 : 500, cursor: "pointer", color: opt === selected ? "#964734" : "#003135", background: opt === selected ? "rgba(150,71,52,0.08)" : "transparent", borderRadius: 8 }}
+                      >
+                        {opt}
+                      </div>
                     ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.recent.map((app, i) => (
-                    <tr
-                      key={app.id}
-                      className="transition-premium"
-                      style={{ borderBottom: i < data.recent.length - 1 ? "1px solid var(--border)" : "none" }}
-                      onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.backgroundColor = "var(--muted)")}
-                      onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.backgroundColor = "transparent")}
-                    >
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2.5">
-                          <CompanyAvatar name={app.company} />
-                          <span className="font-medium" style={{ color: "var(--foreground)" }}>
-                            {app.company ?? "—"}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        {app.title ? (
-                          <a href={app.job_url} target="_blank" rel="noopener noreferrer"
-                            className="transition-premium hover:underline" style={{ color: "var(--primary)" }}>
-                            {app.title}
-                          </a>
-                        ) : <span style={{ color: "var(--muted-foreground)" }}>—</span>}
-                      </td>
-                      <td className="px-4 py-3">
-                        <StatusBadge status={app.status as ApplicationStatus} />
-                      </td>
-                      <td className="px-4 py-3"
-                        style={{ color: "var(--muted-foreground)", fontFamily: "var(--font-mono, monospace)", fontSize: "11px" }}>
-                        {new Date(app.submitted_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
+                  </div>
+                )}
+              </div>
+            )
+          })}
         </div>
       </div>
-    </div>
-  )
-}
 
-export function CompanyAvatar({ name }: { name: string | null }) {
-  const initials = name ? name.slice(0, 2).toUpperCase() : "?"
-  const hue = name
-    ? (name.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0) * 37) % 360
-    : 200
-  return (
-    <div
-      className="w-6 h-6 rounded-lg shrink-0 flex items-center justify-center text-[9px] font-bold"
-      style={{
-        background: `oklch(0.88 0.055 ${hue})`,
-        color: `oklch(0.30 0.090 ${hue})`,
-      }}
-    >
-      {initials}
-    </div>
-  )
-}
-
-function EmptyApplications() {
-  return (
-    <div className="px-8 py-16 text-center">
-      <div className="w-10 h-10 rounded-2xl mx-auto mb-4 flex items-center justify-center"
-        style={{ backgroundColor: "var(--muted)", border: "1px solid var(--border)" }}>
-        <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5"
-          style={{ color: "var(--muted-foreground)" }}>
-          <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" />
-          <rect x="9" y="3" width="6" height="4" rx="1" />
-        </svg>
+      {/* ── No picks banner ── */}
+      <div style={{ background: "linear-gradient(135deg, rgba(15,164,175,0.08), rgba(150,71,52,0.06))", borderRadius: 18, padding: "36px 24px", textAlign: "center", flexShrink: 0 }}>
+        <div style={{ width: 40, height: 40, borderRadius: 11, background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px", color: "#024950", fontSize: 17 }}>◎</div>
+        <p style={{ margin: "0 0 6px", fontSize: 16, fontWeight: 700 }}>No picks today</p>
+        <p style={{ margin: 0, fontSize: 13, color: "rgba(0,49,53,0.55)" }}>The agent didn't surface anything new — broaden your filters or check back later.</p>
       </div>
-      <p className="text-[13px] font-semibold mb-1" style={{ color: "var(--foreground)" }}>No applications yet</p>
-      <p className="text-[12px]" style={{ color: "var(--muted-foreground)" }}>
-        The agent will populate this on its first hourly run.
-      </p>
-    </div>
+
+      {/* ── Applications section ── */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+        <h2 style={{ fontSize: 19, fontWeight: 700, margin: 0 }}>All applications</h2>
+        <div style={{ display: "flex", gap: 10 }}>
+          <button className="dash-btn" style={{ background: "#fff", border: "none", color: "#003135", borderRadius: 20, padding: "10px 18px", fontFamily: "inherit", fontSize: 13, fontWeight: 700, cursor: "pointer", boxShadow: "0 1px 3px rgba(0,49,53,0.08)" }}>
+            Open tracker
+          </button>
+          <button className="dash-btn" style={{ background: "#964734", border: "none", color: "#fff", borderRadius: 20, padding: "10px 18px", fontFamily: "inherit", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+            Approve all
+          </button>
+        </div>
+      </div>
+
+      {/* ── Applications table card ── */}
+      <div style={{ background: "#fff", borderRadius: 18, boxShadow: "0 1px 3px rgba(0,49,53,0.05)", overflow: "hidden", flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
+
+        {/* Table header row */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, padding: "16px 20px", borderBottom: "1px solid rgba(0,49,53,0.07)", flexWrap: "wrap", flexShrink: 0 }}>
+          {/* Status tabs */}
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {STATUS_TABS.map(tab => {
+              const active = activeTab === tab.filter
+              const count = countFor(tab.filter)
+              return (
+                <div
+                  key={tab.filter}
+                  onClick={() => setActiveTab(tab.filter)}
+                  style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 18, cursor: "pointer", fontSize: 13, fontWeight: 600, background: active ? "#964734" : "#F5F8F7", color: active ? "#fff" : "rgba(0,49,53,0.6)" }}
+                >
+                  <span>{tab.label}</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, padding: "1px 6px", borderRadius: 8, background: active ? "rgba(255,255,255,0.25)" : "rgba(0,49,53,0.08)" }}>{count}</span>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Company search */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, background: "#F5F8F7", borderRadius: 10, padding: "0 14px" }}>
+            <span style={{ color: "rgba(0,49,53,0.35)", fontSize: 13 }}>⌕</span>
+            <input
+              type="text" placeholder="Search company…"
+              style={{ border: "none", outline: "none", background: "transparent", fontFamily: "inherit", fontSize: 13, padding: "10px 0", width: 140, color: "#003135" }}
+              onChange={e => setSearch(e.target.value)}
+            />
+          </div>
+        </div>
+
+        {/* Column headers */}
+        <div style={{ display: "grid", gridTemplateColumns: "2.4fr 1fr 1fr 1fr 1fr", gap: 12, padding: "12px 20px", fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", color: "rgba(0,49,53,0.4)", flexShrink: 0 }}>
+          <span>COMPANY</span>
+          <span>RESUME</span>
+          <span>COVER LETTER</span>
+          <span>STATUS</span>
+          <span>APPLIED</span>
+        </div>
+
+        {/* Scrollable rows */}
+        <div style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
+          {loading ? (
+            // Skeleton rows
+            [0,1,2,3].map(i => (
+              <div key={i} style={{ display: "grid", gridTemplateColumns: "2.4fr 1fr 1fr 1fr 1fr", gap: 12, alignItems: "center", padding: "16px 20px", borderTop: "1px solid rgba(0,49,53,0.06)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+                  <div className="dash-shimmer" style={{ width: 38, height: 38, borderRadius: 10, flexShrink: 0 }} />
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div className="dash-shimmer" style={{ height: 13, width: "60%", marginBottom: 8 }} />
+                    <div className="dash-shimmer" style={{ height: 11, width: "40%" }} />
+                  </div>
+                </div>
+                <div className="dash-shimmer" style={{ height: 11, width: 70 }} />
+                <div className="dash-shimmer" style={{ height: 11, width: 70 }} />
+                <div className="dash-shimmer" style={{ height: 11, width: 60 }} />
+                <div className="dash-shimmer" style={{ height: 11, width: 50 }} />
+              </div>
+            ))
+          ) : filtered.length === 0 ? (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", padding: "60px 24px" }}>
+              <div style={{ width: 44, height: 44, borderRadius: 12, background: "#F5F8F7", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 16, color: "#024950", fontSize: 19 }}>◎</div>
+              <p style={{ margin: "0 0 6px", fontSize: 15, fontWeight: 700 }}>No applications here</p>
+              <p style={{ margin: "0 0 18px", fontSize: 13, color: "rgba(0,49,53,0.5)", maxWidth: 320 }}>
+                Nothing matches {activeTab !== "all" ? `"${STATUS_TABS.find(t => t.filter === activeTab)?.label}"` : "your filters"} right now.
+              </p>
+              {activeTab !== "all" && (
+                <button onClick={() => setActiveTab("all")} style={{ background: "#F5F8F7", border: "none", color: "#003135", borderRadius: 20, padding: "10px 18px", fontFamily: "inherit", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                  Show all applications
+                </button>
+              )}
+            </div>
+          ) : (
+            filtered.map(app => (
+              <div key={app.id} className="app-row" style={{ display: "grid", gridTemplateColumns: "2.4fr 1fr 1fr 1fr 1fr", gap: 12, alignItems: "center", padding: "16px 20px", borderTop: "1px solid rgba(0,49,53,0.06)" }}>
+                {/* Company */}
+                <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 9, background: avatarColor(app.company), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, flexShrink: 0, color: "#003135" }}>
+                    {getInitials(app.company)}
+                  </div>
+                  <div style={{ minWidth: 0 }}>
+                    <p style={{ margin: 0, fontSize: 14, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{app.company ?? "—"}</p>
+                    <p style={{ margin: 0, fontSize: 12, color: "rgba(0,49,53,0.45)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{app.title ?? "—"}</p>
+                  </div>
+                </div>
+                {/* Resume */}
+                <span style={{ fontSize: 13, fontWeight: 600, color: app.resume_pdf_path ? "#0FA4AF" : "rgba(0,49,53,0.4)" }}>
+                  ● {app.resume_pdf_path ? "Ready" : "—"}
+                </span>
+                {/* Cover letter */}
+                <span style={{ fontSize: 13, fontWeight: 600, color: app.cover_letter_path ? "#0FA4AF" : "rgba(0,49,53,0.4)" }}>
+                  ● {app.cover_letter_path ? "Ready" : "—"}
+                </span>
+                {/* Status */}
+                <span style={{ fontSize: 13, fontWeight: 600, color: statusColor(app.status) }}>
+                  ● {statusLabel(app.status)}
+                </span>
+                {/* Applied */}
+                <span style={{ fontSize: 13, color: "rgba(0,49,53,0.45)" }}>{timeAgo(app.submitted_at)}</span>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </>
   )
 }
