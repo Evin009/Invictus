@@ -83,6 +83,10 @@ const INJECTED_CSS = `
 
   .li-pw-seg { transition: background 0.3s ease, transform 0.2s ease; }
   .li-pw-req { transition: opacity 0.25s ease, color 0.25s ease; }
+  .li-panel-scroll::-webkit-scrollbar { width: 3px; }
+  .li-panel-scroll::-webkit-scrollbar-track { background: transparent; }
+  .li-panel-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 4px; }
+  .li-panel-scroll::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.28); }
   @keyframes li-floatA{0%,100%{transform:translateY(0px)}50%{transform:translateY(-16px)}}
   @keyframes li-floatB{0%,100%{transform:translateY(0px)}50%{transform:translateY(-9px)}}
   @keyframes li-rise{0%{transform:translateY(0) rotate(0deg);opacity:0;}12%{opacity:0.9;}85%{opacity:0.5;}100%{transform:translateY(-340px) rotate(70deg);opacity:0;}}
@@ -228,7 +232,7 @@ export default function LoginPage() {
         }}>
 
           {/* ── Left: form panel ── */}
-          <div ref={formPanelRef} style={{ width: "44%", flexShrink: 0, padding: "48px 52px", display: "flex", flexDirection: "column", color: "#fff", position: "relative" }}>
+          <div ref={formPanelRef} className="li-panel-scroll" style={{ width: "44%", flexShrink: 0, padding: "48px 52px", display: "flex", flexDirection: "column", color: "#fff", position: "relative", overflowY: "auto" }}>
 
             {/* Logo */}
             <div className="li-form-item" style={{ display: "flex", alignItems: "center", gap: 10 }}>
