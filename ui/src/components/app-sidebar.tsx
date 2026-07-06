@@ -1,8 +1,9 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { createBrowserSupabaseClient } from "@/lib/supabase-browser"
+import gsap from "gsap"
 
 const CSS = `
   .sb-item:hover { background: rgba(0,49,53,0.06) !important; }
@@ -38,6 +39,26 @@ export function AppSidebar() {
   const pathname = usePathname()
   const supabase = useMemo(() => createBrowserSupabaseClient(), [])
   const [collapsed, setCollapsed] = useState(false)
+  const sidebarRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const ctx = gsap.context(() => {
+      gsap.from(".sb-logo-row", {
+        opacity: 0, y: -12, duration: 0.5, ease: "power3.out",
+      })
+      gsap.from(".sb-item", {
+        opacity: 0, x: -16, duration: 0.45, ease: "power3.out",
+        stagger: 0.06, delay: 0.12,
+      })
+      gsap.from(".sb-collapse-wrap", {
+        opacity: 0, y: 8, duration: 0.35, ease: "power2.out", delay: 0.45,
+      })
+      gsap.from(".sb-logout", {
+        opacity: 0, y: 8, duration: 0.35, ease: "power2.out", delay: 0.5,
+      })
+    }, sidebarRef)
+    return () => ctx.revert()
+  }, [])
 
   async function logout() {
     await supabase.auth.signOut()
@@ -52,7 +73,7 @@ export function AppSidebar() {
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
-      <div style={{
+      <div ref={sidebarRef} style={{
         width: collapsed ? 76 : 250, flexShrink: 0,
         background: "#fff", borderRadius: 20,
         boxShadow: "0 1px 3px rgba(0,49,53,0.06)",
@@ -62,7 +83,7 @@ export function AppSidebar() {
       }}>
 
         {/* Logo row */}
-        <div style={{ display: "flex", alignItems: "center", padding: "6px 10px 22px" }}>
+        <div className="sb-logo-row" style={{ display: "flex", alignItems: "center", padding: "6px 10px 22px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: collapsed ? 0 : 9, overflow: "hidden" }}>
             <svg viewBox="0 0 100 100" width={22} height={22} style={{ flexShrink: 0 }}>
               <path d="M50 6 L94 50 L50 94 L6 50 Z" fill="none" stroke="#003135" strokeWidth="8" strokeLinejoin="round" strokeLinecap="round" />
@@ -101,7 +122,7 @@ export function AppSidebar() {
         </div>
 
         {/* Collapse toggle */}
-        <div style={{ display: "flex", justifyContent: collapsed ? "center" : "flex-start", padding: "10px 12px 6px" }}>
+        <div className="sb-collapse-wrap" style={{ display: "flex", justifyContent: collapsed ? "center" : "flex-start", padding: "10px 12px 6px" }}>
           <button
             className="sb-collapse"
             onClick={() => setCollapsed(p => !p)}

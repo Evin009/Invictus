@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
+import gsap from "gsap"
 
 const CSS = `
   @keyframes trk-shimmer { 0%{background-position:100% 0} 100%{background-position:0 0} }
@@ -141,6 +142,28 @@ export default function TrackerPage() {
   const [tooltip, setTooltip] = useState<{ stage: string; y: number } | null>(null)
   const [dragOver, setDragOver] = useState<string | null>(null)
   const draggedId = useRef<string | null>(null)
+  const boardRef = useRef<HTMLDivElement>(null)
+  const headerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!headerRef.current) return
+    gsap.from(headerRef.current, {
+      opacity: 0, y: -14, duration: 0.45, ease: "power3.out",
+      clearProps: "transform,opacity",
+    })
+  }, [])
+
+  useEffect(() => {
+    if (loading || !boardRef.current) return
+    const ctx = gsap.context(() => {
+      gsap.from(".trk-col", {
+        opacity: 0, y: 32, duration: 0.55,
+        ease: "power3.out", stagger: 0.09,
+        clearProps: "transform,opacity",
+      })
+    }, boardRef)
+    return () => ctx.revert()
+  }, [loading])
 
   useEffect(() => {
     fetch("/api/applications")
@@ -191,7 +214,7 @@ export default function TrackerPage() {
     <>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
 
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+      <div ref={headerRef} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
         <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>Application tracker</h1>
         <p style={{ margin: 0, fontSize: 13, color: "rgba(0,49,53,0.45)" }}>Drag cards between stages to update status</p>
       </div>
@@ -300,13 +323,14 @@ export default function TrackerPage() {
           ))}
         </div>
       ) : hasCards ? (
-        <div style={{ flex: 1, display: "flex", gap: 16, overflowX: "auto", overflowY: "hidden", minHeight: 0 }}>
+        <div ref={boardRef} style={{ flex: 1, display: "flex", gap: 16, overflowX: "auto", overflowY: "hidden", minHeight: 0 }}>
           {COLUMN_DEFS.map(def => {
             const colCards = cards.filter(c => c.column === def.id)
             const isOver = dragOver === def.id
             return (
               <div
                 key={def.id}
+                className="trk-col"
                 onDragOver={e => onDragOver(e, def.id)}
                 onDragLeave={onDragLeave}
                 onDrop={() => onDrop(def.id)}

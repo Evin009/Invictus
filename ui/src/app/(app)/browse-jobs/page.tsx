@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import gsap from "gsap"
 
 const CSS = `
   @keyframes bj-shimmer { 0%{background-position:100% 0} 100%{background-position:0 0} }
@@ -96,6 +97,8 @@ export default function BrowseJobsPage() {
   const [filterValues, setFilterValues] = useState<Record<string, string>>({})
   const [sortValue, setSortValue] = useState("Best match")
   const containerRef = useRef<HTMLDivElement>(null)
+  const detailRef = useRef<HTMLDivElement>(null)
+  const cardListRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     fetch("/api/jobs")
@@ -111,6 +114,28 @@ export default function BrowseJobsPage() {
       })
       .finally(() => setLoading(false))
   }, [])
+
+  // Stagger cards when data arrives
+  useEffect(() => {
+    if (loading || !cardListRef.current) return
+    const ctx = gsap.context(() => {
+      gsap.from(".bj-card", {
+        opacity: 0, y: 22, duration: 0.48,
+        ease: "power3.out", stagger: 0.07,
+        clearProps: "transform,opacity",
+      })
+    }, cardListRef)
+    return () => ctx.revert()
+  }, [loading])
+
+  // Slide detail panel in when selection changes
+  useEffect(() => {
+    if (!detailRef.current || !selectedId) return
+    gsap.fromTo(detailRef.current,
+      { opacity: 0, x: 18 },
+      { opacity: 1, x: 0, duration: 0.35, ease: "power3.out", clearProps: "transform,opacity" }
+    )
+  }, [selectedId])
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -267,6 +292,7 @@ export default function BrowseJobsPage() {
           </div>
 
           {/* Job cards */}
+          <div ref={cardListRef}>
           {loading ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               {[0,1,2,3,4].map(i => (
@@ -388,10 +414,11 @@ export default function BrowseJobsPage() {
               })}
             </div>
           )}
+          </div>
         </div>
 
         {/* Detail panel */}
-        <div style={{
+        <div ref={detailRef} style={{
           width: 340, flexShrink: 0, background: "#fff", borderRadius: 18,
           boxShadow: "0 1px 3px rgba(0,49,53,0.05)", padding: 28,
           alignSelf: "flex-start", position: "sticky", top: 0, overflowY: "auto", maxHeight: "100%",
