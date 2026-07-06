@@ -1,0 +1,14 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "space grotesk",
+        "reason": "Explicitly specified in user design handoff",
+        "createdAt": "2026-07-06T00:26:46.146Z"
+      }
+    ]
+  }
+}

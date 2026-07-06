@@ -21,8 +21,17 @@ export async function PATCH(req: NextRequest) {
     const {
       full_name, email, phone, linkedin_url, github_url,
       education, work_history, skills,
+      current_location, portfolio, major, gpa, grad_month, grad_year,
+      work_auth, sponsorship, relocate, work_mode, start_date,
+      gender, race, veteran, disability, pronouns,
     } = body
-    const allowed = { full_name, email, phone, linkedin_url, github_url, education, work_history, skills }
+    const allowed = {
+      full_name, email, phone, linkedin_url, github_url,
+      education, work_history, skills,
+      current_location, portfolio, major, gpa, grad_month, grad_year,
+      work_auth, sponsorship, relocate, work_mode, start_date,
+      gender, race, veteran, disability, pronouns,
+    }
 
     const db = createClient()
     const { data: existing } = await db.from("user_profile").select("id").limit(1)

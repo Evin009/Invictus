@@ -36,6 +36,7 @@ export interface Preferences {
   locations: string[] | null
   seniority: string[] | null
   salary_floor: number | null
+  desired_salary: number | null
   role_keywords: string[] | null
 }
 
@@ -49,6 +50,22 @@ export interface UserProfile {
   education: Record<string, unknown>[] | null
   work_history: Record<string, unknown>[] | null
   skills: string[] | null
+  current_location: string | null
+  portfolio: string | null
+  major: string | null
+  gpa: string | null
+  grad_month: string | null
+  grad_year: string | null
+  work_auth: string | null
+  sponsorship: string | null
+  relocate: string | null
+  work_mode: string | null
+  start_date: string | null
+  gender: string | null
+  race: string | null
+  veteran: string | null
+  disability: string | null
+  pronouns: string | null
 }
 
 export interface Seed {
