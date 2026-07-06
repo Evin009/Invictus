@@ -5,10 +5,9 @@ import { useRouter } from "next/navigation"
 
 const CSS = `
   @keyframes trk-shimmer { 0%{background-position:100% 0} 100%{background-position:0 0} }
-  .trk-card { transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease; cursor: grab; }
-  .trk-card:hover { transform: translateY(-2px); box-shadow: 0 8px 18px rgba(0,49,53,0.12) !important; background: #fff !important; }
-  .trk-card:active { cursor: grabbing; }
-  .trk-col-drop { outline: 2px dashed rgba(2,73,80,0.3); outline-offset: -4px; }
+  .trk-card { transition: transform 0.2s cubic-bezier(0.32,0.72,0,1), box-shadow 0.2s cubic-bezier(0.32,0.72,0,1); cursor: grab; }
+  .trk-card:hover { transform: translateY(-2px); box-shadow: 0 10px 22px rgba(0,49,53,0.13) !important; }
+  .trk-card:active { cursor: grabbing; transform: scale(0.98) !important; }
 `
 
 const SHIMMER: React.CSSProperties = {
@@ -278,14 +277,14 @@ export default function TrackerPage() {
       {loading ? (
         <div style={{ flex: 1, display: "flex", gap: 16, overflowX: "auto", overflowY: "hidden", minHeight: 0 }}>
           {COLUMN_DEFS.map(def => (
-            <div key={def.id} style={{ background: "#fff", borderRadius: 16, padding: 16, width: 250, flexShrink: 0, boxShadow: "0 1px 3px rgba(0,49,53,0.05)", display: "flex", flexDirection: "column", height: "100%" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, flexShrink: 0 }}>
-                <span style={{ width: 9, height: 9, borderRadius: "50%", background: def.color, flexShrink: 0, opacity: 0.4, display: "inline-block" }} />
-                <span style={{ fontSize: 14, fontWeight: 700, flex: 1, opacity: 0.4 }}>{def.label}</span>
+            <div key={def.id} style={{ background: "#fff", borderRadius: 16, width: 250, flexShrink: 0, boxShadow: "0 1px 3px rgba(0,49,53,0.05)", display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
+              <div style={{ height: 3, background: def.color, opacity: 0.3, flexShrink: 0 }} />
+              <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "14px 14px 12px", flexShrink: 0 }}>
+                <span style={{ flex: 1, fontSize: 13, fontWeight: 700, color: def.color, background: `${def.color}0e`, borderRadius: 8, padding: "5px 10px", opacity: 0.5 }}>{def.label}</span>
               </div>
-              <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 10 }}>
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8, padding: "0 12px 12px" }}>
                 {[0, 1].map(i => (
-                  <div key={i} style={{ background: "#F5F8F7", borderRadius: 10, padding: 12 }}>
+                  <div key={i} style={{ background: "#F5F8F7", borderRadius: 10, padding: "11px 12px" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
                       <div style={{ ...SHIMMER, width: 30, height: 30, borderRadius: 8, flexShrink: 0 }} />
                       <div style={{ minWidth: 0, flex: 1 }}>
@@ -308,26 +307,56 @@ export default function TrackerPage() {
             return (
               <div
                 key={def.id}
-                className={isOver ? "trk-col-drop" : ""}
                 onDragOver={e => onDragOver(e, def.id)}
                 onDragLeave={onDragLeave}
                 onDrop={() => onDrop(def.id)}
                 style={{
-                  background: "#fff", borderRadius: 16, padding: 16, width: 250, flexShrink: 0,
-                  boxShadow: "0 1px 3px rgba(0,49,53,0.05)", display: "flex", flexDirection: "column",
+                  background: isOver ? `${def.color}0a` : "#fff",
+                  borderRadius: 16, width: 250, flexShrink: 0,
+                  boxShadow: isOver
+                    ? `0 0 0 1.5px ${def.color}55, 0 4px 16px rgba(0,49,53,0.08)`
+                    : "0 1px 3px rgba(0,49,53,0.05)",
+                  display: "flex", flexDirection: "column",
                   height: "100%", minHeight: 0,
+                  overflow: "hidden",
+                  transition: "background 0.15s ease, box-shadow 0.15s ease",
                 }}
               >
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, flexShrink: 0 }}>
-                  <span style={{ width: 9, height: 9, borderRadius: "50%", background: def.color, flexShrink: 0, display: "inline-block" }} />
-                  <span style={{ fontSize: 14, fontWeight: 700, flex: 1 }}>{def.label}</span>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: "rgba(0,49,53,0.45)", background: "#F5F8F7", padding: "2px 8px", borderRadius: 10 }}>{colCards.length}</span>
+                {/* Colored top accent bar */}
+                <div style={{ height: 3, background: def.color, flexShrink: 0, opacity: 0.75 }} />
+
+                {/* Header */}
+                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "14px 14px 12px", flexShrink: 0 }}>
+                  <span style={{
+                    display: "inline-flex", alignItems: "center", gap: 6, flex: 1,
+                    fontSize: 13, fontWeight: 700, color: def.color,
+                    background: `${def.color}14`, borderRadius: 8, padding: "5px 10px",
+                  }}>
+                    <span style={{ width: 7, height: 7, borderRadius: "50%", background: def.color, flexShrink: 0, display: "inline-block" }} />
+                    {def.label}
+                  </span>
+                  <span style={{
+                    fontSize: 12, fontWeight: 800, minWidth: 24, textAlign: "center",
+                    color: colCards.length > 0 ? def.color : "rgba(0,49,53,0.3)",
+                    background: colCards.length > 0 ? `${def.color}14` : "#F5F8F7",
+                    padding: "3px 8px", borderRadius: 8,
+                  }}>{colCards.length}</span>
                 </div>
-                <div style={{ flex: 1, overflowY: "auto", minHeight: 0, display: "flex", flexDirection: "column", gap: 10 }}>
+
+                {/* Cards */}
+                <div style={{ flex: 1, overflowY: "auto", minHeight: 0, display: "flex", flexDirection: "column", gap: 8, padding: "0 12px 12px" }}>
                   {colCards.length === 0 ? (
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flex: 1, textAlign: "center", padding: "20px 10px", border: "1.5px dashed rgba(0,49,53,0.12)", borderRadius: 10 }}>
-                      <span style={{ fontSize: 18, opacity: 0.3, marginBottom: 6 }}>◌</span>
-                      <p style={{ margin: 0, fontSize: 12, color: "rgba(0,49,53,0.35)" }}>No applications yet</p>
+                    <div style={{
+                      display: "flex", flexDirection: "column", alignItems: "center",
+                      justifyContent: "center", flex: 1, textAlign: "center", padding: "20px 10px",
+                      border: `1.5px dashed ${def.color}30`, borderRadius: 10,
+                    }}>
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ opacity: 0.25, marginBottom: 8, color: def.color }}>
+                        <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8"/>
+                        <line x1="12" y1="8" x2="12" y2="16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+                        <line x1="8" y1="12" x2="16" y2="12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+                      </svg>
+                      <p style={{ margin: 0, fontSize: 12, color: "rgba(0,49,53,0.32)", fontWeight: 600 }}>Drop cards here</p>
                     </div>
                   ) : colCards.map(card => (
                     <div
@@ -335,18 +364,25 @@ export default function TrackerPage() {
                       className="trk-card"
                       draggable
                       onDragStart={() => onDragStart(card.id)}
-                      style={{ background: "#F5F8F7", borderRadius: 10, padding: 12, border: "1px solid rgba(0,49,53,0.05)" }}
+                      style={{
+                        background: "#fff", borderRadius: 10, padding: "11px 12px",
+                        boxShadow: `inset 3px 0 0 ${def.color}, 0 1px 3px rgba(0,49,53,0.06)`,
+                      }}
                     >
                       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                        <div style={{ width: 30, height: 30, borderRadius: 8, background: card.color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, flexShrink: 0, color: "#003135" }}>
+                        <div style={{
+                          width: 30, height: 30, borderRadius: 8, background: card.color,
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          fontSize: 11, fontWeight: 700, flexShrink: 0, color: "#003135",
+                        }}>
                           {card.initials}
                         </div>
                         <div style={{ minWidth: 0 }}>
-                          <p style={{ margin: "0 0 1px", fontSize: 13, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{card.company}</p>
+                          <p style={{ margin: "0 0 2px", fontSize: 13, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{card.company}</p>
                           <p style={{ margin: 0, fontSize: 11, color: "rgba(0,49,53,0.45)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{card.role}</p>
                         </div>
                       </div>
-                      <p style={{ margin: 0, fontSize: 11, color: "rgba(0,49,53,0.35)" }}>{card.applied}</p>
+                      <p style={{ margin: 0, fontSize: 11, color: "rgba(0,49,53,0.32)", fontWeight: 500 }}>{card.applied}</p>
                     </div>
                   ))}
                 </div>

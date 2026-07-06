@@ -4,10 +4,14 @@ import { useEffect, useRef, useState } from "react"
 
 const CSS = `
   @keyframes bj-shimmer { 0%{background-position:100% 0} 100%{background-position:0 0} }
-  .bj-card { transition: transform 0.15s ease, box-shadow 0.15s ease; cursor: pointer; }
-  .bj-card:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(0,49,53,0.1) !important; }
-  .bj-pill:hover { opacity: 0.88; }
+  .bj-card { transition: transform 0.22s cubic-bezier(0.32,0.72,0,1), box-shadow 0.22s cubic-bezier(0.32,0.72,0,1), background 0.15s ease; cursor: pointer; }
+  .bj-card:hover { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(0,49,53,0.11) !important; }
+  .bj-pill { transition: opacity 0.12s ease; }
+  .bj-pill:hover { opacity: 0.82; }
   .bj-opt:hover { background: rgba(0,49,53,0.05); }
+  .bj-apply { transition: opacity 0.12s ease, transform 0.12s ease; }
+  .bj-apply:hover:not([disabled]) { opacity: 0.86; transform: translateY(-1px); }
+  .bj-apply:active { transform: translateY(0) !important; }
   input::placeholder { color: rgba(0,49,53,0.4); }
 `
 
@@ -39,6 +43,12 @@ function avatarColor(name: string) {
 }
 function initials(company: string) {
   return company.split(/\s+/).slice(0, 2).map(w => w[0]).join("").toUpperCase() || "??"
+}
+function sourceColor(src: string | null) {
+  if (src === "search")    return "#0FA4AF"
+  if (src === "watchlist") return "#964734"
+  if (src === "crawler")   return "#024950"
+  return "#9CA3A0"
 }
 
 interface RawJob {
@@ -184,7 +194,7 @@ export default function BrowseJobsPage() {
                       {active ? (
                         <span onClick={e => { e.stopPropagation(); removeFilter(key) }} style={{ cursor: "pointer", opacity: 0.7, fontSize: 15, lineHeight: 1 }}>×</span>
                       ) : (
-                        <span style={{ opacity: 0.4, fontSize: 11 }}>▾</span>
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" style={{ opacity: 0.45, flexShrink: 0 }}><path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
                       )}
                     </div>
                     {isOpen && (
@@ -223,7 +233,7 @@ export default function BrowseJobsPage() {
                 style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#fff", borderRadius: 10, padding: "8px 14px", boxShadow: "0 1px 3px rgba(0,49,53,0.06)", cursor: "pointer" }}
               >
                 <span style={{ fontSize: 13, fontWeight: 600 }}>{sortValue}</span>
-                <span style={{ color: "rgba(0,49,53,0.35)", fontSize: 11 }}>▾</span>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" style={{ color: "rgba(0,49,53,0.35)", flexShrink: 0 }}><path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
               </div>
               {openFilter === "__sort" && (
                 <div style={{ ...dropdownPanel, left: "auto", right: 0 }}>
@@ -291,40 +301,53 @@ export default function BrowseJobsPage() {
                     className="bj-card"
                     onClick={() => setSelectedId(j.id)}
                     style={{
-                      background: "#fff", borderRadius: 16, padding: "18px 20px",
-                      boxShadow: isSelected ? "0 0 0 2px #024950, 0 1px 3px rgba(0,49,53,0.06)" : "0 1px 3px rgba(0,49,53,0.05)",
+                      background: isSelected ? "rgba(2,73,80,0.018)" : "#fff",
+                      borderRadius: 16, padding: "18px 20px",
+                      boxShadow: isSelected
+                        ? "0 0 0 1.5px #024950, 0 8px 24px rgba(2,73,80,0.1)"
+                        : "0 1px 3px rgba(0,49,53,0.05)",
                     }}
                   >
                     <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
-                      <div style={{ width: 42, height: 42, borderRadius: 11, background: avatarColor(co), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, flexShrink: 0, color: "#003135" }}>
+                      <div style={{
+                        width: 42, height: 42, borderRadius: 11,
+                        background: avatarColor(co),
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        fontSize: 13, fontWeight: 700, flexShrink: 0, color: "#003135",
+                        boxShadow: "0 1px 3px rgba(0,49,53,0.08)",
+                      }}>
                         {initials(co)}
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
-                          <div>
-                            <p style={{ margin: "0 0 3px", fontSize: 15, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{j.title ?? "Untitled"}</p>
-                            <p style={{ margin: 0, fontSize: 13, color: "rgba(0,49,53,0.55)" }}>{co}{j.source ? ` · via ${j.source}` : ""}</p>
-                          </div>
-                        </div>
-                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
-                          {j.source && (
-                            <span style={{ background: "#F5F8F7", color: "rgba(0,49,53,0.6)", fontSize: 12, fontWeight: 600, padding: "5px 10px", borderRadius: 14 }}>{j.source}</span>
-                          )}
-                        </div>
+                        <p style={{ margin: "0 0 3px", fontSize: 15, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{j.title ?? "Untitled"}</p>
+                        <p style={{ margin: "0 0 12px", fontSize: 13, color: "rgba(0,49,53,0.5)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{co}</p>
+                        {j.source && (
+                          <span style={{
+                            display: "inline-flex", alignItems: "center", gap: 5,
+                            background: `${sourceColor(j.source)}18`,
+                            color: sourceColor(j.source),
+                            fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 12,
+                          }}>
+                            <span style={{ width: 5, height: 5, borderRadius: "50%", background: sourceColor(j.source), flexShrink: 0, display: "inline-block" }} />
+                            {j.source}
+                          </span>
+                        )}
                       </div>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 14, paddingTop: 14, borderTop: "1px solid rgba(0,49,53,0.06)" }}>
-                      <span style={{ fontSize: 12, color: "rgba(0,49,53,0.4)" }}>Discovered {timeAgo(j.discovered_at)}</span>
+                      <span style={{ fontSize: 12, color: "rgba(0,49,53,0.38)" }}>Discovered {timeAgo(j.discovered_at)}</span>
                       <button
+                        className="bj-apply"
                         onClick={e => applyTo(j.id, e)}
                         style={{
-                          border: "none", borderRadius: 16, padding: "8px 16px", fontFamily: "inherit", fontSize: 12, fontWeight: 700,
+                          border: "none", borderRadius: 20, padding: "8px 18px",
+                          fontFamily: "inherit", fontSize: 12, fontWeight: 700,
                           cursor: applied ? "default" : "pointer",
                           background: applied ? "rgba(15,164,175,0.12)" : "#964734",
                           color: applied ? "#0FA4AF" : "#fff",
                         }}
                       >
-                        {applied ? "Applied ✓" : "Quick apply"}
+                        {applied ? "Applied" : "Quick apply"}
                       </button>
                     </div>
                   </div>
@@ -342,67 +365,91 @@ export default function BrowseJobsPage() {
         }}>
           {selected ? (
             <>
-              <div style={{ width: 52, height: 52, borderRadius: 14, background: avatarColor(selected.company ?? ""), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 700, color: "#003135" }}>
-                {initials(selected.company ?? "")}
+              {/* Avatar + title */}
+              <div style={{ display: "flex", gap: 14, alignItems: "flex-start", marginBottom: 16 }}>
+                <div style={{
+                  width: 52, height: 52, borderRadius: 14, flexShrink: 0,
+                  background: avatarColor(selected.company ?? ""),
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 16, fontWeight: 700, color: "#003135",
+                  boxShadow: "0 2px 8px rgba(0,49,53,0.1)",
+                }}>
+                  {initials(selected.company ?? "")}
+                </div>
+                <div style={{ minWidth: 0 }}>
+                  <h2 style={{ margin: "0 0 4px", fontSize: 18, fontWeight: 700, lineHeight: 1.25 }}>{selected.title ?? "Untitled"}</h2>
+                  <p style={{ margin: 0, fontSize: 13, color: "rgba(0,49,53,0.5)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{selected.company}</p>
+                </div>
               </div>
-              <h2 style={{ margin: "14px 0 4px", fontSize: 20, fontWeight: 700 }}>{selected.title ?? "Untitled"}</h2>
-              <p style={{ margin: "0 0 18px", fontSize: 14, color: "rgba(0,49,53,0.55)" }}>
-                {selected.company}{selected.source ? ` · via ${selected.source}` : ""}
-              </p>
 
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 22 }}>
-                {selected.source && (
-                  <span style={{ background: "#F5F8F7", color: "rgba(0,49,53,0.6)", fontSize: 12, fontWeight: 600, padding: "6px 12px", borderRadius: 14 }}>{selected.source}</span>
-                )}
-              </div>
+              {/* Source badge */}
+              {selected.source && (
+                <span style={{
+                  display: "inline-flex", alignItems: "center", gap: 5, marginBottom: 20,
+                  background: `${sourceColor(selected.source)}18`,
+                  color: sourceColor(selected.source),
+                  fontSize: 11, fontWeight: 700, padding: "5px 11px", borderRadius: 12,
+                }}>
+                  <span style={{ width: 5, height: 5, borderRadius: "50%", background: sourceColor(selected.source), display: "inline-block" }} />
+                  via {selected.source}
+                </span>
+              )}
 
-              <div style={{ display: "flex", flexDirection: "column", gap: 14, marginBottom: 24 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+              {/* Metadata */}
+              <div style={{ borderTop: "1px solid rgba(0,49,53,0.07)", borderBottom: "1px solid rgba(0,49,53,0.07)", padding: "14px 0", marginBottom: 20, display: "flex", flexDirection: "column", gap: 10 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13 }}>
                   <span style={{ color: "rgba(0,49,53,0.45)", fontWeight: 600 }}>Discovered</span>
                   <span style={{ fontWeight: 700 }}>{timeAgo(selected.discovered_at)}</span>
                 </div>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
-                  <span style={{ color: "rgba(0,49,53,0.45)", fontWeight: 600 }}>Source</span>
-                  <span style={{ fontWeight: 700 }}>{selected.source ?? "—"}</span>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13 }}>
+                  <span style={{ color: "rgba(0,49,53,0.45)", fontWeight: 600 }}>Status</span>
+                  <span style={{ fontWeight: 700, color: appliedIds.includes(selected.id) ? "#0FA4AF" : "rgba(0,49,53,0.6)" }}>
+                    {appliedIds.includes(selected.id) ? "Queued for apply" : "Not applied"}
+                  </span>
                 </div>
               </div>
 
-              <p style={{ fontSize: 13, lineHeight: 1.7, color: "rgba(0,49,53,0.65)", margin: "0 0 24px" }}>
-                Job discovered by Invictus agents. Click &ldquo;Quick apply&rdquo; to queue this job for the next automated application run, or open it directly to apply manually.
+              <p style={{ fontSize: 13, lineHeight: 1.7, color: "rgba(0,49,53,0.6)", margin: "0 0 22px" }}>
+                Discovered by Invictus agents. Queue it for the next automated run, or open the listing to apply manually.
               </p>
 
+              {/* CTAs */}
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 <button
+                  className="bj-apply"
                   onClick={() => applyTo(selected.id)}
                   style={{
-                    width: "100%", border: "none", borderRadius: 20, padding: 13, fontFamily: "inherit",
-                    fontSize: 14, fontWeight: 700,
+                    width: "100%", border: "none", borderRadius: 20, padding: "13px 0",
+                    fontFamily: "inherit", fontSize: 14, fontWeight: 700,
                     cursor: appliedIds.includes(selected.id) ? "default" : "pointer",
                     background: appliedIds.includes(selected.id) ? "rgba(15,164,175,0.12)" : "#964734",
                     color: appliedIds.includes(selected.id) ? "#0FA4AF" : "#fff",
                   }}
                 >
-                  {appliedIds.includes(selected.id) ? "Applied ✓" : "Quick apply →"}
+                  {appliedIds.includes(selected.id) ? "Queued" : "Quick apply"}
                 </button>
                 {selected.url && selected.url !== "#" && (
                   <a
-                    href={selected.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    href={selected.url} target="_blank" rel="noopener noreferrer"
                     style={{
-                      display: "block", width: "100%", border: "1.5px solid rgba(0,49,53,0.14)", borderRadius: 20, padding: "12px 13px",
-                      fontFamily: "inherit", fontSize: 14, fontWeight: 700, cursor: "pointer",
-                      background: "transparent", color: "#003135", textAlign: "center", textDecoration: "none",
+                      display: "block", width: "100%", textAlign: "center", textDecoration: "none",
+                      border: "1.5px solid rgba(0,49,53,0.14)", borderRadius: 20, padding: "12px 0",
+                      fontFamily: "inherit", fontSize: 14, fontWeight: 700,
+                      background: "transparent", color: "#003135",
                     }}
                   >
-                    Open listing ↗
+                    Open listing
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" style={{ marginLeft: 6, verticalAlign: "middle" }}><path d="M7 17L17 7M17 7H7M17 7v10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
                   </a>
                 )}
               </div>
             </>
           ) : (
-            <div style={{ textAlign: "center", padding: "40px 0" }}>
-              <p style={{ color: "rgba(0,49,53,0.4)", fontSize: 14 }}>Select a job to see details</p>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", textAlign: "center", padding: "40px 20px" }}>
+              <div style={{ width: 44, height: 44, borderRadius: 12, background: "#F5F8F7", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 14, color: "rgba(0,49,53,0.35)" }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="1.8"/><line x1="21" y1="21" x2="16.65" y2="16.65" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
+              </div>
+              <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: "rgba(0,49,53,0.4)" }}>Select a job to see details</p>
             </div>
           )}
         </div>
