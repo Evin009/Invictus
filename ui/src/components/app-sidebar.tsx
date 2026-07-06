@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { createBrowserSupabaseClient } from "@/lib/supabase-browser"
 import gsap from "gsap"
+import { usePageTransition } from "./transition-provider"
 
 const CSS = `
   .sb-item:hover { background: rgba(0,49,53,0.06) !important; }
@@ -37,6 +38,7 @@ const NAV = [
 export function AppSidebar() {
   const router   = useRouter()
   const pathname = usePathname()
+  const { navigate } = usePageTransition()
   const supabase = useMemo(() => createBrowserSupabaseClient(), [])
   const [collapsed, setCollapsed] = useState(false)
   const sidebarRef = useRef<HTMLDivElement>(null)
@@ -62,7 +64,7 @@ export function AppSidebar() {
 
   async function logout() {
     await supabase.auth.signOut()
-    router.push("/login")
+    navigate("/login")
   }
 
   const iconWrap: React.CSSProperties = {
@@ -102,7 +104,7 @@ export function AppSidebar() {
               <div
                 key={item.href}
                 className="sb-item"
-                onClick={() => router.push(item.href)}
+                onClick={() => navigate(item.href)}
                 style={{
                   display: "flex", alignItems: "center", gap: 12,
                   padding: "11px 12px", borderRadius: 10, cursor: "pointer",
