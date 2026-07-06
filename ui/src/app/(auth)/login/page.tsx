@@ -81,6 +81,8 @@ const INJECTED_CSS = `
   .li-submit{display:flex;align-items:center;justify-content:center;gap:8px;background:#964734;color:#fff;border:none;border-radius:26px;padding:15px;font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:700;cursor:pointer;margin-top:4px;transition:background 0.15s ease,transform 0.15s ease,box-shadow 0.15s ease;width:100%;}
   .li-submit:disabled{opacity:0.85;cursor:default;}
 
+  .li-eye { background: none; border: none; cursor: pointer; padding: 0; color: rgba(255,255,255,0.35); display: flex; align-items: center; flex-shrink: 0; transition: color 0.15s ease; }
+  .li-eye:hover { color: rgba(255,255,255,0.7); }
   .li-pw-seg { transition: background 0.3s ease, transform 0.2s ease; }
   .li-pw-req { transition: opacity 0.25s ease, color 0.25s ease; }
   .li-panel-scroll::-webkit-scrollbar { width: 3px; }
@@ -124,6 +126,8 @@ export default function LoginPage() {
   const [confirmTouched, setConfirmTouched]       = useState(false)
   const [isLoading, setIsLoading]                 = useState(false)
   const [authError, setAuthError]                 = useState<string | null>(null)
+  const [showPassword, setShowPassword]           = useState(false)
+  const [showConfirm, setShowConfirm]             = useState(false)
   const [resetEmail, setResetEmail]               = useState("")
   const [resetEmailTouched, setResetEmailTouched] = useState(false)
   const [isResetLoading, setIsResetLoading]       = useState(false)
@@ -300,11 +304,14 @@ export default function LoginPage() {
                       }}>
                         <LockIcon />
                         <input
-                          className="li-input" type="password" placeholder="Password"
+                          className="li-input" type={showPassword ? "text" : "password"} placeholder="Password"
                           value={password}
                           onChange={e => { setPassword(e.target.value); setAuthError(null) }}
                           onBlur={() => setPasswordTouched(true)}
                         />
+                        <button className="li-eye" type="button" onClick={() => setShowPassword(p => !p)} tabIndex={-1}>
+                          {showPassword ? <EyeOffIcon /> : <EyeIcon />}
+                        </button>
                       </div>
 
                       {/* Strength bar — visible in signup as soon as typing starts */}
@@ -369,10 +376,13 @@ export default function LoginPage() {
                         <div className="li-field" style={{ ...fieldBase, borderColor: hasConfirmError ? "#E39C88" : confirmMatches ? "#4FD1B5" : "rgba(255,255,255,0.12)" }}>
                           <LockIcon />
                           <input
-                            className="li-input" type="password" placeholder="Confirm password"
+                            className="li-input" type={showConfirm ? "text" : "password"} placeholder="Confirm password"
                             value={confirmPassword}
                             onChange={e => { setConfirmPassword(e.target.value); setConfirmTouched(true) }}
                           />
+                          <button className="li-eye" type="button" onClick={() => setShowConfirm(p => !p)} tabIndex={-1}>
+                            {showConfirm ? <EyeOffIcon /> : <EyeIcon />}
+                          </button>
                         </div>
                         {hasConfirmError && <p style={{ margin: "6px 0 0 18px", fontSize: 12, color: "#E39C88" }}>Passwords don{"'"}t match</p>}
                         {confirmMatches && <p style={{ margin: "6px 0 0 18px", fontSize: 12, color: "#4FD1B5" }}>Passwords match</p>}
@@ -616,6 +626,26 @@ function LockIcon() {
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0, opacity: 0.45 }}>
       <rect x="5" y="11" width="14" height="9" rx="2" stroke="#fff" strokeWidth="2" />
       <path d="M8 11V7a4 4 0 118 0v4" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function EyeIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="2"/>
+    </svg>
+  )
+}
+
+function EyeOffIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+      <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M14.12 14.12a3 3 0 11-4.24-4.24" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      <line x1="1" y1="1" x2="23" y2="23" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
     </svg>
   )
 }
