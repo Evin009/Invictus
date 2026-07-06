@@ -51,11 +51,18 @@ function passwordScore(pw: string) {
 }
 
 const STRENGTH_META = [
-  { label: "Too weak", color: "#E39C88" },
-  { label: "Weak",     color: "#E39C88" },
-  { label: "Okay",     color: "#D9B25C" },
-  { label: "Good",     color: "#0FA4AF" },
-  { label: "Strong",   color: "#4FD1B5" },
+  { label: "Too weak",  color: "#C4573F" },
+  { label: "Weak",      color: "#E39C88" },
+  { label: "Okay",      color: "#D9B25C" },
+  { label: "Good",      color: "#0FA4AF" },
+  { label: "Strong",    color: "#4FD1B5" },
+]
+
+const PW_REQS = [
+  { label: "8+ characters",    test: (pw: string) => pw.length >= 8 },
+  { label: "Uppercase letter", test: (pw: string) => /[A-Z]/.test(pw) },
+  { label: "Number",           test: (pw: string) => /[0-9]/.test(pw) },
+  { label: "Special character",test: (pw: string) => /[^A-Za-z0-9]/.test(pw) },
 ]
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -73,6 +80,8 @@ const INJECTED_CSS = `
   .li-submit{display:flex;align-items:center;justify-content:center;gap:8px;background:#964734;color:#fff;border:none;border-radius:26px;padding:15px;font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:700;cursor:pointer;margin-top:4px;transition:background 0.15s ease,transform 0.15s ease,box-shadow 0.15s ease;width:100%;}
   .li-submit:disabled{opacity:0.85;cursor:default;}
 
+  .li-pw-seg { transition: background 0.3s ease, transform 0.2s ease; }
+  .li-pw-req { transition: opacity 0.25s ease, color 0.25s ease; }
   @keyframes li-floatA{0%,100%{transform:translateY(0px)}50%{transform:translateY(-16px)}}
   @keyframes li-floatB{0%,100%{transform:translateY(0px)}50%{transform:translateY(-9px)}}
   @keyframes li-rise{0%{transform:translateY(0) rotate(0deg);opacity:0;}12%{opacity:0.9;}85%{opacity:0.5;}100%{transform:translateY(-340px) rotate(70deg);opacity:0;}}
@@ -127,6 +136,7 @@ export default function LoginPage() {
     setAuthError(null)
     if (!EMAIL_RE.test(email.trim())) return
     if (isSignUp && password.length < 8) return
+    if (isSignUp && score < 2) return
     if (isSignUp && confirmPassword !== password) return
     setIsLoading(true)
     try {
@@ -258,7 +268,14 @@ export default function LoginPage() {
 
                     {/* Password */}
                     <div>
-                      <div className="li-field" style={{ ...fieldBase, borderColor: hasMinLenError ? "#E39C88" : "rgba(255,255,255,0.12)" }}>
+                      <div className="li-field" style={{
+                        ...fieldBase,
+                        borderColor: isSignUp && passwordTouched && score < 2 && password.length > 0
+                          ? "#E39C88"
+                          : isSignUp && score >= 3
+                          ? "rgba(15,164,175,0.5)"
+                          : "rgba(255,255,255,0.12)",
+                      }}>
                         <LockIcon />
                         <input
                           className="li-input" type="password" placeholder="Password"
@@ -267,18 +284,59 @@ export default function LoginPage() {
                           onBlur={() => setPasswordTouched(true)}
                         />
                       </div>
-                      {isSignUp && hasMinLenError && (
-                        <p style={{ margin: "6px 0 0 18px", fontSize: 12, color: "#E39C88" }}>Password must be at least 8 characters</p>
-                      )}
-                      {isSignUp && password.length >= 8 && (
-                        <>
-                          <div style={{ display: "flex", gap: 4, margin: "8px 0 4px 18px" }}>
+
+                      {/* Strength bar — visible in signup as soon as typing starts */}
+                      {isSignUp && password.length > 0 && (
+                        <div style={{ margin: "10px 0 0 2px" }}>
+                          {/* 4 segments */}
+                          <div style={{ display: "flex", gap: 4, marginBottom: 6 }}>
                             {[0,1,2,3].map(i => (
-                              <div key={i} style={{ flex: 1, height: 4, borderRadius: 2, background: i < score ? strengthMeta.color : "rgba(255,255,255,0.14)" }} />
+                              <div
+                                key={i}
+                                className="li-pw-seg"
+                                style={{
+                                  flex: 1, height: 4, borderRadius: 3,
+                                  background: i < score ? strengthMeta.color : "rgba(255,255,255,0.12)",
+                                  transform: i < score ? "scaleY(1.25)" : "scaleY(1)",
+                                }}
+                              />
                             ))}
                           </div>
-                          <p style={{ margin: "0 0 0 18px", fontSize: 11, fontWeight: 600, color: strengthMeta.color }}>{strengthMeta.label}</p>
-                        </>
+                          {/* Label + strength text */}
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.3)", letterSpacing: "0.08em" }}>STRENGTH</span>
+                            <span className="li-pw-req" style={{ fontSize: 11, fontWeight: 700, color: strengthMeta.color }}>
+                              {strengthMeta.label}
+                            </span>
+                          </div>
+                          {/* Requirements checklist */}
+                          <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                            {PW_REQS.map((req, i) => {
+                              const met = req.test(password)
+                              return (
+                                <div key={i} className="li-pw-req" style={{ display: "flex", alignItems: "center", gap: 8, opacity: met ? 1 : 0.45 }}>
+                                  <div style={{
+                                    width: 16, height: 16, borderRadius: "50%", flexShrink: 0,
+                                    display: "flex", alignItems: "center", justifyContent: "center",
+                                    background: met ? "rgba(15,164,175,0.18)" : "rgba(255,255,255,0.08)",
+                                    transition: "background 0.25s ease",
+                                  }}>
+                                    {met ? (
+                                      <svg width="9" height="9" viewBox="0 0 24 24" fill="none">
+                                        <path d="M5 13l4 4L19 7" stroke="#0FA4AF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                                      </svg>
+                                    ) : (
+                                      <div style={{ width: 5, height: 5, borderRadius: "50%", background: "rgba(255,255,255,0.25)" }} />
+                                    )}
+                                  </div>
+                                  <span style={{ fontSize: 11, fontWeight: 600, color: met ? "rgba(255,255,255,0.75)" : "rgba(255,255,255,0.38)" }}>
+                                    {req.label}
+                                  </span>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </div>
                       )}
                     </div>
 
