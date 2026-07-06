@@ -62,13 +62,13 @@ export function AppSidebar() {
 
         {/* Logo row */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 10px 22px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: collapsed ? 0 : 9, overflow: "hidden" }}>
             <svg viewBox="0 0 100 100" width={22} height={22} style={{ flexShrink: 0 }}>
               <path d="M50 6 L94 50 L50 94 L6 50 Z" fill="none" stroke="#003135" strokeWidth="8" strokeLinejoin="round" strokeLinecap="round" />
               <path d="M50 26 L74 50 L50 74 L26 50 Z" fill="none" stroke="#0FA4AF" strokeWidth="8" strokeLinejoin="round" strokeLinecap="round" />
               <rect x="42" y="42" width="16" height="16" rx="5" fill="#964734" transform="rotate(45 50 50)" />
             </svg>
-            <span style={{ fontSize: 17, fontWeight: 700, whiteSpace: "nowrap", opacity: collapsed ? 0 : 1, transition: "opacity 0.15s ease" }}>Invictus</span>
+            <span style={{ fontSize: 17, fontWeight: 700, whiteSpace: "nowrap", opacity: collapsed ? 0 : 1, width: collapsed ? 0 : "auto", overflow: "hidden", transition: "opacity 0.15s ease, width 0.15s ease" }}>Invictus</span>
           </div>
           <span
             onClick={() => setCollapsed(p => !p)}
