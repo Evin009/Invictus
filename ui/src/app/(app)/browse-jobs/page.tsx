@@ -22,8 +22,9 @@ const SHIMMER = {
   borderRadius: "6px",
 } as React.CSSProperties
 
-const FILTER_KEYS = ["Posted date", "Location", "Workplace", "Companies", "Degree Level", "Sponsors Visa", "Job Type"]
+const FILTER_KEYS = ["Term", "Posted date", "Location", "Workplace", "Companies", "Degree Level", "Sponsors Visa", "Job Type"]
 const FILTER_OPTIONS: Record<string, string[]> = {
+  "Term": ["Fall", "Spring", "Winter", "Summer"],
   "Posted date": ["Any time", "Past 24 hours", "Past week", "Past month"],
   "Location": ["Remote", "San Francisco, CA", "New York, NY", "Austin, TX", "Tampa, FL"],
   "Workplace": ["Remote", "Hybrid", "Onsite"],
@@ -58,15 +59,20 @@ interface RawJob {
   company: string | null
   source: string | null
   discovered_at: string | null
+  logo_url?: string | null
+  term?: string | null
+  job_type?: string | null
+  location?: string | null
+  status?: string | null
 }
 
 // Fallback demo jobs if DB is empty
 const DEMO_JOBS: RawJob[] = [
-  { id:"j1", url:"#", title:"AI Engineer", company:"Cadre AI", source:"search", discovered_at: new Date(Date.now()-2*86400000).toISOString() },
-  { id:"j2", url:"#", title:"AI Talent Development Intern", company:"Tenexlabs", source:"search", discovered_at: new Date(Date.now()-6*3600000).toISOString() },
-  { id:"j3", url:"#", title:"Computer Science Internship", company:"University of South Florida", source:"crawler", discovered_at: new Date(Date.now()-86400000).toISOString() },
-  { id:"j4", url:"#", title:"Product Design Intern", company:"Brightline Labs", source:"watchlist", discovered_at: new Date(Date.now()-4*86400000).toISOString() },
-  { id:"j5", url:"#", title:"Backend Engineer", company:"Strata", source:"search", discovered_at: new Date(Date.now()-5*86400000).toISOString() },
+  { id:"j1", url:"#", title:"AI Engineer", company:"Cadre AI", source:"search", discovered_at: new Date(Date.now()-2*86400000).toISOString(), term:"Fall", job_type:"Full-time", location:"Remote", status:"New" },
+  { id:"j2", url:"#", title:"AI Talent Development Intern", company:"Tenexlabs", source:"search", discovered_at: new Date(Date.now()-6*3600000).toISOString(), term:"Summer", job_type:"Internship", location:"San Francisco, CA", status:"New" },
+  { id:"j3", url:"#", title:"Computer Science Internship", company:"University of South Florida", source:"crawler", discovered_at: new Date(Date.now()-86400000).toISOString(), term:"Spring", job_type:"Internship", location:"Tampa, FL", status:"New" },
+  { id:"j4", url:"#", title:"Product Design Intern", company:"Brightline Labs", source:"watchlist", discovered_at: new Date(Date.now()-4*86400000).toISOString(), term:"Fall", job_type:"Internship", location:"New York, NY", status:"New" },
+  { id:"j5", url:"#", title:"Backend Engineer", company:"Strata", source:"search", discovered_at: new Date(Date.now()-5*86400000).toISOString(), term:"Winter", job_type:"Contract", location:"Austin, TX", status:"New" },
 ]
 
 function timeAgo(iso: string | null) {
@@ -121,6 +127,9 @@ export default function BrowseJobsPage() {
   const q = searchQuery.trim().toLowerCase()
   const filtered = jobs.filter(j => {
     if (q && !j.title?.toLowerCase().includes(q) && !j.company?.toLowerCase().includes(q)) return false
+    if (filterValues["Term"] && j.term !== filterValues["Term"]) return false
+    if (filterValues["Job Type"] && j.job_type !== filterValues["Job Type"]) return false
+    if (filterValues["Location"] && j.location !== filterValues["Location"]) return false
     return true
   })
 
@@ -301,41 +310,65 @@ export default function BrowseJobsPage() {
                     className="bj-card"
                     onClick={() => setSelectedId(j.id)}
                     style={{
-                      background: isSelected ? "rgba(2,73,80,0.018)" : "#fff",
+                      background: isSelected ? "rgba(150,71,52,0.022)" : "#fff",
                       borderRadius: 16, padding: "18px 20px",
                       boxShadow: isSelected
-                        ? "0 0 0 1.5px #024950, 0 8px 24px rgba(2,73,80,0.1)"
+                        ? "0 0 0 1.5px #964734, 0 8px 24px rgba(150,71,52,0.10)"
                         : "0 1px 3px rgba(0,49,53,0.05)",
                     }}
                   >
                     <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
+                      {/* Avatar / logo */}
                       <div style={{
-                        width: 42, height: 42, borderRadius: 11,
-                        background: avatarColor(co),
+                        width: 42, height: 42, borderRadius: 11, flexShrink: 0,
+                        background: j.logo_url ? "#fff" : avatarColor(co),
                         display: "flex", alignItems: "center", justifyContent: "center",
-                        fontSize: 13, fontWeight: 700, flexShrink: 0, color: "#003135",
+                        fontSize: 13, fontWeight: 700, color: "#003135",
                         boxShadow: "0 1px 3px rgba(0,49,53,0.08)",
+                        overflow: "hidden",
                       }}>
-                        {initials(co)}
+                        {j.logo_url
+                          ? <img src={j.logo_url} alt={co} style={{ width: "100%", height: "100%", objectFit: "contain", padding: 6 }} />
+                          : initials(co)
+                        }
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <p style={{ margin: "0 0 3px", fontSize: 15, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{j.title ?? "Untitled"}</p>
-                        <p style={{ margin: "0 0 12px", fontSize: 13, color: "rgba(0,49,53,0.5)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{co}</p>
-                        {j.source && (
-                          <span style={{
-                            display: "inline-flex", alignItems: "center", gap: 5,
-                            background: `${sourceColor(j.source)}18`,
-                            color: sourceColor(j.source),
-                            fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 12,
-                          }}>
-                            <span style={{ width: 5, height: 5, borderRadius: "50%", background: sourceColor(j.source), flexShrink: 0, display: "inline-block" }} />
-                            {j.source}
-                          </span>
-                        )}
+                        <p style={{ margin: "0 0 2px", fontSize: 15, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{j.title ?? "Untitled"}</p>
+                        <p style={{ margin: "0 0 10px", fontSize: 13, color: "rgba(0,49,53,0.5)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{co}</p>
+                        {/* Meta chips row */}
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                          {j.term && (
+                            <span style={{ fontSize: 11, fontWeight: 600, padding: "3px 9px", borderRadius: 10, background: "rgba(150,71,52,0.09)", color: "#964734" }}>
+                              {j.term}
+                            </span>
+                          )}
+                          {j.job_type && (
+                            <span style={{ fontSize: 11, fontWeight: 600, padding: "3px 9px", borderRadius: 10, background: "rgba(0,49,53,0.06)", color: "rgba(0,49,53,0.65)" }}>
+                              {j.job_type}
+                            </span>
+                          )}
+                          {j.location && (
+                            <span style={{ fontSize: 11, fontWeight: 600, padding: "3px 9px", borderRadius: 10, background: "rgba(0,49,53,0.06)", color: "rgba(0,49,53,0.65)", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                              <svg width="9" height="9" viewBox="0 0 24 24" fill="none"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/><circle cx="12" cy="9" r="2.5" stroke="currentColor" strokeWidth="1.8"/></svg>
+                              {j.location}
+                            </span>
+                          )}
+                          {j.source && (
+                            <span style={{
+                              display: "inline-flex", alignItems: "center", gap: 5,
+                              background: `${sourceColor(j.source)}18`,
+                              color: sourceColor(j.source),
+                              fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 10,
+                            }}>
+                              <span style={{ width: 5, height: 5, borderRadius: "50%", background: sourceColor(j.source), flexShrink: 0, display: "inline-block" }} />
+                              {j.source}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 14, paddingTop: 14, borderTop: "1px solid rgba(0,49,53,0.06)" }}>
-                      <span style={{ fontSize: 12, color: "rgba(0,49,53,0.38)" }}>Discovered {timeAgo(j.discovered_at)}</span>
+                      <span style={{ fontSize: 12, color: "rgba(0,49,53,0.38)" }}>{timeAgo(j.discovered_at)}</span>
                       <button
                         className="bj-apply"
                         onClick={e => applyTo(j.id, e)}
@@ -369,12 +402,16 @@ export default function BrowseJobsPage() {
               <div style={{ display: "flex", gap: 14, alignItems: "flex-start", marginBottom: 16 }}>
                 <div style={{
                   width: 52, height: 52, borderRadius: 14, flexShrink: 0,
-                  background: avatarColor(selected.company ?? ""),
+                  background: selected.logo_url ? "#fff" : avatarColor(selected.company ?? ""),
                   display: "flex", alignItems: "center", justifyContent: "center",
                   fontSize: 16, fontWeight: 700, color: "#003135",
                   boxShadow: "0 2px 8px rgba(0,49,53,0.1)",
+                  overflow: "hidden",
                 }}>
-                  {initials(selected.company ?? "")}
+                  {selected.logo_url
+                    ? <img src={selected.logo_url} alt={selected.company ?? ""} style={{ width: "100%", height: "100%", objectFit: "contain", padding: 8 }} />
+                    : initials(selected.company ?? "")
+                  }
                 </div>
                 <div style={{ minWidth: 0 }}>
                   <h2 style={{ margin: "0 0 4px", fontSize: 18, fontWeight: 700, lineHeight: 1.25 }}>{selected.title ?? "Untitled"}</h2>
@@ -397,14 +434,32 @@ export default function BrowseJobsPage() {
 
               {/* Metadata */}
               <div style={{ borderTop: "1px solid rgba(0,49,53,0.07)", borderBottom: "1px solid rgba(0,49,53,0.07)", padding: "14px 0", marginBottom: 20, display: "flex", flexDirection: "column", gap: 10 }}>
+                {selected.term && (
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13 }}>
+                    <span style={{ color: "rgba(0,49,53,0.45)", fontWeight: 600 }}>Term</span>
+                    <span style={{ fontWeight: 700, color: "#964734", background: "rgba(150,71,52,0.09)", padding: "2px 10px", borderRadius: 8 }}>{selected.term}</span>
+                  </div>
+                )}
+                {selected.job_type && (
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13 }}>
+                    <span style={{ color: "rgba(0,49,53,0.45)", fontWeight: 600 }}>Job type</span>
+                    <span style={{ fontWeight: 700 }}>{selected.job_type}</span>
+                  </div>
+                )}
+                {selected.location && (
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13 }}>
+                    <span style={{ color: "rgba(0,49,53,0.45)", fontWeight: 600 }}>Location</span>
+                    <span style={{ fontWeight: 700 }}>{selected.location}</span>
+                  </div>
+                )}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13 }}>
-                  <span style={{ color: "rgba(0,49,53,0.45)", fontWeight: 600 }}>Discovered</span>
+                  <span style={{ color: "rgba(0,49,53,0.45)", fontWeight: 600 }}>Posted</span>
                   <span style={{ fontWeight: 700 }}>{timeAgo(selected.discovered_at)}</span>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13 }}>
                   <span style={{ color: "rgba(0,49,53,0.45)", fontWeight: 600 }}>Status</span>
                   <span style={{ fontWeight: 700, color: appliedIds.includes(selected.id) ? "#0FA4AF" : "rgba(0,49,53,0.6)" }}>
-                    {appliedIds.includes(selected.id) ? "Queued for apply" : "Not applied"}
+                    {appliedIds.includes(selected.id) ? "Queued for apply" : selected.status ?? "New"}
                   </span>
                 </div>
               </div>
