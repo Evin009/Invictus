@@ -133,7 +133,7 @@ export default function LoginPage() {
       if (isSignUp) {
         const { error } = await supabase.auth.signUp({ email: email.trim(), password })
         if (error) { setAuthError(error.message); return }
-        router.push("/onboard")
+        router.push("/signup-loading")
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
         if (error) { setAuthError(error.message); return }

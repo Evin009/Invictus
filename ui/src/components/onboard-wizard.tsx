@@ -665,7 +665,7 @@ export function OnboardWizard() {
               <p style={{ fontSize: 14, lineHeight: 1.6, color: "rgba(0,49,53,0.55)", margin: "0 0 28px" }}>Your profile is ready. You can update any of this later in Settings.</p>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <button onClick={() => { try { localStorage.removeItem(STORAGE_KEY) } catch {}; upd({ ...INITIAL_STATE }) }} style={backBtnStyle}>Start over</button>
-                <button onClick={() => router.push("/dashboard")} style={ctaStyle}>Go to dashboard →</button>
+                <button onClick={() => router.push("/activating")} style={ctaStyle}>Go to dashboard →</button>
               </div>
             </div>
           )}
