@@ -19,12 +19,22 @@ interface Form {
   gender: string | null; race: string | null; veteran: string | null; disability: string | null; pronouns: string
 }
 
+interface ParsedResume {
+  fullName: string; email: string; phone: string; currentLocation: string
+  linkedin: string; github: string; portfolio: string
+  school: string; degree: string; major: string; gpa: string; gradMonth: string; gradYear: string
+  skills: string[]
+  workHistory: WorkEntry[]
+}
+
 interface WizardState {
   stage: "upload" | "extracting" | "review" | "form"
   resumeFileName: string
   step: number
   showSuccess: boolean
   uploadError: string | null
+  extractError: string | null
+  parsed: ParsedResume | null
   form: Form
   skills: string[]; skillInput: string
   locations: string[]; locationInput: string
@@ -47,7 +57,7 @@ const INITIAL_FORM: Form = {
 }
 
 const INITIAL_STATE: WizardState = {
-  stage: "upload", resumeFileName: "", step: 0, showSuccess: false, uploadError: null,
+  stage: "upload", resumeFileName: "", step: 0, showSuccess: false, uploadError: null, extractError: null, parsed: null,
   form: INITIAL_FORM,
   skills: [], skillInput: "",
   locations: [], locationInput: "",
@@ -160,16 +170,41 @@ export function OnboardWizard() {
     const ext = "." + file.name.toLowerCase().split(".").pop()
     if (![".pdf", ".doc", ".docx"].includes(ext)) { upd({ uploadError: "Please upload a PDF, DOC, or DOCX file." }); e.target.value = ""; return }
     if (file.size > 8 * 1024 * 1024) { upd({ uploadError: "File is too large — max 8MB." }); e.target.value = ""; return }
-    upd({ stage: "extracting", resumeFileName: file.name, uploadError: null })
-    setTimeout(() => upd({ stage: "review" }), 1400)
+    upd({ stage: "extracting", resumeFileName: file.name, uploadError: null, extractError: null })
+    const fd = new FormData()
+    fd.append("file", file)
+    fetch("/api/parse-resume", { method: "POST", body: fd })
+      .then(r => r.json())
+      .then(data => {
+        if (data.error) { upd({ stage: "upload", extractError: data.error }); return }
+        upd({ stage: "review", parsed: data })
+      })
+      .catch(() => upd({ stage: "upload", extractError: "Could not read resume — check the file and try again." }))
+    e.target.value = ""
   }
 
   function confirmExtracted() {
+    const p0 = s.parsed
     setS(p => ({
       ...p, stage: "form",
-      form: { ...p.form, fullName: "Jordan Reyes", email: "jordan.reyes@example.com", phone: "+1 (555) 214-7783", currentLocation: "Tampa, FL", linkedin: "linkedin.com/in/jordanreyes", github: "github.com/jreyes", portfolio: "jordanreyes.com", school: "University of South Florida", major: "Computer Science", degree: "B.S.", gradMonth: "May", gradYear: "2027", workAuth: null, sponsorship: null, relocate: null, workMode: null, startDate: "", minSalary: "", desiredSalary: "", gender: null, race: null, veteran: null, disability: null, pronouns: "" },
-      skills: ["Figma", "User research", "SQL", "Product analytics"],
-      workHistory: [{ employer: "Brightline Labs", title: "Product Design Intern", startDate: "Jun 2025", endDate: "Aug 2025", description: "Redesigned the onboarding flow, ran usability tests with 12 participants." }],
+      form: {
+        ...p.form,
+        fullName:        p0?.fullName        ?? p.form.fullName,
+        email:           p0?.email           ?? p.form.email,
+        phone:           p0?.phone           ?? p.form.phone,
+        currentLocation: p0?.currentLocation ?? p.form.currentLocation,
+        linkedin:        p0?.linkedin        ?? p.form.linkedin,
+        github:          p0?.github          ?? p.form.github,
+        portfolio:       p0?.portfolio       ?? p.form.portfolio,
+        school:          p0?.school          ?? p.form.school,
+        degree:          p0?.degree          ?? p.form.degree,
+        major:           p0?.major           ?? p.form.major,
+        gpa:             p0?.gpa             ?? p.form.gpa,
+        gradMonth:       p0?.gradMonth       ?? p.form.gradMonth,
+        gradYear:        p0?.gradYear        ?? p.form.gradYear,
+      },
+      skills:      p0?.skills?.length      ? p0.skills      : p.skills,
+      workHistory: p0?.workHistory?.length ? p0.workHistory : p.workHistory,
     }))
   }
 
@@ -259,14 +294,20 @@ export function OnboardWizard() {
   const backBtnStyle: React.CSSProperties = { background: "#EDF2F1", border: "none", borderRadius: 20, fontFamily: "'Space Grotesk', sans-serif", fontSize: 14, fontWeight: 600, color: "rgba(0,49,53,0.6)", cursor: "pointer", padding: "12px 22px" }
   const cardStyle: React.CSSProperties = { background: "#fff", borderRadius: 14, padding: 32, boxShadow: "0 1px 2px rgba(0,49,53,0.06)" }
 
-  const EXTRACTED_ROWS = [
-    { label: "Name", value: "Jordan Reyes" },
-    { label: "Email", value: "jordan.reyes@example.com" },
-    { label: "Phone", value: "+1 (555) 214-7783" },
-    { label: "School", value: "University of South Florida" },
-    { label: "Degree", value: "B.S. Computer Science, May 2027" },
-    { label: "Skills", value: "Figma, User research, SQL, Product analytics" },
-  ]
+  const extractedRows = s.parsed ? [
+    { label: "Full Name",    value: s.parsed.fullName        },
+    { label: "Email",        value: s.parsed.email           },
+    { label: "Phone",        value: s.parsed.phone           },
+    { label: "Location",     value: s.parsed.currentLocation },
+    { label: "LinkedIn",     value: s.parsed.linkedin        },
+    { label: "GitHub",       value: s.parsed.github          },
+    { label: "Portfolio",    value: s.parsed.portfolio       },
+    { label: "School",       value: s.parsed.school          },
+    { label: "Degree",       value: [s.parsed.degree, s.parsed.major].filter(Boolean).join(" — ")  },
+    { label: "Grad Date",    value: [s.parsed.gradMonth, s.parsed.gradYear].filter(Boolean).join(" ") },
+    { label: "GPA",          value: s.parsed.gpa             },
+    { label: "Skills",       value: s.parsed.skills.slice(0, 8).join(", ") },
+  ].filter(r => r.value) : []
 
   // ─── Render ──────────────────────────────────────────────────────────────────
   return (
@@ -301,7 +342,11 @@ export function OnboardWizard() {
                 <span style={{ fontSize: 14, fontWeight: 700, color: "#964734" }}>Choose file</span>
                 <span style={{ fontSize: 12, color: "rgba(0,49,53,0.45)" }}>PDF, DOC, or DOCX — max 8 MB</span>
               </label>
-              {s.uploadError && <p style={{ margin: "14px 0 0", fontSize: 13, fontWeight: 600, color: "#964734" }}>{s.uploadError}</p>}
+              {(s.uploadError || s.extractError) && (
+                <p style={{ margin: "14px 0 0", fontSize: 13, fontWeight: 600, color: "#964734" }}>
+                  {s.uploadError ?? s.extractError}
+                </p>
+              )}
               <p onClick={() => upd({ stage: "form" })} style={{ margin: "24px 0 0", fontSize: 13, fontWeight: 600, color: "rgba(0,49,53,0.45)", cursor: "pointer" }}>
                 Skip for now, I'll enter details manually
               </p>
@@ -321,17 +366,35 @@ export function OnboardWizard() {
           {s.stage === "review" && (
             <div style={{ ...cardStyle, padding: 36 }}>
               <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 6px" }}>Here's what we found</h1>
-              <p style={{ fontSize: 13, color: "rgba(0,49,53,0.5)", margin: "0 0 24px" }}>Extracted from {s.resumeFileName} — you'll be able to edit any of this next</p>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 28 }}>
-                {EXTRACTED_ROWS.map((row, i) => (
-                  <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, padding: "14px 16px", background: "#F5F8F7", borderRadius: 8 }}>
-                    <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.03em", color: "rgba(0,49,53,0.5)", flexShrink: 0, width: 110 }}>{row.label}</span>
-                    <span style={{ fontSize: 14, fontWeight: 600, textAlign: "right" }}>{row.value}</span>
-                  </div>
-                ))}
-              </div>
+              <p style={{ fontSize: 13, color: "rgba(0,49,53,0.5)", margin: "0 0 24px" }}>
+                Extracted from <strong style={{ color: "#003135" }}>{s.resumeFileName}</strong> — you can edit everything on the next screen
+              </p>
+              {extractedRows.length === 0 ? (
+                <p style={{ fontSize: 14, color: "rgba(0,49,53,0.5)", marginBottom: 24 }}>
+                  Couldn't extract structured data — you can fill in your details manually.
+                </p>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 28 }}>
+                  {extractedRows.map((row, i) => (
+                    <div key={i} style={{ display: "flex", alignItems: "baseline", gap: 16, padding: "12px 16px", background: i % 2 === 0 ? "#F5F8F7" : "transparent", borderRadius: 8 }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "rgba(0,49,53,0.42)", flexShrink: 0, width: 100 }}>{row.label}</span>
+                      <span style={{ fontSize: 14, fontWeight: 500, color: "#003135", wordBreak: "break-word" }}>{row.value}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {s.parsed?.workHistory && s.parsed.workHistory.length > 0 && (
+                <div style={{ marginBottom: 24, padding: "12px 16px", background: "rgba(15,164,175,0.06)", borderRadius: 8 }}>
+                  <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "rgba(0,49,53,0.42)", margin: "0 0 8px" }}>Work history</p>
+                  {s.parsed.workHistory.map((job, i) => (
+                    <p key={i} style={{ margin: "0 0 4px", fontSize: 13, fontWeight: 600, color: "#003135" }}>
+                      {job.title}{job.employer ? ` · ${job.employer}` : ""}{job.startDate ? ` (${job.startDate}${job.endDate ? ` – ${job.endDate}` : ""})` : ""}
+                    </p>
+                  ))}
+                </div>
+              )}
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <span onClick={() => upd({ stage: "upload" })} style={{ fontSize: 13, fontWeight: 600, color: "rgba(0,49,53,0.45)", cursor: "pointer" }}>Start over</span>
+                <span onClick={() => upd({ stage: "upload", parsed: null })} style={{ fontSize: 13, fontWeight: 600, color: "rgba(0,49,53,0.45)", cursor: "pointer" }}>Start over</span>
                 <button onClick={confirmExtracted} style={ctaStyle}>Looks good, continue →</button>
               </div>
             </div>
