@@ -127,7 +127,7 @@ export default function DashboardPage() {
         {/* Search */}
         <div style={{ display: "flex", gap: 12, marginBottom: 14 }}>
           <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 10, background: "#F5F8F7", borderRadius: 10, padding: "0 16px" }}>
-            <span style={{ color: "rgba(0,49,53,0.35)", fontSize: 16 }}>⌕</span>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" style={{ color: "rgba(0,49,53,0.35)", flexShrink: 0 }}><circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2"/><line x1="21" y1="21" x2="16.65" y2="16.65" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
             <input
               type="text" placeholder="Search by title or keyword…"
               value={search} onChange={e => setSearch(e.target.value)}
@@ -223,15 +223,6 @@ export default function DashboardPage() {
             })}
           </div>
 
-          {/* Company search */}
-          <div style={{ display: "flex", alignItems: "center", gap: 8, background: "#F5F8F7", borderRadius: 10, padding: "0 14px" }}>
-            <span style={{ color: "rgba(0,49,53,0.35)", fontSize: 13 }}>⌕</span>
-            <input
-              type="text" placeholder="Search company…"
-              style={{ border: "none", outline: "none", background: "transparent", fontFamily: "inherit", fontSize: 13, padding: "10px 0", width: 140, color: "#003135" }}
-              onChange={e => setSearch(e.target.value)}
-            />
-          </div>
         </div>
 
         {/* Column headers */}

@@ -178,11 +178,7 @@ export default function LoginPage() {
 
   return (
     <>
-      {/* eslint-disable-next-line @next/next/no-sync-scripts */}
       <style dangerouslySetInnerHTML={{ __html: INJECTED_CSS }} />
-      {/* Space Grotesk via Google Fonts link */}
-      {/* eslint-disable-next-line @next/next/google-font-display */}
-      <style dangerouslySetInnerHTML={{ __html: `@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap');` }} />
 
       {/* ── Outer page bg ── */}
       <div style={{

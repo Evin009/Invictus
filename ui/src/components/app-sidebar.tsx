@@ -72,9 +72,13 @@ export function AppSidebar() {
           </div>
           <span
             onClick={() => setCollapsed(p => !p)}
-            style={{ cursor: "pointer", color: "rgba(0,49,53,0.35)", fontSize: 14, flexShrink: 0 }}
+            style={{ cursor: "pointer", color: "rgba(0,49,53,0.35)", flexShrink: 0, display: "flex", alignItems: "center", padding: 4, borderRadius: 6, transition: "background 0.15s ease" }}
           >
-            {collapsed ? "»" : "«"}
+            {collapsed ? (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            ) : (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            )}
           </span>
         </div>
 

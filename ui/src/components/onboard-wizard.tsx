@@ -272,9 +272,8 @@ export function OnboardWizard() {
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
-      <style dangerouslySetInnerHTML={{ __html: `@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap');` }} />
 
-      <div style={{ minHeight: "100vh", width: "100%", background: "#F5F8F7", fontFamily: "'Space Grotesk', sans-serif", color: "#003135", display: "flex", flexDirection: "column", alignItems: "center", padding: "48px 24px", position: "relative", overflow: "hidden" }}>
+      <div style={{ minHeight: "100vh", width: "100%", background: "#F5F8F7", fontFamily: "var(--font-space-grotesk,'Space Grotesk',sans-serif)", color: "#003135", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: s.stage !== "form" ? "center" : "flex-start", padding: "48px 24px", position: "relative", overflowX: "hidden", overflowY: "auto" }}>
 
         {/* Dot grid */}
         <div style={{ position: "absolute", inset: 0, pointerEvents: "none", backgroundImage: "radial-gradient(rgba(0,49,53,0.06) 1px, transparent 1px)", backgroundSize: "26px 26px", WebkitMaskImage: "radial-gradient(ellipse 70% 60% at 50% 20%, #000 40%, transparent 85%)", maskImage: "radial-gradient(ellipse 70% 60% at 50% 20%, #000 40%, transparent 85%)" }} />
@@ -290,7 +289,9 @@ export function OnboardWizard() {
           {/* ── Stage: Upload ── */}
           {s.stage === "upload" && (
             <div style={{ ...cardStyle, padding: 48, textAlign: "center" }}>
-              <div style={{ width: 48, height: 48, borderRadius: "50%", background: "rgba(150,71,52,0.12)", color: "#964734", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 22px", fontSize: 20 }}>↑</div>
+              <div style={{ width: 48, height: 48, borderRadius: "50%", background: "rgba(150,71,52,0.12)", color: "#964734", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 22px" }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 15V3m0 0L8 7m4-4 4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M3 17v1a3 3 0 003 3h12a3 3 0 003-3v-1" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+              </div>
               <h1 style={{ fontSize: 24, fontWeight: 700, margin: "0 0 8px" }}>Upload your resume</h1>
               <p style={{ fontSize: 14, color: "rgba(0,49,53,0.55)", margin: "0 0 28px", maxWidth: 400, marginLeft: "auto", marginRight: "auto" }}>
                 We'll pull your details automatically so you can skip the typing. You can review and edit everything after.
