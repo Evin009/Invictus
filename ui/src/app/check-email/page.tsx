@@ -4,21 +4,69 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { createBrowserSupabaseClient } from "@/lib/supabase-browser"
 import gsap from "gsap"
+import {
+  EnvelopeSimple,
+  ArrowRight,
+  ArrowClockwise,
+  CheckCircle,
+  ArrowLeft,
+  Confetti,
+} from "@phosphor-icons/react"
 
 const CSS = `
-  @keyframes ce-float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
-  @keyframes ce-pulse { 0%,100%{opacity:0.4;transform:scale(1)} 50%{opacity:0.8;transform:scale(1.07)} }
-  @keyframes ce-spin  { to{transform:rotate(360deg)} }
-  @keyframes ce-dot   { 0%,100%{opacity:0.3} 50%{opacity:1} }
-  .ce-cta:hover:not(:disabled) { background: #7a3a29 !important; transform: translateY(-1px); box-shadow: 0 8px 20px rgba(150,71,52,0.3); }
-  .ce-cta:active:not(:disabled) { transform: translateY(0); }
-  .ce-cta { transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease; }
+  @keyframes float-a { 0%,100%{transform:translateY(0) rotate(-4deg)} 50%{transform:translateY(-14px) rotate(-4deg)} }
+  @keyframes float-b { 0%,100%{transform:translateY(0) rotate(6deg)} 50%{transform:translateY(-10px) rotate(6deg)} }
+  @keyframes float-c { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-18px)} }
+  @keyframes orbit  { from{transform:rotate(0deg) translateX(70px) rotate(0deg)} to{transform:rotate(360deg) translateX(70px) rotate(-360deg)} }
+  @keyframes orbit2 { from{transform:rotate(180deg) translateX(52px) rotate(-180deg)} to{transform:rotate(540deg) translateX(52px) rotate(-540deg)} }
+  @keyframes shimmer { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
+  @keyframes spin-slow { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+  @keyframes badge-pop { 0%{transform:scale(0) rotate(-20deg)} 70%{transform:scale(1.15) rotate(3deg)} 100%{transform:scale(1) rotate(0deg)} }
+  @keyframes confirmed-in { from{transform:translateY(-100%)} to{transform:translateY(0)} }
+
+  .ce-btn-primary {
+    position: relative; overflow: hidden;
+    transition: box-shadow 0.25s cubic-bezier(0.16,1,0.3,1), transform 0.18s cubic-bezier(0.16,1,0.3,1);
+  }
+  .ce-btn-primary::before {
+    content:''; position:absolute; inset:0;
+    background: #7a3a29;
+    transform: translateX(-101%);
+    transition: transform 0.35s cubic-bezier(0.16,1,0.3,1);
+  }
+  .ce-btn-primary:hover::before { transform: translateX(0); }
+  .ce-btn-primary:hover { box-shadow: 0 12px 32px rgba(150,71,52,0.3); transform: translateY(-2px); }
+  .ce-btn-primary:active { transform: translateY(0) scale(0.98); }
+
+  .ce-btn-ghost {
+    transition: background 0.2s ease, color 0.2s ease, transform 0.15s ease;
+  }
+  .ce-btn-ghost:hover { background: rgba(0,49,53,0.08) !important; transform: translateY(-1px); }
+  .ce-btn-ghost:active { transform: scale(0.98); }
+
+  .ce-step-item {
+    transition: opacity 0.2s ease, transform 0.2s ease;
+  }
+
+  .ce-resend {
+    transition: color 0.2s ease, opacity 0.2s ease;
+  }
+  .ce-resend:hover { color: #003135 !important; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  }
+  @media (max-width: 767px) {
+    .ce-left-panel { display: none !important; }
+    .ce-right-panel { padding: 32px 24px !important; }
+  }
 `
 
 export default function CheckEmailPage() {
   const router = useRouter()
   const supabase = useMemo(() => createBrowserSupabaseClient(), [])
-  const containerRef = useRef<HTMLDivElement>(null)
+  const rightRef = useRef<HTMLDivElement>(null)
+  const confirmedBarRef = useRef<HTMLDivElement>(null)
 
   const [pendingEmail, setPendingEmail] = useState("")
   const [checking, setChecking] = useState(false)
@@ -33,26 +81,37 @@ export default function CheckEmailPage() {
   // GSAP entrance
   useEffect(() => {
     const ctx = gsap.context(() => {
-      gsap.from(".ce-item", {
-        opacity: 0, y: 18, duration: 0.55, ease: "power3.out",
-        stagger: 0.07, delay: 0.08, clearProps: "transform,opacity",
+      gsap.set(".ce-stagger", { opacity: 0, y: 22 })
+      gsap.to(".ce-stagger", {
+        opacity: 1, y: 0, duration: 0.6,
+        ease: "power3.out", stagger: 0.08, delay: 0.1,
+        clearProps: "transform,opacity",
       })
-    }, containerRef)
+    }, rightRef)
     return () => ctx.revert()
   }, [])
 
-  // Auto-navigate when Supabase fires SIGNED_IN after confirmation click
+  // Auto-navigate on Supabase SIGNED_IN
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_IN" && session) {
-        setAutoChecking(true)
         try { localStorage.removeItem("invictus-pending-email") } catch {}
-        // Brief pause so user sees the state change, then fire loading page
-        setTimeout(() => router.push("/signup-loading"), 600)
+        setAutoChecking(true)
+        setTimeout(() => router.push("/login?confirmed=1"), 1800)
       }
     })
     return () => subscription.unsubscribe()
   }, [router, supabase])
+
+  // Animate confirmed bar in when autoChecking
+  useEffect(() => {
+    if (autoChecking && confirmedBarRef.current) {
+      gsap.fromTo(confirmedBarRef.current,
+        { y: -64, opacity: 0 },
+        { y: 0, opacity: 1, duration: 0.5, ease: "power3.out" }
+      )
+    }
+  }, [autoChecking])
 
   async function handleContinue() {
     setChecking(true)
@@ -61,9 +120,10 @@ export default function CheckEmailPage() {
       const { data: { session } } = await supabase.auth.getSession()
       if (session) {
         try { localStorage.removeItem("invictus-pending-email") } catch {}
-        router.push("/signup-loading")
+        setAutoChecking(true)
+        setTimeout(() => router.push("/login?confirmed=1"), 1400)
       } else {
-        setError("Still waiting for confirmation — click the link in your email, then try again.")
+        setError("Still waiting — click the confirmation link in your email first.")
       }
     } finally {
       setChecking(false)
@@ -72,167 +132,335 @@ export default function CheckEmailPage() {
 
   async function handleResend() {
     if (!pendingEmail || resent) return
-    await supabase.auth.resend({ type: "signup", email: pendingEmail })
+    const { error } = await supabase.auth.resend({ type: "signup", email: pendingEmail })
+    if (error) {
+      setError(error.message.toLowerCase().includes("rate") ? "Too many attempts — wait a few minutes." : error.message)
+      return
+    }
     setResent(true)
-    setTimeout(() => setResent(false), 5000)
+    setTimeout(() => setResent(false), 6000)
   }
+
+  const steps = [
+    { n: "01", label: "Open email from Invictus" },
+    { n: "02", label: "Click the confirmation link" },
+    { n: "03", label: "Return here and press continue" },
+  ]
 
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
-      <div ref={containerRef} style={{
-        minHeight: "100dvh", width: "100%", background: "#EFF3F1",
+
+      {/* Confirmed banner */}
+      {autoChecking && (
+        <div
+          ref={confirmedBarRef}
+          style={{
+            position: "fixed", top: 0, left: 0, right: 0, zIndex: 100,
+            background: "#0FA4AF", color: "#fff",
+            padding: "14px 24px",
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
+            fontFamily: "var(--font-space-grotesk,'Space Grotesk',sans-serif)",
+            fontSize: 14, fontWeight: 700,
+            boxShadow: "0 4px 24px rgba(15,164,175,0.35)",
+          }}
+        >
+          <Confetti size={18} weight="fill" />
+          Email confirmed — taking you to setup…
+          <div style={{ width: 16, height: 16, borderRadius: "50%", border: "2px solid rgba(255,255,255,0.35)", borderTopColor: "#fff", animation: "spin-slow 0.75s linear infinite", marginLeft: 4 }} />
+        </div>
+      )}
+
+      <div style={{
+        minHeight: "100dvh", width: "100%", display: "flex",
         fontFamily: "var(--font-space-grotesk,'Space Grotesk',sans-serif)",
-        color: "#003135", display: "flex", flexDirection: "column",
-        alignItems: "center", justifyContent: "center", padding: "40px 24px",
-        position: "relative", overflow: "hidden",
+        color: "#003135",
       }}>
 
-        {/* Background dot grid */}
-        <div style={{ position: "absolute", inset: 0, backgroundImage: "radial-gradient(rgba(0,49,53,0.055) 1px, transparent 1px)", backgroundSize: "28px 28px", pointerEvents: "none" }} />
+        {/* ── LEFT PANEL ── */}
+        <div className="ce-left-panel" style={{
+          width: "44%", background: "#003135", position: "relative",
+          display: "flex", flexDirection: "column",
+          alignItems: "center", justifyContent: "center",
+          padding: "60px 40px", overflow: "hidden", flexShrink: 0,
+        }}>
 
-        {/* Orbs */}
-        <div style={{ position: "absolute", top: -180, right: -140, width: 440, height: 440, borderRadius: "50%", background: "radial-gradient(circle, rgba(15,164,175,0.13), transparent 70%)", pointerEvents: "none", animation: "ce-pulse 6s ease-in-out infinite" }} />
-        <div style={{ position: "absolute", bottom: -200, left: -160, width: 500, height: 500, borderRadius: "50%", background: "radial-gradient(circle, rgba(150,71,52,0.10), transparent 70%)", pointerEvents: "none", animation: "ce-pulse 7s ease-in-out infinite", animationDelay: "1.2s" }} />
+          {/* Subtle mesh dots */}
+          <div style={{ position: "absolute", inset: 0, backgroundImage: "radial-gradient(rgba(15,164,175,0.12) 1px, transparent 1px)", backgroundSize: "32px 32px", pointerEvents: "none" }} />
 
-        <div style={{ width: "100%", maxWidth: 460, position: "relative", zIndex: 1 }}>
+          {/* Ambient orbs */}
+          <div style={{ position: "absolute", top: -120, right: -80, width: 320, height: 320, borderRadius: "50%", background: "radial-gradient(circle, rgba(15,164,175,0.18), transparent 70%)", pointerEvents: "none" }} />
+          <div style={{ position: "absolute", bottom: -100, left: -80, width: 280, height: 280, borderRadius: "50%", background: "radial-gradient(circle, rgba(150,71,52,0.14), transparent 70%)", pointerEvents: "none" }} />
 
-          {/* Logo */}
-          <div className="ce-item" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 48 }}>
-            <svg viewBox="0 0 100 100" width={26} height={26}>
-              <path d="M50 6 L94 50 L50 94 L6 50 Z" fill="none" stroke="#003135" strokeWidth="8" strokeLinejoin="round" strokeLinecap="round" />
-              <path d="M50 26 L74 50 L50 74 L26 50 Z" fill="none" stroke="#0FA4AF" strokeWidth="8" strokeLinejoin="round" strokeLinecap="round" />
+          {/* Central envelope composition */}
+          <div style={{ position: "relative", width: 200, height: 200, zIndex: 1 }}>
+
+            {/* Orbiting dots */}
+            <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <div style={{ position: "absolute", width: 8, height: 8, borderRadius: "50%", background: "#0FA4AF", animation: "orbit 4.5s linear infinite" }} />
+              <div style={{ position: "absolute", width: 6, height: 6, borderRadius: "50%", background: "#964734", animation: "orbit2 6s linear infinite" }} />
+            </div>
+
+            {/* Ring */}
+            <div style={{
+              position: "absolute", inset: 10, borderRadius: "50%",
+              border: "1px solid rgba(15,164,175,0.2)",
+              animation: "spin-slow 24s linear infinite",
+            }} />
+            <div style={{
+              position: "absolute", inset: 28, borderRadius: "50%",
+              border: "1px dashed rgba(255,255,255,0.08)",
+              animation: "spin-slow 16s linear infinite reverse",
+            }} />
+
+            {/* Main icon */}
+            <div style={{
+              position: "absolute", inset: 40, borderRadius: 28,
+              background: "rgba(255,255,255,0.05)",
+              border: "1px solid rgba(255,255,255,0.12)",
+              backdropFilter: "blur(8px)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              animation: "float-c 5s ease-in-out infinite",
+              boxShadow: "0 20px 60px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1)",
+            }}>
+              <EnvelopeSimple size={48} color="#fff" weight="thin" />
+            </div>
+
+            {/* Notification badge */}
+            {!autoChecking && (
+              <div style={{
+                position: "absolute", top: 36, right: 30,
+                width: 24, height: 24, borderRadius: "50%",
+                background: "#964734", border: "2px solid #003135",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                animation: "badge-pop 0.45s cubic-bezier(0.16,1,0.3,1) 0.6s both",
+              }}>
+                <span style={{ fontSize: 10, fontWeight: 800, color: "#fff", lineHeight: 1 }}>1</span>
+              </div>
+            )}
+          </div>
+
+          {/* Floating mini cards */}
+          <div style={{
+            position: "absolute", left: 32, top: "28%",
+            background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)",
+            borderRadius: 12, padding: "10px 14px",
+            animation: "float-a 6s ease-in-out infinite",
+            backdropFilter: "blur(4px)",
+          }}>
+            <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", fontWeight: 600, marginBottom: 4 }}>FROM</div>
+            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.85)", fontWeight: 700 }}>no-reply@invictus.ai</div>
+          </div>
+
+          <div style={{
+            position: "absolute", right: 24, bottom: "30%",
+            background: "rgba(15,164,175,0.12)", border: "1px solid rgba(15,164,175,0.25)",
+            borderRadius: 12, padding: "10px 14px",
+            animation: "float-b 7s ease-in-out infinite",
+          }}>
+            <div style={{ fontSize: 11, color: "#0FA4AF", fontWeight: 700 }}>Awaiting confirmation</div>
+          </div>
+
+          {/* Brand mark at bottom */}
+          <div style={{ position: "absolute", bottom: 36, left: 0, right: 0, display: "flex", justifyContent: "center", alignItems: "center", gap: 8, opacity: 0.4 }}>
+            <svg viewBox="0 0 100 100" width={16} height={16}>
+              <path d="M50 6 L94 50 L50 94 L6 50 Z" fill="none" stroke="#fff" strokeWidth="10" strokeLinejoin="round" />
+              <path d="M50 26 L74 50 L50 74 L26 50 Z" fill="none" stroke="#0FA4AF" strokeWidth="10" strokeLinejoin="round" />
               <rect x="42" y="42" width="16" height="16" rx="5" fill="#964734" transform="rotate(45 50 50)" />
             </svg>
-            <span style={{ fontSize: 15, fontWeight: 700 }}>Invictus</span>
+            <span style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>Invictus</span>
           </div>
+        </div>
 
-          {/* Envelope icon */}
-          <div className="ce-item" style={{ display: "flex", justifyContent: "center", marginBottom: 34 }}>
-            <div style={{ position: "relative", width: 90, height: 90 }}>
-              <div style={{ position: "absolute", inset: -16, borderRadius: "50%", background: "radial-gradient(circle, rgba(15,164,175,0.15), transparent 70%)", animation: "ce-pulse 3.5s ease-in-out infinite", pointerEvents: "none" }} />
-              <div style={{
-                width: 90, height: 90, borderRadius: 22, background: "#003135",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                position: "relative", animation: "ce-float 4.2s ease-in-out infinite",
-                boxShadow: "0 20px 40px rgba(0,49,53,0.18)",
-              }}>
-                <svg width="42" height="42" viewBox="0 0 24 24" fill="none">
-                  <rect x="2" y="4" width="20" height="16" rx="2.5" fill="none" stroke="rgba(255,255,255,0.9)" strokeWidth="1.8" />
-                  <path d="M2 6l10 8 10-8" stroke="#0FA4AF" strokeWidth="1.8" strokeLinecap="round" />
-                </svg>
-                {/* Notification badge */}
-                {!autoChecking && (
-                  <div style={{
-                    position: "absolute", top: -6, right: -6, width: 20, height: 20,
-                    borderRadius: "50%", background: "#964734", border: "2px solid #EFF3F1",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                  }}>
-                    <span style={{ fontSize: 10, fontWeight: 800, color: "#fff" }}>1</span>
-                  </div>
-                )}
-                {/* Auto-check spinner overlay */}
-                {autoChecking && (
-                  <div style={{
-                    position: "absolute", inset: 0, borderRadius: 22,
-                    background: "rgba(15,164,175,0.2)",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                  }}>
-                    <div style={{ width: 22, height: 22, borderRadius: "50%", border: "2.5px solid rgba(255,255,255,0.3)", borderTopColor: "#0FA4AF", animation: "ce-spin 0.75s linear infinite" }} />
-                  </div>
-                )}
-              </div>
+        {/* ── RIGHT PANEL ── */}
+        <div
+          className="ce-right-panel"
+          ref={rightRef}
+          style={{
+            flex: 1, background: "#EFF3F1", display: "flex", flexDirection: "column",
+            justifyContent: "center", padding: "60px 64px",
+            position: "relative", overflow: "hidden",
+          }}
+        >
+          {/* Subtle bg texture */}
+          <div style={{ position: "absolute", inset: 0, backgroundImage: "radial-gradient(rgba(0,49,53,0.04) 1px, transparent 1px)", backgroundSize: "24px 24px", pointerEvents: "none" }} />
+
+          <div style={{ maxWidth: 460, position: "relative", zIndex: 1 }}>
+
+            {/* Logo */}
+            <div className="ce-stagger" style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 56 }}>
+              <svg viewBox="0 0 100 100" width={22} height={22}>
+                <path d="M50 6 L94 50 L50 94 L6 50 Z" fill="none" stroke="#003135" strokeWidth="10" strokeLinejoin="round" />
+                <path d="M50 26 L74 50 L50 74 L26 50 Z" fill="none" stroke="#0FA4AF" strokeWidth="10" strokeLinejoin="round" />
+                <rect x="42" y="42" width="16" height="16" rx="5" fill="#964734" transform="rotate(45 50 50)" />
+              </svg>
+              <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: "-0.01em" }}>Invictus</span>
             </div>
-          </div>
 
-          {/* Heading */}
-          <h1 className="ce-item" style={{ fontSize: 30, fontWeight: 800, margin: "0 0 10px", letterSpacing: "-0.02em", textAlign: "center" }}>
-            {autoChecking ? "Confirmed!" : "Check your inbox"}
-          </h1>
-          <p className="ce-item" style={{ margin: "0 0 6px", fontSize: 14, color: "rgba(0,49,53,0.55)", textAlign: "center", lineHeight: 1.6 }}>
-            {autoChecking ? "Taking you to setup now…" : "Confirmation email sent to"}
-          </p>
-          {pendingEmail && !autoChecking && (
-            <p className="ce-item" style={{ margin: "0 0 36px", fontSize: 15, fontWeight: 700, color: "#003135", textAlign: "center" }}>
-              {pendingEmail}
-            </p>
-          )}
-          {autoChecking && <div style={{ height: 36 }} />}
+            {/* Heading */}
+            <div className="ce-stagger" style={{ marginBottom: 8 }}>
+              <span style={{
+                display: "inline-block", fontSize: 11, fontWeight: 700,
+                letterSpacing: "0.12em", textTransform: "uppercase",
+                color: "#0FA4AF", marginBottom: 12,
+              }}>
+                One more step
+              </span>
+              <h1 style={{
+                fontSize: "clamp(28px, 4vw, 42px)", fontWeight: 800,
+                lineHeight: 1.08, letterSpacing: "-0.03em",
+                margin: 0, color: "#003135",
+              }}>
+                Check your inbox
+              </h1>
+            </div>
 
-          {!autoChecking && (
-            <>
-              {/* 3-step instructions */}
-              <div className="ce-item" style={{ background: "#fff", borderRadius: 14, padding: "4px 20px", marginBottom: 20, boxShadow: "0 1px 3px rgba(0,49,53,0.06)" }}>
-                {[
-                  { n: "1", text: "Open the email from Invictus" },
-                  { n: "2", text: "Click the confirmation link inside" },
-                  { n: "3", text: "Return here and press Continue" },
-                ].map((step, i) => (
-                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 0", borderBottom: i < 2 ? "1px solid rgba(0,49,53,0.06)" : "none" }}>
-                    <div style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(2,73,80,0.09)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                      <span style={{ fontSize: 12, fontWeight: 800, color: "#024950" }}>{step.n}</span>
-                    </div>
-                    <span style={{ fontSize: 13, fontWeight: 600, color: "rgba(0,49,53,0.68)" }}>{step.text}</span>
-                  </div>
-                ))}
-              </div>
-
-              {/* Error */}
-              {error && (
-                <div className="ce-item" style={{ background: "rgba(150,71,52,0.07)", border: "1px solid rgba(150,71,52,0.2)", borderRadius: 10, padding: "12px 16px", marginBottom: 14, display: "flex", gap: 10, alignItems: "flex-start" }}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0, marginTop: 2 }}>
-                    <path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="#964734" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: "#964734", lineHeight: 1.5 }}>{error}</span>
-                </div>
+            {/* Description */}
+            <p className="ce-stagger" style={{
+              fontSize: 15, lineHeight: 1.65, color: "rgba(0,49,53,0.56)",
+              margin: "14px 0 0", maxWidth: "52ch",
+            }}>
+              {pendingEmail ? (
+                <>Confirmation sent to <strong style={{ color: "#003135", fontWeight: 700 }}>{pendingEmail}</strong>. Click the link inside, then return here.</>
+              ) : (
+                <>Confirmation sent. Click the link in your email, then return here.</>
               )}
+            </p>
 
-              {/* CTA */}
+            {/* Steps — timeline style */}
+            <div className="ce-stagger" style={{ margin: "36px 0 0", position: "relative" }}>
+              {/* Vertical connector line */}
+              <div style={{
+                position: "absolute", left: 18, top: 32, bottom: 32,
+                width: 1, background: "linear-gradient(to bottom, rgba(0,49,53,0.15), rgba(0,49,53,0.04))",
+              }} />
+
+              {steps.map((step, i) => (
+                <div key={i} className="ce-step-item" style={{
+                  display: "flex", alignItems: "center", gap: 20,
+                  padding: "14px 0",
+                }}>
+                  <div style={{
+                    width: 36, height: 36, borderRadius: "50%", flexShrink: 0,
+                    background: i === 0 ? "#003135" : "#fff",
+                    border: `1px solid ${i === 0 ? "transparent" : "rgba(0,49,53,0.12)"}`,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    position: "relative", zIndex: 1,
+                    boxShadow: i === 0 ? "0 4px 12px rgba(0,49,53,0.2)" : "none",
+                    transition: "background 0.2s ease",
+                  }}>
+                    <span style={{
+                      fontSize: 10, fontWeight: 800,
+                      color: i === 0 ? "#0FA4AF" : "rgba(0,49,53,0.35)",
+                      letterSpacing: "0.04em",
+                    }}>
+                      {step.n}
+                    </span>
+                  </div>
+                  <span style={{
+                    fontSize: 14, fontWeight: i === 0 ? 700 : 500,
+                    color: i === 0 ? "#003135" : "rgba(0,49,53,0.45)",
+                    letterSpacing: "-0.01em",
+                  }}>
+                    {step.label}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {/* Error */}
+            {error && (
+              <div className="ce-stagger" style={{
+                marginTop: 24, padding: "12px 16px", borderRadius: 10,
+                background: "rgba(150,71,52,0.07)", border: "1px solid rgba(150,71,52,0.18)",
+                display: "flex", gap: 10, alignItems: "flex-start",
+              }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0, marginTop: 1 }}>
+                  <path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="#964734" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                <span style={{ fontSize: 13, fontWeight: 600, color: "#964734", lineHeight: 1.5 }}>{error}</span>
+              </div>
+            )}
+
+            {/* CTA */}
+            <div className="ce-stagger" style={{ marginTop: 32, display: "flex", flexDirection: "column", gap: 12 }}>
               <button
-                className="ce-item ce-cta"
+                className="ce-btn-primary"
                 onClick={handleContinue}
-                disabled={checking}
+                disabled={checking || autoChecking}
                 style={{
-                  width: "100%", padding: "15px", background: "#964734", color: "#fff", border: "none",
-                  borderRadius: 14, fontFamily: "inherit", fontSize: 15, fontWeight: 700,
-                  cursor: checking ? "default" : "pointer",
-                  display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
-                  opacity: checking ? 0.82 : 1,
+                  width: "100%", padding: "15px 24px",
+                  background: "#964734", color: "#fff", border: "none",
+                  borderRadius: 14, fontFamily: "inherit",
+                  fontSize: 15, fontWeight: 700, cursor: checking ? "default" : "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "space-between",
+                  opacity: checking || autoChecking ? 0.75 : 1,
+                  position: "relative", zIndex: 0,
                 }}
               >
-                {checking ? (
-                  <>
-                    <div style={{ width: 16, height: 16, borderRadius: "50%", border: "2px solid rgba(255,255,255,0.35)", borderTopColor: "#fff", animation: "ce-spin 0.75s linear infinite" }} />
-                    Checking…
-                  </>
-                ) : (
-                  <>
-                    I confirmed my email
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                      <path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  </>
-                )}
+                <span style={{ position: "relative", zIndex: 1 }}>
+                  {checking ? "Checking…" : autoChecking ? "Confirmed!" : "I confirmed my email"}
+                </span>
+                <span style={{
+                  width: 32, height: 32, borderRadius: "50%",
+                  background: "rgba(0,0,0,0.15)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  position: "relative", zIndex: 1, flexShrink: 0,
+                }}>
+                  {checking ? (
+                    <div style={{ width: 14, height: 14, borderRadius: "50%", border: "2px solid rgba(255,255,255,0.3)", borderTopColor: "#fff", animation: "spin-slow 0.75s linear infinite" }} />
+                  ) : autoChecking ? (
+                    <CheckCircle size={16} color="#fff" weight="fill" />
+                  ) : (
+                    <ArrowRight size={16} color="#fff" weight="bold" />
+                  )}
+                </span>
               </button>
 
               {/* Resend */}
-              <div className="ce-item" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 20, fontSize: 13, color: "rgba(0,49,53,0.5)" }}>
-                Didn&apos;t get it?{" "}
-                <span
+              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "2px 0" }}>
+                <div style={{ flex: 1, height: 1, background: "rgba(0,49,53,0.08)" }} />
+                <button
+                  className="ce-resend"
                   onClick={handleResend}
-                  style={{ fontWeight: 700, color: resent ? "#0FA4AF" : "#003135", cursor: resent ? "default" : "pointer", transition: "color 0.2s ease" }}
+                  disabled={resent || !pendingEmail}
+                  style={{
+                    background: "none", border: "none", padding: "8px 12px",
+                    borderRadius: 8, cursor: resent ? "default" : "pointer",
+                    fontSize: 13, fontWeight: 600,
+                    color: resent ? "#0FA4AF" : "rgba(0,49,53,0.45)",
+                    display: "flex", alignItems: "center", gap: 6, fontFamily: "inherit",
+                    opacity: resent ? 1 : 1,
+                  }}
                 >
-                  {resent ? "Sent!" : "Resend email"}
-                </span>
+                  {resent ? (
+                    <><CheckCircle size={14} weight="fill" color="#0FA4AF" /> Sent!</>
+                  ) : (
+                    <><ArrowClockwise size={14} weight="bold" /> Resend email</>
+                  )}
+                </button>
+                <div style={{ flex: 1, height: 1, background: "rgba(0,49,53,0.08)" }} />
               </div>
+            </div>
 
-              <div className="ce-item" style={{ textAlign: "center", marginTop: 14 }}>
-                <span onClick={() => router.push("/login")} style={{ fontSize: 13, color: "rgba(0,49,53,0.4)", cursor: "pointer", fontWeight: 600 }}>
-                  ← Back to sign in
-                </span>
-              </div>
-            </>
-          )}
+            {/* Back link */}
+            <div className="ce-stagger" style={{ marginTop: 8 }}>
+              <button
+                className="ce-btn-ghost"
+                onClick={() => router.push("/login")}
+                style={{
+                  background: "none", border: "none", padding: "8px 0",
+                  cursor: "pointer", fontFamily: "inherit",
+                  fontSize: 13, color: "rgba(0,49,53,0.38)", fontWeight: 600,
+                  display: "flex", alignItems: "center", gap: 6,
+                }}
+              >
+                <ArrowLeft size={13} weight="bold" />
+                Back to sign in
+              </button>
+            </div>
+
+          </div>
         </div>
       </div>
     </>

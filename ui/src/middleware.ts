@@ -26,7 +26,9 @@ export async function middleware(request: NextRequest) {
 
   const isAuthRoute = pathname.startsWith("/login")
   const isOnboard = pathname.startsWith("/onboard")
-  const isPublic = isAuthRoute || isOnboard
+  const isCheckEmail = pathname.startsWith("/check-email")
+  const isAccountExists = pathname.startsWith("/account-exists")
+  const isPublic = isAuthRoute || isOnboard || isCheckEmail || isAccountExists
 
   if (!user && !isPublic) {
     const url = request.nextUrl.clone()

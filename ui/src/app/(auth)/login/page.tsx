@@ -107,6 +107,14 @@ export default function LoginPage() {
   const formPanelRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
+    if (typeof window === "undefined") return
+    const params = new URLSearchParams(window.location.search)
+    if (params.get("confirmed") === "1") setEmailConfirmed(true)
+    if (params.get("forgot") === "1") setView("forgot")
+    if (params.get("signup") === "1") setIsSignUp(true)
+  }, [])
+
+  useEffect(() => {
     const ctx = gsap.context(() => {
       gsap.from(".li-form-item", {
         opacity: 0, y: 16, duration: 0.52, ease: "power3.out",
@@ -116,6 +124,7 @@ export default function LoginPage() {
     return () => ctx.revert()
   }, [])
 
+  const [emailConfirmed, setEmailConfirmed]        = useState(false)
   const [view, setView]                           = useState<View>("auth")
   const [isSignUp, setIsSignUp]                   = useState(false)
   const [email, setEmail]                         = useState("")
@@ -166,18 +175,42 @@ export default function LoginPage() {
           email: email.trim(), password,
           options: { emailRedirectTo: `${location.origin}/check-email` },
         })
-        if (error) { setAuthError(error.message); return }
-        try { localStorage.setItem("invictus-pending-email", email.trim()) } catch {}
-        // No session = email confirmation required
-        if (!signUpData.session) {
-          router.push("/check-email")
-        } else {
-          router.push("/signup-loading")
+        // "User already registered" error
+        if (error) {
+          const msg = error.message.toLowerCase()
+          if (msg.includes("already") || msg.includes("registered") || msg.includes("exists")) {
+            router.push(`/account-exists?email=${encodeURIComponent(email.trim())}`)
+            return
+          }
+          if (msg.includes("rate limit") || msg.includes("too many") || msg.includes("exceeded")) {
+            setAuthError("Too many attempts — wait a few minutes and try again.")
+            return
+          }
+          setAuthError(error.message)
+          return
         }
+        // Supabase returns identities=[] when email already taken (email-confirm mode)
+        if (signUpData.user && (signUpData.user.identities?.length === 0)) {
+          router.push(`/account-exists?email=${encodeURIComponent(email.trim())}`)
+          return
+        }
+        try { localStorage.setItem("invictus-pending-email", email.trim()) } catch {}
+        router.push("/check-email")
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
         if (error) { setAuthError(error.message); return }
-        router.push("/dashboard")
+        // New user (no profile yet) → onboarding loading page. Returning user → dashboard.
+        try {
+          const profileRes = await fetch("/api/profile")
+          const profileData = await profileRes.json()
+          if (profileData && profileData.full_name) {
+            router.push("/dashboard")
+          } else {
+            router.push("/signup-loading")
+          }
+        } catch {
+          router.push("/signup-loading")
+        }
       }
     } finally {
       setIsLoading(false)
@@ -263,6 +296,23 @@ export default function LoginPage() {
               {/* ── Auth view ── */}
               {view === "auth" && (
                 <>
+                  {/* Email confirmed banner */}
+                  {emailConfirmed && (
+                    <div className="li-form-item" style={{
+                      display: "flex", alignItems: "center", gap: 10,
+                      background: "rgba(15,164,175,0.14)", border: "1px solid rgba(15,164,175,0.3)",
+                      borderRadius: 12, padding: "11px 14px", marginBottom: 20,
+                    }}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
+                        <circle cx="12" cy="12" r="10" stroke="#0FA4AF" strokeWidth="2" />
+                        <path d="M8 12l3 3 5-5" stroke="#0FA4AF" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: "#0FA4AF" }}>
+                        Email confirmed — sign in to continue
+                      </span>
+                    </div>
+                  )}
+
                   <h1 className="li-form-item" style={{ fontSize: 28, fontWeight: 800, margin: "0 0 6px", letterSpacing: "-0.02em" }}>
                     {isSignUp ? "Create your account" : "Welcome back"}
                   </h1>
