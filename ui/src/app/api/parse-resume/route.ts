@@ -179,20 +179,33 @@ function parseEducation(text: string): EducationResult {
 }
 
 function parseSkills(text: string): string[] {
-  const skillSectionRe = /(?:^|\n)(technical skills?|skills?|core competencies|technologies|tech stack|tools)[:\s]*\n?([\s\S]{1,600}?)(?=\n[A-Z][A-Z\s]{3,}:|\n\n[A-Z]|$)/i
-  const m = text.match(skillSectionRe)
+  const sectionRe = /(?:^|\n)(technical skills?|skills?|core competencies|technologies|tech stack|tools|expertise|proficiencies?)[:\s]*\n?([\s\S]{1,3000}?)(?=\n(?:[A-Z][A-Z\s]{3,}:|\n[A-Z][a-z])|(?:\n\n(?:experience|education|work|projects|certifications|awards))|$)/i
+  const m = text.match(sectionRe)
   if (!m) return []
 
   const raw = m[2]
+  const seen = new Set<string>()
   const skills: string[] = []
-  const delimiters = /[,|•·\n\/]+/
-  for (const part of raw.split(delimiters)) {
-    const s = part.trim().replace(/[\-\*\s]+$/, "").trim()
-    if (s.length > 1 && s.length < 40 && !/^\d+$/.test(s)) {
-      skills.push(s)
+
+  for (const line of raw.split("\n")) {
+    const trimmed = line.trim()
+    if (!trimmed) continue
+
+    // "Category: skill1, skill2, skill3" — strip category label, extract values
+    const catMatch = trimmed.match(/^[A-Za-z &\/\-]{2,30}:\s*(.+)/)
+    const content = catMatch ? catMatch[1] : trimmed
+
+    // Split on common delimiters: comma, pipe, bullet, slash, semicolon, tab
+    for (const part of content.split(/[,|•·\/;\t]+/)) {
+      const s = part.trim().replace(/^[\-\*\s]+/, "").replace(/[\-\*\s]+$/, "").trim()
+      if (s.length > 1 && s.length < 60 && !/^\d+$/.test(s) && !seen.has(s.toLowerCase())) {
+        seen.add(s.toLowerCase())
+        skills.push(s)
+      }
     }
   }
-  return skills.slice(0, 20)
+
+  return skills
 }
 
 interface WorkEntry {
@@ -261,9 +274,64 @@ function parseWorkHistory(text: string): WorkEntry[] {
         description: "",
       }
     } else if (current) {
-      // Accumulate description bullets — skip very short lines or all-caps section headers
-      if (line.length > 15 && /[a-z]/.test(line) && !/^[A-Z\s]{4,}$/.test(line)) {
-        current.description += (current.description ? " " : "") + line
+      // Accumulate ALL bullet lines — skip only all-caps section headers and section dividers
+      const isHeader = /^[A-Z\s]{5,}$/.test(line) || /^(experience|education|skills|projects|certifications|awards)/i.test(line)
+      if (!isHeader && line.length > 3) {
+        current.description += (current.description ? "\n" : "") + line
+      }
+    }
+  }
+
+  if (current) entries.push(current)
+  return entries.slice(0, 10)
+}
+
+function parseProjects(text: string): WorkEntry[] {
+  const projIdx = text.search(/(?:^|\n)(projects?|personal projects?|side projects?|academic projects?|notable projects?)[:\s]*\n/i)
+  if (projIdx < 0) return []
+
+  const afterProj = text.slice(projIdx)
+  const nextSection = afterProj.search(/\n(?:experience|education|skills|technical skills|certifications|awards|publications|volunteer|activities|interests)\s*\n/i)
+  const section = nextSection > 0 ? afterProj.slice(0, nextSection) : afterProj.slice(0, 5000)
+
+  const dateRe = /(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[.,]?\s*(?:20|19)\d{2}/gi
+  const entries: WorkEntry[] = []
+  const lines = section.split("\n").map(l => l.replace(/^[·•\-\*\s]+/, "").trim()).filter(Boolean)
+
+  let current: WorkEntry | null = null
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    if (/^(projects?|personal projects?|side projects?|academic projects?)/i.test(line)) continue
+
+    const dates = line.match(dateRe)
+
+    if (dates) {
+      if (current) entries.push(current)
+      const beforeDates = line.replace(dateRe, "").replace(/[–—\-|·,•]+/g, " ").trim().replace(/\s+/g, " ")
+      // title from before dates, or from previous line
+      const title = beforeDates.length > 2 && beforeDates.length <= 80
+        ? beforeDates
+        : (i > 0 ? lines[i - 1].replace(/[|,\-–—·].*/g, "").trim() : "")
+      current = {
+        employer: "",
+        title,
+        startDate: dates[0] ?? "",
+        endDate: dates[1] ?? "",
+        description: "",
+      }
+    } else {
+      // No dates — check if this looks like a new project title
+      // (short, starts with capital, not a bullet description)
+      const looksLikeTitle = /^[A-Z]/.test(line) && line.length <= 80 && line.split(" ").length <= 8 && !/^[a-z]/.test(line)
+      if (looksLikeTitle && (!current || current.description.length > 0)) {
+        if (current) entries.push(current)
+        current = { employer: "", title: line, startDate: "", endDate: "", description: "" }
+      } else if (current) {
+        const isHeader = /^[A-Z\s]{5,}$/.test(line)
+        if (!isHeader && line.length > 3) {
+          current.description += (current.description ? "\n" : "") + line
+        }
       }
     }
   }
@@ -305,6 +373,7 @@ export async function POST(req: NextRequest) {
       gradYear: edu.gradYear,
       skills: parseSkills(text),
       workHistory: parseWorkHistory(text),
+      projects: parseProjects(text),
     })
   } catch (err) {
     console.error("parse-resume error:", err)

@@ -25,6 +25,7 @@ interface ParsedResume {
   school: string; degree: string; major: string; gpa: string; gradMonth: string; gradYear: string
   skills: string[]
   workHistory: WorkEntry[]
+  projects: WorkEntry[]
 }
 
 interface WizardState {
@@ -204,7 +205,9 @@ export function OnboardWizard() {
         gradYear:        p0?.gradYear        ?? p.form.gradYear,
       },
       skills:      p0?.skills?.length      ? p0.skills      : p.skills,
-      workHistory: p0?.workHistory?.length ? p0.workHistory : p.workHistory,
+      workHistory: [...(p0?.workHistory ?? []), ...(p0?.projects ?? [])].length > 0
+        ? [...(p0?.workHistory ?? []), ...(p0?.projects ?? [])]
+        : p.workHistory,
     }))
   }
 
@@ -384,11 +387,21 @@ export function OnboardWizard() {
                 </div>
               )}
               {s.parsed?.workHistory && s.parsed.workHistory.length > 0 && (
-                <div style={{ marginBottom: 24, padding: "12px 16px", background: "rgba(15,164,175,0.06)", borderRadius: 8 }}>
+                <div style={{ marginBottom: 16, padding: "12px 16px", background: "rgba(15,164,175,0.06)", borderRadius: 8 }}>
                   <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "rgba(0,49,53,0.42)", margin: "0 0 8px" }}>Work history</p>
                   {s.parsed.workHistory.map((job, i) => (
                     <p key={i} style={{ margin: "0 0 4px", fontSize: 13, fontWeight: 600, color: "#003135" }}>
                       {job.title}{job.employer ? ` · ${job.employer}` : ""}{job.startDate ? ` (${job.startDate}${job.endDate ? ` – ${job.endDate}` : ""})` : ""}
+                    </p>
+                  ))}
+                </div>
+              )}
+              {s.parsed?.projects && s.parsed.projects.length > 0 && (
+                <div style={{ marginBottom: 24, padding: "12px 16px", background: "rgba(150,71,52,0.05)", borderRadius: 8 }}>
+                  <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "rgba(0,49,53,0.42)", margin: "0 0 8px" }}>Projects</p>
+                  {s.parsed.projects.map((proj, i) => (
+                    <p key={i} style={{ margin: "0 0 4px", fontSize: 13, fontWeight: 600, color: "#003135" }}>
+                      {proj.title}{proj.startDate ? ` (${proj.startDate}${proj.endDate ? ` – ${proj.endDate}` : ""})` : ""}
                     </p>
                   ))}
                 </div>
