@@ -12,8 +12,12 @@ async function extractText(buffer: Buffer, filename: string): Promise<string> {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { PDFParse } = require("pdf-parse")
     const parser = new PDFParse({ data: new Uint8Array(buffer) })
-    const result = await parser.getText()
+    const result = await parser.getText({ cellSeparator: "\n" })
+    // Normalize middle-dot separators and collapse excessive blank lines
     return result.text
+      .replace(/ [·•‧] /g, "\n")   // · • ‧ used as cell separators
+      .replace(/\t/g, "\n")
+      .replace(/\n{3,}/g, "\n\n")
   }
 
   if (ext === "doc" || ext === "docx") {
@@ -113,7 +117,7 @@ function parseEducation(text: string): EducationResult {
   }
 
   // Degree
-  const degreeRe = /\b(B\.?S\.?|B\.?A\.?|M\.?S\.?|M\.?A\.?|Ph\.?D\.?|bachelor(?:'s)?|master(?:'s)?|associate(?:'s)?|doctor)/i
+  const degreeRe = /\b(B\.?S\.?|B\.?A\.?|M\.?S\.?|M\.?A\.?|Ph\.?D\.?|bachelor(?:'s)?|master(?:'s)?|associate(?:'s)?|doctor)(?![a-zA-Z])/i
   for (const line of slice) {
     const dm = line.match(degreeRe)
     if (dm && !degree) {
@@ -138,15 +142,20 @@ function parseEducation(text: string): EducationResult {
   const monthPattern = months.join("|")
   const dateRe = new RegExp(`(${monthPattern})[.,]?\\s*(20\\d{2}|19\\d{2})`, "i")
 
-  // Look near degree or "Expected" keyword
-  for (const line of slice) {
-    if (/expected|graduating|graduation|grad/i.test(line) || degreeRe.test(line)) {
-      const dm = line.match(dateRe)
-      if (dm) {
-        gradMonth = dm[1].slice(0, 3)
-        gradYear = dm[2]
-        break
-      }
+  // Look near degree line, "Expected" keyword, or any date near school name
+  let foundDegreeIdx = -1
+  for (let i = 0; i < slice.length; i++) {
+    if (degreeRe.test(slice[i]) || /expected|graduating|graduation|grad/i.test(slice[i])) {
+      foundDegreeIdx = i; break
+    }
+  }
+  const dateSearchSlice = foundDegreeIdx >= 0 ? slice.slice(Math.max(0, foundDegreeIdx - 2), foundDegreeIdx + 4) : slice
+  for (const line of dateSearchSlice) {
+    const dm = line.match(dateRe)
+    if (dm) {
+      gradMonth = dm[1].slice(0, 3)
+      gradYear = dm[2]
+      break
     }
   }
 
@@ -206,16 +215,35 @@ function parseWorkHistory(text: string): WorkEntry[] {
 
     if (dates && dates.length >= 1) {
       if (current) entries.push(current)
-      const title = i > 0 ? lines[i - 1].replace(/[|,\-–—].*/g, "").trim() : ""
-      const employer = line.replace(dateRe, "").replace(/[|\-–—,]/g, " ").trim().replace(/\s+/g, " ")
+
+      // Title: previous non-empty line that isn't a section header or date-only line
+      let title = ""
+      for (let back = i - 1; back >= Math.max(0, i - 3); back--) {
+        const prev = lines[back]
+        if (!prev || /^(experience|work experience|employment|professional experience)/i.test(prev)) continue
+        if (prev.match(dateRe)) continue
+        title = prev.replace(/[|,\-–—·].*/g, "").trim()
+        break
+      }
+
+      // Employer: line after the date line, or strip dates from current line
+      const stripped = line.replace(dateRe, "").replace(/[–—\-|·,]/g, " ").trim().replace(/\s+/g, " ")
+      let employer = stripped.length > 2 && stripped.length <= 80 ? stripped : ""
+
+      // If employer looks like a title (no location pattern), try next line
+      if (!employer && i + 1 < lines.length && !lines[i + 1].match(dateRe)) {
+        employer = lines[i + 1].replace(/[|,\-–—·].*/g, "").trim()
+      }
+
       current = {
-        employer: employer.length > 60 ? "" : employer,
+        employer,
         title,
         startDate: dates[0] ?? "",
         endDate: dates[1] ?? "Present",
         description: "",
       }
     } else if (current && !dates && line.length > 20 && /[a-z]/.test(line)) {
+      // Skip lines that look like a job title for the next entry (no lowercase content)
       current.description += (current.description ? " " : "") + line
     }
   }
