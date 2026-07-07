@@ -124,10 +124,18 @@ function parseEducation(text: string): EducationResult {
       const short = dm[1].toUpperCase().replace(/['"']/g, "").replace("BACHELOR", "B.S.").replace("MASTER", "M.S.").replace("ASSOCIATE", "A.S.").replace("DOCTOR", "Ph.D.")
       degree = short.length <= 5 ? short : dm[1].charAt(0).toUpperCase() + dm[1].slice(1).toLowerCase()
 
-      // Try to extract major from same line
+      // Extract major from same line — strip GPA, dates, city/state first
       const afterDegree = line.replace(degreeRe, "").replace(/^[\s,in]+/i, "").trim()
-      if (afterDegree && afterDegree.length < 60) {
-        major = afterDegree.replace(/[,|;].*/g, "").trim()
+      const cleanedForMajor = afterDegree
+        .replace(/\bGPA[:\s]+[\d.\/]+/gi, "")
+        .replace(/\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\s+(?:20|19)\d{2}\b.*/gi, "")
+        .replace(/[–—]\s*(?:Present|\w+\s+\d{4}).*/g, "")
+        .replace(/,\s*[A-Z]{2}\b.*/g, "")
+        .replace(/[,|;].*/g, "")
+        .replace(/\s+/g, " ")
+        .trim()
+      if (cleanedForMajor && cleanedForMajor.length > 1 && cleanedForMajor.length < 80) {
+        major = cleanedForMajor
       }
     }
   }
@@ -196,16 +204,17 @@ interface WorkEntry {
 }
 
 function parseWorkHistory(text: string): WorkEntry[] {
-  const expIdx = text.search(/(?:^|\n)(experience|work experience|employment|professional experience)[:\s]*\n/i)
+  const expIdx = text.search(/(?:^|\n)(experience|work experience|employment history|professional experience)[:\s]*\n/i)
   if (expIdx < 0) return []
 
   const afterExp = text.slice(expIdx)
-  const nextSection = afterExp.search(/\n(education|skills|projects|certifications|awards|publications)\s*\n/i)
-  const section = nextSection > 0 ? afterExp.slice(0, nextSection) : afterExp.slice(0, 2000)
+  const nextSection = afterExp.search(/\n(?:education|skills|technical skills|projects|certifications|awards|publications|volunteer|activities|interests|summary|objective)\s*\n/i)
+  const section = nextSection > 0 ? afterExp.slice(0, nextSection) : afterExp.slice(0, 6000)
 
   const dateRe = /(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[.,]?\s*(?:20|19)\d{2}/gi
   const entries: WorkEntry[] = []
-  const lines = section.split("\n").map(l => l.trim()).filter(Boolean)
+  // Strip leading bullet/dot chars but keep line content
+  const lines = section.split("\n").map(l => l.replace(/^[·•\-\*\s]+/, "").trim()).filter(Boolean)
 
   let current: WorkEntry | null = null
 
@@ -216,23 +225,32 @@ function parseWorkHistory(text: string): WorkEntry[] {
     if (dates && dates.length >= 1) {
       if (current) entries.push(current)
 
-      // Title: previous non-empty line that isn't a section header or date-only line
+      // Case 1: title embedded in the date line ("Technical Lead  Aug 2025 – May 2026")
+      const beforeDates = line.replace(dateRe, "").replace(/[–—\-|·,•]+/g, " ").trim().replace(/\s+/g, " ")
       let title = ""
-      for (let back = i - 1; back >= Math.max(0, i - 3); back--) {
-        const prev = lines[back]
-        if (!prev || /^(experience|work experience|employment|professional experience)/i.test(prev)) continue
-        if (prev.match(dateRe)) continue
-        title = prev.replace(/[|,\-–—·].*/g, "").trim()
-        break
-      }
+      let employer = ""
 
-      // Employer: line after the date line, or strip dates from current line
-      const stripped = line.replace(dateRe, "").replace(/[–—\-|·,]/g, " ").trim().replace(/\s+/g, " ")
-      let employer = stripped.length > 2 && stripped.length <= 80 ? stripped : ""
-
-      // If employer looks like a title (no location pattern), try next line
-      if (!employer && i + 1 < lines.length && !lines[i + 1].match(dateRe)) {
-        employer = lines[i + 1].replace(/[|,\-–—·].*/g, "").trim()
+      if (beforeDates.length > 2 && beforeDates.length <= 80) {
+        // Pre-date text = job title; next non-date line = employer/company
+        title = beforeDates
+        for (let fwd = i + 1; fwd < Math.min(lines.length, i + 4); fwd++) {
+          const next = lines[fwd]
+          if (!next || next.match(dateRe)) break
+          // Skip bullet-point description lines; company names are short and title-case
+          if (next.length <= 80 && !/^(scaled|built|led|managed|developed|designed|created|implemented|improved)/i.test(next)) {
+            employer = next.replace(/[,|·].*/g, "").trim()
+            break
+          }
+        }
+      } else {
+        // Case 2: date-only line — title was on a previous line
+        for (let back = i - 1; back >= Math.max(0, i - 3); back--) {
+          const prev = lines[back]
+          if (!prev || /^(experience|work experience|employment|professional experience)/i.test(prev)) continue
+          if (prev.match(dateRe)) continue
+          title = prev.replace(/[|,\-–—·].*/g, "").trim()
+          break
+        }
       }
 
       current = {
@@ -242,14 +260,16 @@ function parseWorkHistory(text: string): WorkEntry[] {
         endDate: dates[1] ?? "Present",
         description: "",
       }
-    } else if (current && !dates && line.length > 20 && /[a-z]/.test(line)) {
-      // Skip lines that look like a job title for the next entry (no lowercase content)
-      current.description += (current.description ? " " : "") + line
+    } else if (current) {
+      // Accumulate description bullets — skip very short lines or all-caps section headers
+      if (line.length > 15 && /[a-z]/.test(line) && !/^[A-Z\s]{4,}$/.test(line)) {
+        current.description += (current.description ? " " : "") + line
+      }
     }
   }
 
   if (current) entries.push(current)
-  return entries.slice(0, 5)
+  return entries.slice(0, 10)
 }
 
 // ── Route handler ─────────────────────────────────────────────────────────────
