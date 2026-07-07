@@ -25,11 +25,10 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   const isAuthRoute = pathname.startsWith("/login")
-  const isOnboard = pathname.startsWith("/onboard")
   const isCheckEmail = pathname.startsWith("/check-email")
   const isAccountExists = pathname.startsWith("/account-exists")
   const isSignupLoading = pathname.startsWith("/signup-loading")
-  const isPublic = isAuthRoute || isOnboard || isCheckEmail || isAccountExists || isSignupLoading
+  const isPublic = isAuthRoute || isCheckEmail || isAccountExists || isSignupLoading
 
   if (!user && !isPublic) {
     const url = request.nextUrl.clone()
