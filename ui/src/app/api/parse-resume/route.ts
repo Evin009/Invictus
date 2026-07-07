@@ -10,8 +10,9 @@ async function extractText(buffer: Buffer, filename: string): Promise<string> {
 
   if (ext === "pdf") {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const pdfParse = require("pdf-parse") as (buf: Buffer) => Promise<{ text: string }>
-    const result = await pdfParse(buffer)
+    const { PDFParse } = require("pdf-parse")
+    const parser = new PDFParse({ data: new Uint8Array(buffer) })
+    const result = await parser.getText()
     return result.text
   }
 
