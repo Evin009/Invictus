@@ -3,19 +3,47 @@
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import gsap from "gsap"
+import { ArrowRight, LockSimple, ArrowLeft, EnvelopeSimple } from "@phosphor-icons/react"
 
 const CSS = `
-  @keyframes ae-pulse { 0%,100%{opacity:0.4;transform:scale(1)} 50%{opacity:0.8;transform:scale(1.07)} }
-  @keyframes ae-bob   { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
-  .ae-cta-primary:hover  { background: #7a3a29 !important; transform: translateY(-1px); box-shadow: 0 8px 20px rgba(150,71,52,0.28); }
-  .ae-cta-primary:active { transform: translateY(0) !important; }
-  .ae-cta-ghost:hover    { background: rgba(0,49,53,0.06) !important; }
-  .ae-cta-primary, .ae-cta-ghost { transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease; }
+  @keyframes char-float  { 0%,100%{transform:translateY(0)}   50%{transform:translateY(-10px)} }
+  @keyframes orb-drift-a { 0%,100%{transform:translate(0,0)}  50%{transform:translate(16px,-12px)} }
+  @keyframes orb-drift-b { 0%,100%{transform:translate(0,0)}  50%{transform:translate(-10px,8px)} }
+  @keyframes sparkle-a   { 0%,100%{opacity:0;transform:scale(0.3)} 55%{opacity:1;transform:scale(1)} }
+  @keyframes sparkle-b   { 0%,100%{opacity:0;transform:scale(0.2)} 50%{opacity:0.75;transform:scale(1)} }
+  @keyframes spin-slow   { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+
+  .ae-btn-primary {
+    position:relative; overflow:hidden;
+    transition: box-shadow 0.28s cubic-bezier(0.16,1,0.3,1), transform 0.18s cubic-bezier(0.16,1,0.3,1);
+  }
+  .ae-btn-primary::before {
+    content:''; position:absolute; inset:0;
+    background:#7a3a29;
+    transform:translateX(-101%);
+    transition:transform 0.38s cubic-bezier(0.16,1,0.3,1);
+  }
+  .ae-btn-primary:hover::before { transform:translateX(0); }
+  .ae-btn-primary:hover { box-shadow:0 14px 36px rgba(150,71,52,0.28); transform:translateY(-2px); }
+  .ae-btn-primary:active { transform:translateY(0) scale(0.98); }
+
+  .ae-btn-ghost {
+    transition: background 0.2s ease, transform 0.18s cubic-bezier(0.16,1,0.3,1);
+  }
+  .ae-btn-ghost:hover { background:rgba(0,49,53,0.07) !important; transform:translateY(-1px); }
+  .ae-btn-ghost:active { transform:scale(0.98); }
+
+  .ae-link { transition: color 0.2s ease; }
+  .ae-link:hover { color:rgba(0,49,53,0.7) !important; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration:0.01ms !important; transition-duration:0.01ms !important; }
+  }
 `
 
 export default function AccountExistsPage() {
-  const router = useRouter()
-  const containerRef = useRef<HTMLDivElement>(null)
+  const router   = useRouter()
+  const rootRef  = useRef<HTMLDivElement>(null)
   const [email, setEmail] = useState("")
 
   useEffect(() => {
@@ -27,138 +55,220 @@ export default function AccountExistsPage() {
 
   useEffect(() => {
     const ctx = gsap.context(() => {
-      gsap.from(".ae-item", {
-        opacity: 0, y: 18, duration: 0.52, ease: "power3.out",
-        stagger: 0.07, delay: 0.08, clearProps: "transform,opacity",
+      gsap.set(".ae-char",    { opacity: 0, y: -20 })
+      gsap.set(".ae-stagger", { opacity: 0, y: 20 })
+      gsap.to(".ae-char", {
+        opacity: 1, y: 0, duration: 0.7, ease: "power3.out", delay: 0.05,
+        clearProps: "transform,opacity",
       })
-    }, containerRef)
+      gsap.to(".ae-stagger", {
+        opacity: 1, y: 0, duration: 0.56, ease: "power3.out",
+        stagger: 0.07, delay: 0.18, clearProps: "transform,opacity",
+      })
+    }, rootRef)
     return () => ctx.revert()
   }, [])
-
-  function goSignIn() {
-    router.push("/login")
-  }
-
-  function goForgotPassword() {
-    router.push("/login?forgot=1")
-  }
-
-  function tryDifferentEmail() {
-    router.push("/login?signup=1")
-  }
 
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
-      <div ref={containerRef} style={{
-        minHeight: "100dvh", width: "100%", background: "#EFF3F1",
-        fontFamily: "var(--font-space-grotesk,'Space Grotesk',sans-serif)",
-        color: "#003135", display: "flex", flexDirection: "column",
-        alignItems: "center", justifyContent: "center", padding: "40px 24px",
-        position: "relative", overflow: "hidden",
-      }}>
 
-        {/* Dot grid */}
-        <div style={{ position: "absolute", inset: 0, backgroundImage: "radial-gradient(rgba(0,49,53,0.055) 1px, transparent 1px)", backgroundSize: "28px 28px", pointerEvents: "none" }} />
+      <div
+        ref={rootRef}
+        style={{
+          minHeight: "100dvh", width: "100%", background: "#EFF3F1",
+          fontFamily: "var(--font-space-grotesk,'Space Grotesk',sans-serif)",
+          color: "#003135", display: "flex", flexDirection: "column",
+          alignItems: "center", justifyContent: "center",
+          padding: "48px 24px", position: "relative", overflow: "hidden",
+        }}
+      >
 
-        {/* Ambient orbs */}
-        <div style={{ position: "absolute", top: -160, right: -130, width: 420, height: 420, borderRadius: "50%", background: "radial-gradient(circle, rgba(150,71,52,0.12), transparent 70%)", pointerEvents: "none", animation: "ae-pulse 6s ease-in-out infinite" }} />
-        <div style={{ position: "absolute", bottom: -180, left: -150, width: 460, height: 460, borderRadius: "50%", background: "radial-gradient(circle, rgba(15,164,175,0.10), transparent 70%)", pointerEvents: "none", animation: "ae-pulse 7s ease-in-out infinite", animationDelay: "1s" }} />
+        {/* ── BACKGROUND ── */}
+        <div style={{ position: "absolute", inset: 0, backgroundImage: "radial-gradient(rgba(0,49,53,0.055) 1px, transparent 1px)", backgroundSize: "26px 26px", pointerEvents: "none" }} />
+        <div style={{
+          position: "absolute", top: "8%", left: "50%", transform: "translateX(-50%)",
+          width: 520, height: 520, borderRadius: "50%",
+          background: "radial-gradient(circle, rgba(150,71,52,0.1) 0%, transparent 68%)",
+          pointerEvents: "none", animation: "orb-drift-a 10s ease-in-out infinite",
+        }} />
+        <div style={{
+          position: "absolute", bottom: "6%", left: "12%",
+          width: 300, height: 300, borderRadius: "50%",
+          background: "radial-gradient(circle, rgba(15,164,175,0.09) 0%, transparent 70%)",
+          pointerEvents: "none", animation: "orb-drift-b 12s ease-in-out infinite",
+        }} />
 
-        <div style={{ width: "100%", maxWidth: 460, position: "relative", zIndex: 1 }}>
+        {/* ── CONTENT ── */}
+        <div style={{
+          position: "relative", zIndex: 1, width: "100%", maxWidth: 460,
+          display: "flex", flexDirection: "column", alignItems: "center",
+        }}>
 
           {/* Logo */}
-          <div className="ae-item" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 48 }}>
-            <svg viewBox="0 0 100 100" width={26} height={26}>
-              <path d="M50 6 L94 50 L50 94 L6 50 Z" fill="none" stroke="#003135" strokeWidth="8" strokeLinejoin="round" strokeLinecap="round" />
-              <path d="M50 26 L74 50 L50 74 L26 50 Z" fill="none" stroke="#0FA4AF" strokeWidth="8" strokeLinejoin="round" strokeLinecap="round" />
+          <div className="ae-stagger" style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 48, alignSelf: "flex-start" }}>
+            <svg viewBox="0 0 100 100" width={22} height={22}>
+              <path d="M50 6 L94 50 L50 94 L6 50 Z" fill="none" stroke="#003135" strokeWidth="10" strokeLinejoin="round" />
+              <path d="M50 26 L74 50 L50 74 L26 50 Z" fill="none" stroke="#0FA4AF" strokeWidth="10" strokeLinejoin="round" />
               <rect x="42" y="42" width="16" height="16" rx="5" fill="#964734" transform="rotate(45 50 50)" />
             </svg>
-            <span style={{ fontSize: 15, fontWeight: 700 }}>Invictus</span>
+            <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: "-0.01em" }}>Invictus</span>
           </div>
 
-          {/* Icon */}
-          <div className="ae-item" style={{ display: "flex", justifyContent: "center", marginBottom: 32 }}>
-            <div style={{ position: "relative", width: 90, height: 90 }}>
-              <div style={{ position: "absolute", inset: -16, borderRadius: "50%", background: "radial-gradient(circle, rgba(150,71,52,0.15), transparent 70%)", animation: "ae-pulse 3.5s ease-in-out infinite" }} />
-              <div style={{
-                width: 90, height: 90, borderRadius: 22, background: "#003135",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                position: "relative", animation: "ae-bob 4s ease-in-out infinite",
-                boxShadow: "0 20px 40px rgba(0,49,53,0.18)",
-              }}>
-                <svg width="40" height="40" viewBox="0 0 24 24" fill="none">
-                  <circle cx="12" cy="8" r="4" fill="none" stroke="rgba(255,255,255,0.9)" strokeWidth="1.8" />
-                  <path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8" stroke="rgba(255,255,255,0.9)" strokeWidth="1.8" strokeLinecap="round" />
-                  {/* Shield checkmark badge */}
-                  <circle cx="19" cy="5" r="4.5" fill="#964734" />
-                  <path d="M17.5 5l1 1.2 2-2" stroke="#fff" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </div>
+          {/* ── CHARACTER + ICON ZONE ── */}
+          <div className="ae-char" style={{ position: "relative", width: "100%", display: "flex", justifyContent: "center", marginBottom: 4 }}>
+            {/* Glow behind */}
+            <div style={{
+              position: "absolute", top: "50%", left: "50%",
+              transform: "translate(-50%,-50%)",
+              width: 280, height: 280, borderRadius: "50%",
+              background: "radial-gradient(circle, rgba(150,71,52,0.1) 0%, transparent 70%)",
+              pointerEvents: "none",
+            }} />
+
+            {/* Character */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/q1.png"
+              alt=""
+              aria-hidden
+              style={{
+                width: "78%", maxWidth: 300, height: "auto",
+                animation: "char-float 5.5s ease-in-out infinite",
+                mixBlendMode: "multiply",
+                userSelect: "none", pointerEvents: "none",
+                position: "relative", zIndex: 1,
+              }}
+            />
+
+            {/* Rust lock badge */}
+            <div style={{
+              position: "absolute", top: "6%", right: "6%", zIndex: 2,
+              width: 48, height: 48, borderRadius: "50%",
+              background: "#964734",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              boxShadow: "0 8px 20px rgba(150,71,52,0.35)",
+              border: "2px solid rgba(255,255,255,0.2)",
+            }}>
+              <LockSimple size={20} color="white" weight="fill" />
             </div>
+
+            {/* Sparkles */}
+            <div style={{ position: "absolute", top: "2%",  right: "22%", zIndex: 2, width: 8, height: 8, borderRadius: "50%", background: "#964734", opacity: 0.8, animation: "sparkle-a 3s ease-in-out infinite" }} />
+            <div style={{ position: "absolute", top: "12%", right: "8%",  zIndex: 2, width: 5, height: 5, borderRadius: "50%", background: "#fff",    opacity: 0.6, animation: "sparkle-b 3.6s ease-in-out infinite 0.8s" }} />
+            <div style={{ position: "absolute", top: "7%",  left:  "18%", zIndex: 2, width: 6, height: 6, borderRadius: "50%", background: "#0FA4AF", opacity: 0.55, animation: "sparkle-a 4.2s ease-in-out infinite 1.4s" }} />
           </div>
 
-          {/* Heading */}
-          <h1 className="ae-item" style={{ fontSize: 28, fontWeight: 800, margin: "0 0 10px", letterSpacing: "-0.02em", textAlign: "center" }}>
+          {/* ── COPY ── */}
+          <div className="ae-stagger" style={{ textAlign: "center", marginBottom: 6 }}>
+            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "#964734" }}>
+              Already registered
+            </span>
+          </div>
+
+          <h1 className="ae-stagger" style={{
+            fontSize: "clamp(24px, 5vw, 36px)", fontWeight: 800,
+            letterSpacing: "-0.03em", lineHeight: 1.1,
+            margin: "6px 0 0", textAlign: "center", color: "#003135",
+          }}>
             Account already exists
           </h1>
 
-          {email ? (
-            <p className="ae-item" style={{ margin: "0 0 32px", fontSize: 14, color: "rgba(0,49,53,0.55)", textAlign: "center", lineHeight: 1.6 }}>
-              An Invictus account is already registered to{" "}
-              <strong style={{ color: "#003135", fontWeight: 700 }}>{email}</strong>.
-              <br />Sign in to pick up where you left off.
-            </p>
-          ) : (
-            <p className="ae-item" style={{ margin: "0 0 32px", fontSize: 14, color: "rgba(0,49,53,0.55)", textAlign: "center", lineHeight: 1.6 }}>
-              An account with that email already exists.
-              <br />Sign in to pick up where you left off.
-            </p>
-          )}
+          <p className="ae-stagger" style={{
+            fontSize: 14, lineHeight: 1.7, color: "rgba(0,49,53,0.52)",
+            margin: "12px 0 0", textAlign: "center", maxWidth: "42ch",
+          }}>
+            {email
+              ? <><strong style={{ color: "#003135", fontWeight: 700 }}>{email}</strong> is already registered. Sign in to pick up where you left off.</>
+              : <>An account with that email already exists. Sign in to continue.</>
+            }
+          </p>
 
-          {/* Actions */}
-          <div className="ae-item" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {/* ── ACTIONS ── */}
+          <div className="ae-stagger" style={{ marginTop: 32, width: "100%", display: "flex", flexDirection: "column", gap: 10 }}>
+
+            {/* Sign in — primary */}
             <button
-              className="ae-cta-primary"
-              onClick={goSignIn}
+              className="ae-btn-primary"
+              onClick={() => router.push("/login")}
               style={{
-                width: "100%", padding: "15px", background: "#964734", color: "#fff",
-                border: "none", borderRadius: 14, fontFamily: "inherit",
+                width: "100%", padding: "15px 24px",
+                background: "#964734", color: "#fff", border: "none",
+                borderRadius: 14, fontFamily: "inherit",
                 fontSize: 15, fontWeight: 700, cursor: "pointer",
-                display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                position: "relative", zIndex: 0,
               }}
             >
-              Sign in to my account
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                <path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
+              <span style={{ position: "relative", zIndex: 1 }}>Sign in to my account</span>
+              <span style={{
+                width: 32, height: 32, borderRadius: "50%",
+                background: "rgba(0,0,0,0.14)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                position: "relative", zIndex: 1, flexShrink: 0,
+              }}>
+                <ArrowRight size={15} color="#fff" weight="bold" />
+              </span>
             </button>
 
+            {/* Forgot password — ghost */}
             <button
-              className="ae-cta-ghost"
-              onClick={goForgotPassword}
+              className="ae-btn-ghost"
+              onClick={() => router.push("/login?forgot=1")}
               style={{
-                width: "100%", padding: "14px", background: "#fff", color: "#003135",
-                border: "1px solid rgba(0,49,53,0.14)", borderRadius: 14, fontFamily: "inherit",
-                fontSize: 14, fontWeight: 600, cursor: "pointer",
-                display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                width: "100%", padding: "14px 24px",
+                background: "#fff", color: "#003135",
+                border: "1px solid rgba(0,49,53,0.1)", borderRadius: 14,
+                fontFamily: "inherit", fontSize: 14, fontWeight: 600,
+                cursor: "pointer",
+                display: "flex", alignItems: "center", justifyContent: "space-between",
               }}
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                <rect x="5" y="11" width="14" height="9" rx="2" stroke="currentColor" strokeWidth="1.8" />
-                <path d="M8 11V7a4 4 0 118 0v4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-              </svg>
-              Forgot my password
+              <span>Forgot my password</span>
+              <LockSimple size={15} color="rgba(0,49,53,0.4)" weight="regular" />
+            </button>
+
+          </div>
+
+          {/* Divider */}
+          <div className="ae-stagger" style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 18, width: "100%" }}>
+            <div style={{ flex: 1, height: 1, background: "rgba(0,49,53,0.08)" }} />
+            <span style={{ fontSize: 11, fontWeight: 600, color: "rgba(0,49,53,0.3)" }}>or</span>
+            <div style={{ flex: 1, height: 1, background: "rgba(0,49,53,0.08)" }} />
+          </div>
+
+          {/* Different email */}
+          <div className="ae-stagger" style={{ marginTop: 14, textAlign: "center" }}>
+            <button
+              className="ae-link"
+              onClick={() => router.push("/login?signup=1")}
+              style={{
+                background: "none", border: "none", padding: "6px 8px",
+                fontFamily: "inherit", fontSize: 13, fontWeight: 600,
+                color: "rgba(0,49,53,0.38)", cursor: "pointer",
+                display: "inline-flex", alignItems: "center", gap: 6,
+              }}
+            >
+              <EnvelopeSimple size={13} weight="bold" />
+              Use a different email
             </button>
           </div>
 
-          <div className="ae-item" style={{ textAlign: "center", marginTop: 22 }}>
-            <span
-              onClick={tryDifferentEmail}
-              style={{ fontSize: 13, color: "rgba(0,49,53,0.45)", cursor: "pointer", fontWeight: 600 }}
+          {/* Back */}
+          <div className="ae-stagger" style={{ marginTop: 6 }}>
+            <button
+              className="ae-link"
+              onClick={() => router.push("/login")}
+              style={{
+                background: "none", border: "none", padding: "6px 0",
+                fontFamily: "inherit", fontSize: 12, fontWeight: 600,
+                color: "rgba(0,49,53,0.3)", cursor: "pointer",
+                display: "inline-flex", alignItems: "center", gap: 5,
+              }}
             >
-              Use a different email instead
-            </span>
+              <ArrowLeft size={12} weight="bold" />
+              Back to sign in
+            </button>
           </div>
 
         </div>
