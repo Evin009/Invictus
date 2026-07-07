@@ -173,8 +173,8 @@ export default function ProfilePage() {
         github: p.github_url ?? "",
         portfolio: p.portfolio ?? "",
         school: Array.isArray(p.education) && p.education[0]
-          ? (p.education[0] as Record<string,string>).school ?? "" : "",
-        major: p.major ?? "",
+          ? ((p.education[0] as Record<string,string>).institution ?? (p.education[0] as Record<string,string>).school ?? "") : "",
+        major: p.major ?? (Array.isArray(p.education) && p.education[0] ? (p.education[0] as Record<string,string>).field ?? "" : ""),
         degree: Array.isArray(p.education) && p.education[0]
           ? (p.education[0] as Record<string,string>).degree ?? "" : "",
         gpa: p.gpa ?? "",

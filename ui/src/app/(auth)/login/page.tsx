@@ -162,9 +162,18 @@ export default function LoginPage() {
     setIsLoading(true)
     try {
       if (isSignUp) {
-        const { error } = await supabase.auth.signUp({ email: email.trim(), password })
+        const { data: signUpData, error } = await supabase.auth.signUp({
+          email: email.trim(), password,
+          options: { emailRedirectTo: `${location.origin}/check-email` },
+        })
         if (error) { setAuthError(error.message); return }
-        router.push("/signup-loading")
+        try { localStorage.setItem("invictus-pending-email", email.trim()) } catch {}
+        // No session = email confirmation required
+        if (!signUpData.session) {
+          router.push("/check-email")
+        } else {
+          router.push("/signup-loading")
+        }
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
         if (error) { setAuthError(error.message); return }

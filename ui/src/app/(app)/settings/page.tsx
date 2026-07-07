@@ -83,6 +83,7 @@ export default function SettingsPage() {
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  const [fullName, setFullName] = useState("")
   const [email, setEmail] = useState("")
   const [baselineEmail, setBaselineEmail] = useState("")
   const [automation, setAutomation] = useState<AutomationState>({
@@ -101,6 +102,7 @@ export default function SettingsPage() {
         const e = d?.email ?? ""
         setEmail(e)
         setBaselineEmail(e)
+        setFullName(d?.full_name ?? "")
       })
       .catch(() => {})
       .finally(() => setLoading(false))
@@ -176,7 +178,21 @@ export default function SettingsPage() {
         <div style={CARD}>
           <h2 style={{ fontSize: 17, fontWeight: 700, margin: "0 0 4px" }}>Account</h2>
           <p style={{ fontSize: 13, color: "rgba(0,49,53,0.5)", margin: "0 0 20px" }}>Your login details and how you sign in</p>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 20 }}>
+
+          {/* Identity row */}
+          {(fullName || email) && (
+            <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 16px", background: "#F5F8F7", borderRadius: 12, marginBottom: 20 }}>
+              <div style={{ width: 42, height: 42, borderRadius: 12, background: "#024950", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 700, flexShrink: 0, letterSpacing: "-0.01em" }}>
+                {fullName.trim().split(/\s+/).map(w => w[0]).join("").slice(0, 2).toUpperCase() || email[0]?.toUpperCase() || "?"}
+              </div>
+              <div style={{ minWidth: 0 }}>
+                {fullName && <p style={{ margin: "0 0 2px", fontSize: 14, fontWeight: 700, color: "#003135" }}>{fullName}</p>}
+                {email && <p style={{ margin: 0, fontSize: 13, color: "rgba(0,49,53,0.5)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{email}</p>}
+              </div>
+            </div>
+          )}
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
             <div>
               <label style={LABEL}>Email</label>
               <input className="st-input" type="text" value={email} onChange={e => setEmail(e.target.value)} style={INPUT} />
@@ -188,16 +204,6 @@ export default function SettingsPage() {
                 <button style={{ background: "#F5F8F7", border: "none", borderRadius: 8, padding: "0 18px", fontFamily: "inherit", fontSize: 13, fontWeight: 700, color: "#024950", cursor: "pointer" }}>Change</button>
               </div>
             </div>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px", background: "#F5F8F7", borderRadius: 10 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <div style={{ width: 32, height: 32, borderRadius: 8, background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, color: "#024950" }}>G</div>
-              <div>
-                <p style={{ margin: "0 0 2px", fontSize: 13, fontWeight: 700 }}>Google</p>
-                <p style={{ margin: 0, fontSize: 12, color: "rgba(0,49,53,0.45)" }}>Connected as {email}</p>
-              </div>
-            </div>
-            <span style={{ fontSize: 12, fontWeight: 700, color: "#0FA4AF" }}>Connected</span>
           </div>
         </div>
 

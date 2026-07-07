@@ -2,12 +2,8 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactCompiler: true,
-  webpack: (config, { isServer }) => {
-    if (isServer) {
-      config.externals = [...(config.externals ?? []), { canvas: "canvas" }]
-    }
-    return config
-  },
+  turbopack: {},
+  serverExternalPackages: ["pdf-parse", "mammoth", "canvas"],
 };
 
 export default nextConfig;
