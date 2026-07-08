@@ -467,7 +467,7 @@ export function OnboardWizard() {
                     <p style={{ fontSize: 13, color: "rgba(0,49,53,0.5)", margin: "0 0 24px" }}>Used by the agent to fill ATS forms</p>
 
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 20 }}>
-                      <div><Label>Full name</Label><input className="ob-input" type="text" placeholder="Jordan Reyes" value={s.form.fullName} onChange={e => updForm("fullName", e.target.value)} /></div>
+                      <div><Label>Full name</Label><input className="ob-input" type="text" placeholder="Full name" value={s.form.fullName} onChange={e => updForm("fullName", e.target.value)} /></div>
                       <div>
                         <Label>Email</Label>
                         <input className="ob-input" type="email" placeholder="you@example.com" value={s.form.email} onChange={e => { updForm("email", e.target.value); upd({ emailError: false }) }} style={s.emailError ? { borderColor: "#964734" } : {}} />
