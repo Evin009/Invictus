@@ -7,39 +7,20 @@ import gsap from "gsap"
 
 type View = "auth" | "forgot" | "forgot_sent"
 
-const PARTICLE_DEFS = [
-  { left: "10%", bottom: "20%", size: 8,  delay: 0,   dur: 7,   color: "#024950" },
-  { left: "22%", bottom: "14%", size: 6,  delay: 1.4, dur: 6,   color: "#0FA4AF" },
-  { left: "35%", bottom: "26%", size: 10, delay: 2.6, dur: 8,   color: "#964734" },
-  { left: "48%", bottom: "10%", size: 7,  delay: 0.6, dur: 6.5, color: "#0FA4AF" },
-  { left: "60%", bottom: "22%", size: 9,  delay: 3.4, dur: 7.5, color: "#024950" },
-  { left: "72%", bottom: "16%", size: 6,  delay: 1.9, dur: 6,   color: "#964734" },
-  { left: "84%", bottom: "24%", size: 8,  delay: 4.1, dur: 8.5, color: "#0FA4AF" },
-  { left: "92%", bottom: "12%", size: 6,  delay: 2.3, dur: 7,   color: "#024950" },
-  { left: "16%", bottom: "30%", size: 5,  delay: 5,   dur: 6.2, color: "#964734" },
+// Robot agents marching single-file from the student's laptop to the job portal.
+// Negative delays fill the line immediately on mount.
+const BOTS = [
+  { color: "#0FA4AF", delay: "0s",  bobDur: "0.95s" },
+  { color: "#024950", delay: "-3s", bobDur: "1.05s" },
+  { color: "#964734", delay: "-6s", bobDur: "0.9s"  },
+  { color: "#0C7F88", delay: "-9s", bobDur: "1.1s"  },
 ]
 
-const AGENTS = [
-  { label: "Search",        color: "#0FA4AF", cx: 170, cy: 60,    lx: "34%",  ly: "9.7%",  ltx: "translate(-50%,-140%)", anim: "li-floatA 4.5s ease-in-out infinite",  del: ""     },
-  { label: "Watchlist",     color: "#024950", cx: 330, cy: 122.5, lx: "66%",  ly: "19.8%", ltx: "translate(-50%,-140%)", anim: "li-floatB 5.2s ease-in-out infinite",  del: "0.2s" },
-  { label: "Crawler",       color: "#964734", cx: 170, cy: 185,   lx: "34%",  ly: "29.8%", ltx: "translate(-50%,-140%)", anim: "li-floatA 5.8s ease-in-out infinite",  del: "0.5s" },
-  { label: "Resume",        color: "#0FA4AF", cx: 330, cy: 247.5, lx: "66%",  ly: "39.9%", ltx: "translate(-50%,-140%)", anim: "li-floatB 4.8s ease-in-out infinite",  del: "0.9s" },
-  { label: "Cover Letter",  color: "#024950", cx: 170, cy: 310,   lx: "34%",  ly: "50%",   ltx: "translate(-50%,-140%)", anim: "li-floatA 6s ease-in-out infinite",    del: "1.1s" },
-  { label: "Apply",         color: "#964734", cx: 330, cy: 372.5, lx: "66%",  ly: "60.1%", ltx: "translate(-50%,-140%)", anim: "li-floatB 5.4s ease-in-out infinite",  del: "0.3s" },
-  { label: "Outreach",      color: "#0FA4AF", cx: 170, cy: 435,   lx: "34%",  ly: "70.2%", ltx: "translate(-50%,-140%)", anim: "li-floatA 4.9s ease-in-out infinite",  del: "0.7s" },
-  { label: "Reply Track",   color: "#024950", cx: 330, cy: 497.5, lx: "66%",  ly: "80.2%", ltx: "translate(-50%,-140%)", anim: "li-floatB 5.6s ease-in-out infinite",  del: "1.3s" },
-  { label: "Reporting",     color: "#964734", cx: 170, cy: 560,   lx: "34%",  ly: "90.3%", ltx: "translate(-50%,60%)",   anim: "li-floatA 5.1s ease-in-out infinite",  del: "0.6s" },
-]
-
-const PATHS = [
-  { id: "li-path-a", d: "M 170 60 Q 250 91 330 122.5",       stroke: "#0FA4AF", pFill: "#0FA4AF", begin: "0s"   },
-  { id: "li-path-b", d: "M 330 122.5 Q 250 153.75 170 185",  stroke: "#024950", pFill: "#024950", begin: "0.5s" },
-  { id: "li-path-c", d: "M 170 185 Q 250 216 330 247.5",     stroke: "#964734", pFill: "#964734", begin: "1s"   },
-  { id: "li-path-d", d: "M 330 247.5 Q 250 278.75 170 310",  stroke: "#0FA4AF", pFill: "#0FA4AF", begin: "1.5s" },
-  { id: "li-path-e", d: "M 170 310 Q 250 341 330 372.5",     stroke: "#024950", pFill: "#024950", begin: "2s"   },
-  { id: "li-path-f", d: "M 330 372.5 Q 250 403.75 170 435",  stroke: "#964734", pFill: "#964734", begin: "2.5s" },
-  { id: "li-path-g", d: "M 170 435 Q 250 466 330 497.5",     stroke: "#0FA4AF", pFill: "#0FA4AF", begin: "3s"   },
-  { id: "li-path-h", d: "M 330 497.5 Q 250 528.75 170 560",  stroke: "#024950", pFill: "#024950", begin: "3.5s" },
+// Floating job cards that periodically get stamped "Applied".
+const CARDS = [
+  { x: 282, y: 88,  logo: "#964734", floatDur: "5.2s", floatDel: "0s",   badgeDel: "0.6s" },
+  { x: 366, y: 168, logo: "#0FA4AF", floatDur: "6s",   floatDel: "0.8s", badgeDel: "2.4s" },
+  { x: 272, y: 212, logo: "#024950", floatDur: "6.6s", floatDel: "1.6s", badgeDel: "4.2s" },
 ]
 
 function passwordScore(pw: string) {
@@ -89,15 +70,30 @@ const INJECTED_CSS = `
   .li-panel-scroll::-webkit-scrollbar-track { background: transparent; }
   .li-panel-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 4px; }
   .li-panel-scroll::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.28); }
-  @keyframes li-floatA{0%,100%{transform:translateY(0px)}50%{transform:translateY(-16px)}}
-  @keyframes li-floatB{0%,100%{transform:translateY(0px)}50%{transform:translateY(-9px)}}
-  @keyframes li-rise{0%{transform:translateY(0) rotate(0deg);opacity:0;}12%{opacity:0.9;}85%{opacity:0.5;}100%{transform:translateY(-340px) rotate(70deg);opacity:0;}}
   @keyframes li-pulse{0%,100%{opacity:0.55;transform:scale(1)}50%{opacity:0.9;transform:scale(1.08)}}
   @keyframes li-slide{from{background-position:0 0}to{background-position:160px 160px}}
   @keyframes li-spin-btn{to{transform:rotate(360deg)}}
 
+  /* ── Desk scene animations ── */
+  .li2-scene *{transform-box:fill-box;transform-origin:center;}
+  @keyframes li2-march{0%{transform:translateX(0);opacity:0}6%{opacity:1}88%{opacity:1}96%,100%{transform:translateX(190px);opacity:0}}
+  @keyframes li2-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-2.5px)}}
+  @keyframes li2-tip{0%,100%{opacity:0.35}50%{opacity:1}}
+  @keyframes li2-headbob{0%,100%{transform:translateY(0)}50%{transform:translateY(1.6px)}}
+  @keyframes li2-type{0%,100%{transform:translateY(0)}50%{transform:translateY(-2.4px)}}
+  @keyframes li2-glow{0%,100%{opacity:0.12}50%{opacity:0.26}}
+  @keyframes li2-steam{0%{transform:translateY(0);opacity:0}25%{opacity:0.5}100%{transform:translateY(-18px);opacity:0}}
+  @keyframes li2-check{0%{transform:translateY(0) scale(0);opacity:0}8%{transform:translateY(0) scale(1.18);opacity:1}14%{transform:translateY(0) scale(1)}55%{transform:translateY(-22px) scale(1);opacity:1}80%,100%{transform:translateY(-34px) scale(1);opacity:0}}
+  @keyframes li2-portal{0%,100%{opacity:0.5}50%{opacity:0.95}}
+  @keyframes li2-risedot{0%{transform:translateY(0);opacity:0}15%{opacity:0.9}100%{transform:translateY(-72px);opacity:0}}
+  @keyframes li2-cardfloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+  @keyframes li2-badge{0%{transform:scale(0);opacity:0}7%{transform:scale(1.15);opacity:1}12%{transform:scale(1)}78%{transform:scale(1);opacity:1}88%,100%{transform:scale(0);opacity:0}}
+  @keyframes li2-star{0%,100%{opacity:0.25}50%{opacity:1}}
+  @keyframes li2-dash{to{stroke-dashoffset:-20}}
+
   @media (prefers-reduced-motion: reduce) {
-    .li-field,.li-submit,[style*="li-floatA"],[style*="li-floatB"],[style*="li-rise"],[style*="li-pulse"],[style*="li-slide"]{animation:none !important;}
+    .li-field,.li-submit,[style*="li-pulse"],[style*="li-slide"]{animation:none !important;}
+    .li2-scene *{animation:none !important;}
   }
 `
 
@@ -586,72 +582,140 @@ export default function LoginPage() {
             <div style={{ position: "absolute", top: "12%", left: "10%", width: 170, height: 170, borderRadius: "50%", background: "radial-gradient(circle, rgba(15,164,175,0.22), rgba(15,164,175,0) 70%)", animation: "li-pulse 6s ease-in-out infinite" }} />
             <div style={{ position: "absolute", bottom: "8%", right: "8%", width: 190, height: 190, borderRadius: "50%", background: "radial-gradient(circle, rgba(150,71,52,0.2), rgba(150,71,52,0) 70%)", animation: "li-pulse 7s ease-in-out infinite", animationDelay: "1.5s" }} />
 
-            {/* SVG pipeline */}
-            <svg viewBox="0 0 500 620" preserveAspectRatio="none" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}>
+            {/* ── Animated desk scene: student studies, agents apply ── */}
+            <svg className="li2-scene" viewBox="0 0 520 540" preserveAspectRatio="xMidYMid meet" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}>
 
-              {/* Connector paths */}
-              {PATHS.map(p => (
-                <path key={p.id} id={p.id} d={p.d} fill="none" stroke={p.stroke} strokeWidth="1.5" opacity="0.3" />
+              {/* Night window */}
+              <g>
+                <rect x="58" y="58" width="128" height="104" rx="10" fill="#0B3E44" stroke="#024950" strokeWidth="6" />
+                <line x1="122" y1="61" x2="122" y2="159" stroke="#024950" strokeWidth="4" opacity="0.9" />
+                <line x1="61" y1="110" x2="183" y2="110" stroke="#024950" strokeWidth="4" opacity="0.9" />
+                {/* Crescent moon */}
+                <circle cx="158" cy="90" r="13" fill="#EFF3F1" opacity="0.92" />
+                <circle cx="164" cy="86" r="11" fill="#0B3E44" />
+                {/* Twinkling stars */}
+                <rect x="84" y="84" width="5" height="5" rx="1" fill="#EFF3F1" transform="rotate(45 86.5 86.5)" style={{ animation: "li2-star 2.2s ease-in-out infinite" }} />
+                <rect x="102" y="130" width="4" height="4" rx="1" fill="#EFF3F1" transform="rotate(45 104 132)" style={{ animation: "li2-star 2.8s ease-in-out infinite", animationDelay: "0.7s" }} />
+                <rect x="140" y="138" width="3.5" height="3.5" rx="1" fill="#EFF3F1" transform="rotate(45 141.7 139.7)" style={{ animation: "li2-star 2.5s ease-in-out infinite", animationDelay: "1.3s" }} />
+              </g>
+
+              {/* Floor */}
+              <line x1="30" y1="505" x2="490" y2="505" stroke="rgba(2,49,53,0.15)" strokeWidth="2" strokeLinecap="round" />
+              <ellipse cx="155" cy="507" rx="110" ry="6" fill="rgba(2,49,53,0.08)" />
+              <ellipse cx="460" cy="507" rx="42" ry="6" fill="rgba(2,49,53,0.08)" />
+
+              {/* Conveyor line the agents march along */}
+              <line x1="252" y1="503" x2="442" y2="503" stroke="rgba(2,73,80,0.25)" strokeWidth="2" strokeDasharray="3 7" strokeLinecap="round" style={{ animation: "li2-dash 0.9s linear infinite" }} />
+
+              {/* Backpack on the floor */}
+              <rect x="36" y="466" width="27" height="38" rx="9" fill="#0C7F88" />
+              <rect x="41" y="484" width="17" height="14" rx="5" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" />
+
+              {/* Chair */}
+              <rect x="76" y="376" width="9" height="84" rx="4" fill="#003135" />
+              <rect x="74" y="452" width="58" height="9" rx="4" fill="#003135" />
+              <rect x="80" y="461" width="7" height="44" fill="#003135" opacity="0.9" />
+              <rect x="116" y="461" width="7" height="44" fill="#003135" opacity="0.9" />
+
+              {/* Student — hoodie, headphones, typing */}
+              <circle cx="104" cy="390" r="9" fill="#964734" />
+              <rect x="92" y="392" width="48" height="66" rx="16" fill="#964734" />
+              <rect x="100" y="448" width="48" height="15" rx="7" fill="#024950" />
+              <rect x="136" y="458" width="11" height="42" rx="5" fill="#024950" />
+              <ellipse cx="146" cy="502" rx="11" ry="4.5" fill="#003135" />
+              {/* Head (bobbing) */}
+              <g style={{ animation: "li2-headbob 3.4s ease-in-out infinite" }}>
+                <circle cx="116" cy="370" r="16" fill="#E9C19C" />
+                <path d="M100 368 Q100 352 116 352 Q132 352 132 368 Q124 359 114 360 Q104 361 100 368 Z" fill="#003135" />
+                <path d="M99 364 A18 18 0 0 1 133 364" fill="none" stroke="#003135" strokeWidth="3.5" strokeLinecap="round" />
+                <rect x="96" y="360" width="6" height="11" rx="3" fill="#003135" />
+                <rect x="130" y="360" width="6" height="11" rx="3" fill="#003135" />
+                <circle cx="124" cy="369" r="1.8" fill="#003135" />
+                <path d="M126 376 q3 1 5 -1.5" fill="none" stroke="#003135" strokeWidth="1.6" strokeLinecap="round" />
+              </g>
+
+              {/* Desk */}
+              <rect x="68" y="409" width="8" height="96" fill="#024950" opacity="0.85" />
+              <rect x="236" y="409" width="8" height="96" fill="#024950" opacity="0.85" />
+              <rect x="58" y="398" width="196" height="11" rx="5" fill="#024950" />
+
+              {/* Coffee mug + steam (left edge of desk, behind the student) */}
+              <rect x="60" y="384" width="13" height="15" rx="3" fill="#EFF3F1" stroke="#024950" strokeWidth="1.5" />
+              <path d="M64 378 q3 -5 0 -9" fill="none" stroke="rgba(2,73,80,0.5)" strokeWidth="1.6" strokeLinecap="round" style={{ animation: "li2-steam 2.8s ease-out infinite" }} />
+              <path d="M69 378 q-3 -5 0 -9" fill="none" stroke="rgba(2,73,80,0.5)" strokeWidth="1.6" strokeLinecap="round" style={{ animation: "li2-steam 2.8s ease-out infinite", animationDelay: "1.2s" }} />
+
+              {/* Laptop — screen faces the student, glow spills onto him */}
+              <polygon points="254,356 120,348 120,398 240,394" fill="#0FA4AF" style={{ animation: "li2-glow 2.8s ease-in-out infinite" }} />
+              <rect x="166" y="392" width="70" height="7" rx="2" fill="#003135" />
+              <polygon points="234,396 256,354 264,357 242,398" fill="#024950" />
+              <line x1="252" y1="358" x2="238" y2="394" stroke="#0FA4AF" strokeWidth="2.5" opacity="0.9" style={{ animation: "li2-portal 2.4s ease-in-out infinite" }} />
+
+              {/* Arms + typing hands (over the desk) */}
+              <path d="M128 408 Q156 402 186 398" fill="none" stroke="#7A3A2B" strokeWidth="7" strokeLinecap="round" />
+              <path d="M126 414 Q152 410 172 404" fill="none" stroke="#964734" strokeWidth="8" strokeLinecap="round" />
+              <circle cx="174" cy="404" r="4.5" fill="#E9C19C" style={{ animation: "li2-type 0.32s ease-in-out infinite" }} />
+              <circle cx="188" cy="398" r="4.5" fill="#E9C19C" style={{ animation: "li2-type 0.32s ease-in-out infinite", animationDelay: "0.16s" }} />
+
+              {/* Marching agent bots carrying resumes */}
+              {BOTS.map((b, i) => (
+                <g key={i} transform="translate(252 474)">
+                  <g style={{ animation: `li2-march 12s linear infinite`, animationDelay: b.delay }}>
+                    <ellipse cx="6" cy="28" rx="11" ry="2.5" fill="rgba(2,49,53,0.12)" />
+                    <g style={{ animation: `li2-bob ${b.bobDur} ease-in-out infinite`, animationDelay: b.delay }}>
+                      <line x1="0" y1="0" x2="0" y2="-6" stroke={b.color} strokeWidth="2" strokeLinecap="round" />
+                      <circle cx="0" cy="-8" r="2.4" fill="#0FA4AF" style={{ animation: "li2-tip 1.1s ease-in-out infinite", animationDelay: b.delay }} />
+                      <rect x="-9" y="0" width="18" height="17" rx="6" fill={b.color} />
+                      <circle cx="-1" cy="7" r="1.7" fill="#fff" />
+                      <circle cx="5" cy="7" r="1.7" fill="#fff" />
+                      <rect x="7" y="6" width="5" height="3" rx="1.5" fill={b.color} />
+                      {/* Resume document */}
+                      <rect x="11" y="1" width="13" height="16" rx="2" fill="#fff" stroke="rgba(2,49,53,0.25)" strokeWidth="0.8" />
+                      <rect x="13" y="4" width="9" height="1.8" rx="0.9" fill="#0FA4AF" />
+                      <rect x="13" y="7.5" width="7" height="1.8" rx="0.9" fill="rgba(2,49,53,0.4)" />
+                      <rect x="13" y="11" width="8" height="1.8" rx="0.9" fill="rgba(2,49,53,0.4)" />
+                    </g>
+                  </g>
+                </g>
               ))}
 
-              {/* Animated data packets */}
-              {PATHS.map(p => (
-                <circle key={`pkt-${p.id}`} r="4" fill={p.pFill}>
-                  <animateMotion dur="1.6s" repeatCount="indefinite" begin={p.begin}>
-                    <mpath href={`#${p.id}`} />
-                  </animateMotion>
-                </circle>
-              ))}
+              {/* Job portal — glowing gateway the resumes enter */}
+              <rect x="426" y="356" width="68" height="148" rx="20" fill="#003135" />
+              <rect x="434" y="364" width="52" height="132" rx="15" fill="#0FA4AF" style={{ animation: "li2-portal 2.4s ease-in-out infinite" }} />
+              <circle cx="452" cy="478" r="3" fill="#fff" style={{ animation: "li2-risedot 2.2s linear infinite" }} />
+              <circle cx="468" cy="482" r="2.5" fill="#EFF3F1" style={{ animation: "li2-risedot 2.2s linear infinite", animationDelay: "-1.1s" }} />
+              <rect x="424" y="330" width="72" height="18" rx="9" fill="#024950" />
+              <text x="460" y="342.5" textAnchor="middle" fontFamily="'Space Grotesk', sans-serif" fontSize="8.5" fontWeight="700" letterSpacing="1.5" fill="#EFF3F1">JOB BOARDS</text>
 
-              {/* Agent nodes with float animation */}
-              {AGENTS.map((a, i) => (
-                <g key={i} style={{ animation: a.anim, animationDelay: a.del || "0s" }}>
-                  <circle cx={a.cx} cy={a.cy} r="19" fill={a.color} opacity="0.18" />
-                  <circle cx={a.cx} cy={a.cy} r="10" fill={a.color} />
+              {/* Success checkmark popping above the portal */}
+              <g transform="translate(460 318)">
+                <g style={{ animation: "li2-check 3s ease-out infinite" }}>
+                  <circle r="11" fill="#0FA4AF" />
+                  <path d="M-4.5 0 l3 3 l6.5 -6.5" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                </g>
+              </g>
+
+              {/* Floating job cards getting stamped "Applied" */}
+              {CARDS.map((c, i) => (
+                <g key={i} transform={`translate(${c.x} ${c.y})`}>
+                  <g style={{ animation: `li2-cardfloat ${c.floatDur} ease-in-out infinite`, animationDelay: c.floatDel }}>
+                    <rect width="92" height="58" rx="10" fill="#fff" opacity="0.96" stroke="rgba(2,49,53,0.1)" strokeWidth="1" />
+                    <circle cx="16" cy="17" r="7" fill={c.logo} />
+                    <rect x="30" y="12" width="40" height="5" rx="2.5" fill="rgba(2,49,53,0.75)" />
+                    <rect x="30" y="21" width="28" height="4" rx="2" fill="rgba(2,49,53,0.3)" />
+                    <g style={{ animation: "li2-badge 5.4s ease-in-out infinite", animationDelay: c.badgeDel }}>
+                      <rect x="12" y="34" width="54" height="16" rx="8" fill="rgba(15,164,175,0.15)" />
+                      <path d="M20 42 l2.5 2.5 l4.5 -4.5" fill="none" stroke="#0FA4AF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                      <text x="32" y="45" fontFamily="'Space Grotesk', sans-serif" fontSize="8.5" fontWeight="700" fill="#0FA4AF">Applied</text>
+                    </g>
+                  </g>
                 </g>
               ))}
             </svg>
 
-            {/* Agent name tags */}
-            {AGENTS.map((a, i) => (
-              <div key={i} style={{
-                position: "absolute", left: a.lx, top: a.ly,
-                transform: a.ltx,
-                animation: a.anim, animationDelay: a.del || "0s",
-              }}>
-                <span style={{
-                  display: "inline-flex", alignItems: "center", gap: 5,
-                  color: "#fff", fontFamily: "'Space Grotesk', sans-serif",
-                  fontSize: 11, fontWeight: 700, padding: "5px 10px",
-                  borderRadius: 14, background: a.color,
-                  boxShadow: "0 4px 10px rgba(2,49,53,0.18)",
-                  whiteSpace: "nowrap", position: "relative", zIndex: 2,
-                }}>
-                  {a.label}
-                </span>
-              </div>
-            ))}
-
-            {/* Goal marker */}
-            <div style={{ position: "absolute", top: "96%", left: "66%", transform: "translate(-50%,-50%)", width: 70, height: 70, borderRadius: "50%", border: "1.5px solid rgba(2,73,80,0.18)", animation: "li-pulse 4s ease-in-out infinite" }} />
-            <div style={{ position: "absolute", top: "96%", left: "66%", transform: "translate(-50%,-50%)", width: 46, height: 46, borderRadius: "50%", background: "radial-gradient(circle, rgba(150,71,52,0.32), rgba(150,71,52,0) 72%)", animation: "li-pulse 3.2s ease-in-out infinite", animationDelay: "0.3s" }} />
-            <div style={{ position: "absolute", top: "96%", left: "66%", transform: "translate(-50%,-50%)", width: 22, height: 22, borderRadius: "50%", background: "linear-gradient(135deg,#964734,#003135)", boxShadow: "0 0 18px rgba(150,71,52,0.55)" }} />
-
-            {/* Rising diamond particles */}
-            {PARTICLE_DEFS.map((p, i) => (
-              <div key={i} style={{
-                position: "absolute", left: p.left, bottom: p.bottom,
-                width: p.size, height: p.size, borderRadius: 2,
-                background: p.color, transform: "rotate(45deg)",
-                animation: `li-rise ${p.dur}s ease-in-out infinite`,
-                animationDelay: `${p.delay}s`,
-              }} />
-            ))}
-
             {/* Caption */}
             <div style={{ position: "absolute", left: 0, right: 0, top: 24, textAlign: "center" }}>
               <p style={{ margin: 0, fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", color: "rgba(2,49,53,0.5)" }}>
-                NINE AGENTS. ONE GOAL. YOUR NEXT ROLE.
+                YOU STUDY. YOUR AGENTS APPLY.
               </p>
             </div>
           </div>
