@@ -14,7 +14,7 @@ interface Form {
   fullName: string; email: string; phone: string; currentLocation: string
   linkedin: string; github: string; portfolio: string
   school: string; major: string; degree: string; gpa: string; gradMonth: string; gradYear: string
-  workAuth: string | null; sponsorship: string | null; relocate: string | null; workMode: string | null; startDate: string
+  workAuth: string | null; sponsorship: string | null; relocate: string | null; workMode: string[]; startDate: string
   minSalary: string; desiredSalary: string
   gender: string | null; race: string | null; veteran: string | null; disability: string | null; pronouns: string
 }
@@ -52,7 +52,7 @@ const INITIAL_FORM: Form = {
   fullName: "", email: "", phone: "", currentLocation: "",
   linkedin: "", github: "", portfolio: "",
   school: "", major: "", degree: "", gpa: "", gradMonth: "", gradYear: "",
-  workAuth: null, sponsorship: null, relocate: null, workMode: null, startDate: "",
+  workAuth: null, sponsorship: null, relocate: null, workMode: [], startDate: "",
   minSalary: "", desiredSalary: "",
   gender: null, race: null, veteran: null, disability: null, pronouns: "",
 }
@@ -78,7 +78,7 @@ const RACE_OPTIONS = ["American Indian / Alaska Native", "Asian", "Black / Afric
 const YES_NO = ["Yes", "No"]
 const VETERAN_OPTIONS = ["Yes", "No", "Prefer not to say"]
 const DISABILITY_OPTIONS = ["Yes", "No", "Prefer not to say"]
-const WORK_MODE_OPTIONS = ["Remote", "Hybrid", "Onsite"]
+const WORK_MODE_OPTIONS = ["Remote", "Hybrid", "On-site"]
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 // ─── Injected CSS ─────────────────────────────────────────────────────────────
@@ -280,7 +280,7 @@ export function OnboardWizard() {
           major: s.form.major, gpa: s.form.gpa, grad_month: s.form.gradMonth, grad_year: s.form.gradYear,
           education: s.form.school ? [{ institution: s.form.school, degree: s.form.degree, field: s.form.major, grad_month: s.form.gradMonth, grad_year: s.form.gradYear, gpa: s.form.gpa }] : null,
           work_auth: s.form.workAuth, sponsorship: s.form.sponsorship,
-          relocate: s.form.relocate, work_mode: s.form.workMode, start_date: s.form.startDate,
+          relocate: s.form.relocate, work_mode: s.form.workMode.join(", ") || null, start_date: s.form.startDate,
           gender: s.form.gender, race: s.form.race, veteran: s.form.veteran,
           disability: s.form.disability, pronouns: s.form.pronouns,
         }),
@@ -547,7 +547,7 @@ export function OnboardWizard() {
                     <div style={{ marginBottom: 24 }}>
                       <Label>Work mode preference</Label>
                       <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                        {WORK_MODE_OPTIONS.map(o => <Pill key={o} label={o} selected={s.form.workMode === o} onClick={() => toggleForm("workMode", o)} />)}
+                        {WORK_MODE_OPTIONS.map(o => <Pill key={o} label={o} selected={s.form.workMode.includes(o)} onClick={() => setS(p => ({ ...p, form: { ...p.form, workMode: p.form.workMode.includes(o) ? p.form.workMode.filter(m => m !== o) : [...p.form.workMode, o] } }))} />)}
                       </div>
                     </div>
 
