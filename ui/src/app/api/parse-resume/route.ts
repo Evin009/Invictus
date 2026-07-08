@@ -274,7 +274,7 @@ function parseWorkHistory(text: string): WorkEntry[] {
   if (expIdx < 0) return []
 
   const afterExp = text.slice(expIdx)
-  const nextSection = afterExp.search(/\n(?:education|skills|technical skills|projects|certifications|awards|publications|volunteer|activities|leadership|interests|summary|objective)\s*\n/i)
+  const nextSection = afterExp.search(/\n\s*(?:education|skills|technical skills|projects|certifications|awards|publications|volunteer|activities|leadership|honors?|interests|summary|objective)\s*\n/i)
   const section = nextSection > 0 ? afterExp.slice(0, nextSection) : afterExp.slice(0, 6000)
 
   const dateRe = /(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[.,]?\s*(?:20|19)\d{2}/gi
@@ -329,7 +329,7 @@ function parseWorkHistory(text: string): WorkEntry[] {
         // Case 2: date-only line — title was on a previous line
         for (let back = i - 1; back >= Math.max(0, i - 3); back--) {
           const prev = lines[back]
-          if (!prev || /^(experience|work experience|employment|professional experience)/i.test(prev)) continue
+          if (!prev || /^(experience|work experience|employment|professional experience|education|skills|projects?|certifications?|awards?|leadership|volunteer|activities|honors?|interests|summary|objective)/i.test(prev)) continue
           if (prev.match(dateRe)) continue
           title = prev.replace(/[|,\-–—·].*/g, "").trim()
           break
@@ -346,7 +346,7 @@ function parseWorkHistory(text: string): WorkEntry[] {
     } else if (current) {
       if (i === employerLineIdx) continue  // skip — already used as employer name
       // Accumulate ALL bullet lines — skip only all-caps section headers and section dividers
-      const isHeader = /^[A-Z\s]{5,}$/.test(line) || /^(experience|education|skills|projects|certifications|awards)/i.test(line)
+      const isHeader = /^[A-Z\s]{5,}$/.test(line) || /^(experience|education|skills|projects|certifications|awards|leadership|volunteer|activities|honors?|publications?|interests|summary|objective)/i.test(line)
       if (!isHeader && line.length > 3) {
         current.description += (current.description ? "\n" : "") + "• " + line
       }
