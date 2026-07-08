@@ -179,26 +179,46 @@ function parseEducation(text: string): EducationResult {
 }
 
 function parseSkills(text: string): string[] {
-  const sectionRe = /(?:^|\n)(technical skills?|skills?|core competencies|technologies|tech stack|tools|expertise|proficiencies?)[:\s]*\n?([\s\S]{1,3000}?)(?=\n(?:[A-Z][A-Z\s]{3,}:|\n[A-Z][a-z])|(?:\n\n(?:experience|education|work|projects|certifications|awards))|$)/i
-  const m = text.match(sectionRe)
-  if (!m) return []
+  // Step 1: locate the skills section header
+  const headerRe = /(?:^|\n)(technical\s+skills?|skills?|core\s+competencies|technologies|tech\s+stack|tools(?:\s*&\s*technologies)?|expertise|proficiencies?)\s*:?\s*\n/i
+  const headerM = text.match(headerRe)
+  if (!headerM) return []
 
-  const raw = m[2]
-  const seen = new Set<string>()
+  const sectionStart = (headerM.index ?? 0) + headerM[0].length
+
+  // Step 2: find where the next section begins — look for a known keyword alone on its own line
+  const nextHeaderRe = /\n(experience|work\s+experience|employment(?:\s+history)?|education|projects?|certifications?|awards?|publications?|volunteer|activities|interests?|summary|objective|references?|languages?)\s*\n/i
+  const tail = text.slice(sectionStart)
+  const endM  = tail.match(nextHeaderRe)
+  const raw   = endM ? tail.slice(0, endM.index) : tail.slice(0, 6000)
+
+  // Step 3: extract every skill token
+  const seen   = new Set<string>()
   const skills: string[] = []
 
   for (const line of raw.split("\n")) {
     const trimmed = line.trim()
     if (!trimmed) continue
 
-    // "Category: skill1, skill2, skill3" — strip category label, extract values
-    const catMatch = trimmed.match(/^[A-Za-z &\/\-]{2,30}:\s*(.+)/)
-    const content = catMatch ? catMatch[1] : trimmed
+    // "Category: skill1, skill2" — strip category label, keep values only
+    const catMatch = trimmed.match(/^[A-Za-z &\/\-]{2,35}:\s*(.+)/)
+    const content  = catMatch ? catMatch[1] : trimmed
 
-    // Split on common delimiters: comma, pipe, bullet, slash, semicolon, tab
+    // Split on all common delimiters
     for (const part of content.split(/[,|•·\/;\t]+/)) {
-      const s = part.trim().replace(/^[\-\*\s]+/, "").replace(/[\-\*\s]+$/, "").trim()
-      if (s.length > 1 && s.length < 60 && !/^\d+$/.test(s) && !seen.has(s.toLowerCase())) {
+      // Strip leading/trailing bullet chars, whitespace, parenthetical notes
+      const s = part
+        .trim()
+        .replace(/^[\-\*\s]+/, "")
+        .replace(/[\-\*\s]+$/, "")
+        .replace(/\s*\(.*?\)\s*$/, "")   // strip "(proficient)" / "(3 yrs)" etc.
+        .trim()
+      if (
+        s.length > 1 &&
+        s.length < 60 &&
+        !/^\d+$/.test(s) &&
+        !seen.has(s.toLowerCase())
+      ) {
         seen.add(s.toLowerCase())
         skills.push(s)
       }
