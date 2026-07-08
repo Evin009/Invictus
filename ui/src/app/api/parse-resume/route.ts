@@ -311,7 +311,10 @@ function parseWorkHistory(text: string): WorkEntry[] {
           if (!next || next.match(dateRe)) break
           // Skip bullet-point description lines; company names are short and title-case
           if (next.length <= 80 && !/^(scaled|built|led|managed|developed|designed|created|implemented|improved)/i.test(next)) {
-            employer = next.replace(/[,|·].*/g, "").trim()
+            employer = next
+              .replace(/[,|·–—].*/g, "")
+              .replace(/\s+(?:[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?\s+)?[A-Z]{2}\s*$/, "")
+              .trim()
             break
           }
         }
