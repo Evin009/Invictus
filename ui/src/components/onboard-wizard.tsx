@@ -91,7 +91,10 @@ const CSS = `
   .ob-textarea{width:100%;padding:13px 14px;font-size:14px;font-family:'Space Grotesk',sans-serif;border-radius:8px;border:1px solid rgba(0,49,53,0.14);outline:none;background:#F5F8F7;color:#003135;resize:vertical;min-height:110px;margin-top:10px;}
   .ob-textarea::placeholder{color:rgba(0,49,53,0.4)}
   .ob-textarea:focus{border-color:#0FA4AF;background:#fff;box-shadow:0 0 0 3px rgba(15,164,175,0.15);}
-  @keyframes ob-spin{to{transform:rotate(360deg)}}
+  @keyframes ob-logo-arc{0%{stroke-dashoffset:0}100%{stroke-dashoffset:-249}}
+  @keyframes ob-logo-done{from{stroke-dashoffset:249;opacity:0}to{stroke-dashoffset:0;opacity:1}}
+  @keyframes ob-inner-pulse{0%,100%{opacity:0.18}50%{opacity:0.55}}
+  @keyframes ob-center-pulse{0%,100%{opacity:0.6}50%{opacity:1}}
   @keyframes ob-parse-bar{0%{background-position:-200% 0}100%{background-position:200% 0}}
   @keyframes ob-parse-dot{0%,80%,100%{transform:scale(0.6);opacity:0.3}40%{transform:scale(1);opacity:1}}
   @keyframes ob-parse-fadein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
@@ -184,7 +187,9 @@ export function OnboardWizard() {
   function toggleSeniority(label: string) { setS(p => ({ ...p, seniority: p.seniority.includes(label) ? p.seniority.filter(x => x !== label) : [...p.seniority, label] })) }
 
   function applyParsedData(data: Record<string, unknown>) {
-    setS(p => ({
+    // Flash all checkmarks done (including last), then transition after brief hold
+    setParseStep(PARSE_STEPS.length)
+    setTimeout(() => setS(p => ({
       ...p, stage: "form", parsed: data as never,
       form: {
         ...p.form,
@@ -206,7 +211,7 @@ export function OnboardWizard() {
       workHistory: [...((data.workHistory as never[]) ?? []), ...((data.projects as never[]) ?? [])].length > 0
         ? [...((data.workHistory as never[]) ?? []), ...((data.projects as never[]) ?? [])]
         : p.workHistory,
-    }))
+    })), 550)
   }
 
   // Resume upload
@@ -413,60 +418,125 @@ export function OnboardWizard() {
           )}
 
           {/* ── Stage: Extracting ── */}
-          {s.stage === "extracting" && (
-            <div style={{ ...cardStyle, padding: "56px 40px", textAlign: "center" }}>
-              {/* Logo mark spinner */}
-              <div style={{ position: "relative", width: 56, height: 56, margin: "0 auto 28px" }}>
-                <svg viewBox="0 0 100 100" width={56} height={56} style={{ position: "absolute", inset: 0 }}>
-                  <path d="M50 6 L94 50 L50 94 L6 50 Z" fill="none" stroke="rgba(0,49,53,0.1)" strokeWidth="7" strokeLinejoin="round" />
-                  <path d="M50 26 L74 50 L50 74 L26 50 Z" fill="none" stroke="rgba(15,164,175,0.18)" strokeWidth="7" strokeLinejoin="round" />
-                </svg>
-                <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <div style={{ width: 28, height: 28, borderRadius: "50%", border: "2.5px solid rgba(15,164,175,0.2)", borderTopColor: "#0FA4AF", animation: "ob-spin 0.9s linear infinite" }} />
+          {s.stage === "extracting" && (() => {
+            const allDone = parseStep >= PARSE_STEPS.length
+            const pct = allDone ? 100 : Math.round(((parseStep + 1) / PARSE_STEPS.length) * 100)
+            return (
+              <div style={{ ...cardStyle, padding: "52px 40px", textAlign: "center" }}>
+
+                {/* ── Logo as loader ── */}
+                <div style={{ position: "relative", width: 88, height: 88, margin: "0 auto 32px" }}>
+                  {/* Ambient glow behind logo */}
+                  <div style={{
+                    position: "absolute", inset: -18, borderRadius: "50%",
+                    background: `radial-gradient(ellipse at center, rgba(15,164,175,${allDone ? "0.18" : "0.1"}) 0%, transparent 70%)`,
+                    transition: "background 0.5s ease",
+                    pointerEvents: "none",
+                  }} />
+                  <svg viewBox="0 0 100 100" width={88} height={88} style={{ position: "relative", zIndex: 1 }}>
+                    {/* Outer diamond track */}
+                    <path d="M50 6 L94 50 L50 94 L6 50 Z" fill="none" stroke="rgba(0,49,53,0.07)" strokeWidth="6" strokeLinejoin="round" />
+                    {/* Outer diamond — arc chasing during load, full solid on done */}
+                    {allDone ? (
+                      <path
+                        d="M50 6 L94 50 L50 94 L6 50 Z"
+                        fill="none" stroke="#0FA4AF" strokeWidth="6" strokeLinejoin="round"
+                        style={{ strokeDasharray: 249, strokeDashoffset: 249, animation: "ob-logo-done 0.5s cubic-bezier(0.16,1,0.3,1) forwards" }}
+                      />
+                    ) : (
+                      <path
+                        d="M50 6 L94 50 L50 94 L6 50 Z"
+                        fill="none" stroke="#0FA4AF" strokeWidth="6" strokeLinejoin="round" strokeLinecap="round"
+                        style={{ strokeDasharray: "62 187", animation: "ob-logo-arc 1.5s linear infinite" }}
+                      />
+                    )}
+                    {/* Inner diamond — pulses while loading, stays bright on done */}
+                    <path
+                      d="M50 26 L74 50 L50 74 L26 50 Z"
+                      fill="none"
+                      stroke={allDone ? "#0FA4AF" : "rgba(15,164,175,0.35)"}
+                      strokeWidth="5" strokeLinejoin="round"
+                      style={{
+                        animation: allDone ? "none" : "ob-inner-pulse 2s ease-in-out infinite",
+                        opacity: allDone ? 0.85 : undefined,
+                        transition: "stroke 0.4s ease, opacity 0.4s ease",
+                      }}
+                    />
+                    {/* Center square */}
+                    <rect
+                      x="42" y="42" width="16" height="16" rx="5"
+                      fill={allDone ? "#964734" : "#964734"}
+                      transform="rotate(45 50 50)"
+                      style={{ animation: "ob-center-pulse 2s ease-in-out infinite" }}
+                    />
+                  </svg>
+                </div>
+
+                <h1 style={{ fontSize: 17, fontWeight: 700, margin: "0 0 5px", color: "#003135", letterSpacing: "-0.01em" }}>
+                  {allDone ? "Done" : "Reading your resume"}
+                </h1>
+                <p style={{ fontSize: 11, color: "rgba(0,49,53,0.38)", margin: "0 0 30px", fontWeight: 500, letterSpacing: "0.01em" }}>
+                  {s.resumeFileName}
+                </p>
+
+                {/* Step list */}
+                <div style={{ display: "flex", flexDirection: "column", gap: 9, maxWidth: 272, margin: "0 auto 26px", textAlign: "left" }}>
+                  {PARSE_STEPS.map((label, i) => {
+                    const done   = i < parseStep
+                    const active = i === parseStep && !allDone
+                    const visible = i <= parseStep
+                    return (
+                      <div key={i} style={{
+                        display: "flex", alignItems: "center", gap: 10,
+                        opacity: !visible ? 0.22 : 1,
+                        transition: "opacity 0.45s ease",
+                        animation: active ? "ob-parse-fadein 0.35s ease" : "none",
+                      }}>
+                        <div style={{
+                          width: 19, height: 19, borderRadius: "50%", flexShrink: 0,
+                          background: done ? "rgba(15,164,175,0.14)" : active ? "rgba(2,73,80,0.08)" : "rgba(0,49,53,0.04)",
+                          border: `1.5px solid ${done ? "rgba(15,164,175,0.38)" : active ? "rgba(2,73,80,0.22)" : "rgba(0,49,53,0.1)"}`,
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          transition: "all 0.35s cubic-bezier(0.16,1,0.3,1)",
+                        }}>
+                          {done ? (
+                            <svg width="8" height="8" viewBox="0 0 24 24" fill="none" style={{ animation: "ob-parse-fadein 0.25s ease" }}>
+                              <path d="M5 13l4 4L19 7" stroke="#0FA4AF" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          ) : active ? (
+                            <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#024950", animation: "ob-parse-dot 1.2s ease-in-out infinite" }} />
+                          ) : (
+                            <div style={{ width: 4, height: 4, borderRadius: "50%", background: "rgba(0,49,53,0.18)" }} />
+                          )}
+                        </div>
+                        <span style={{
+                          fontSize: 12, fontWeight: done ? 600 : active ? 700 : 500,
+                          color: done ? "#0FA4AF" : active ? "#003135" : "rgba(0,49,53,0.28)",
+                          transition: "color 0.35s ease",
+                          letterSpacing: "-0.005em",
+                        }}>
+                          {label}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+
+                {/* Progress bar */}
+                <div style={{ width: "100%", maxWidth: 272, margin: "0 auto", height: 2, borderRadius: 4, background: "rgba(0,49,53,0.07)", overflow: "hidden" }}>
+                  <div
+                    className={pct < 100 ? "ob-parse-shimmer" : ""}
+                    style={{
+                      height: "100%", borderRadius: 4,
+                      width: `${pct}%`,
+                      transition: "width 0.65s cubic-bezier(0.16,1,0.3,1)",
+                      background: pct === 100 ? "#0FA4AF" : undefined,
+                    }}
+                  />
                 </div>
               </div>
-
-              <h1 style={{ fontSize: 18, fontWeight: 700, margin: "0 0 6px", color: "#003135" }}>Reading your resume</h1>
-              <p style={{ fontSize: 12, color: "rgba(0,49,53,0.4)", margin: "0 0 32px", fontWeight: 500 }}>{s.resumeFileName}</p>
-
-              {/* Step list */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 280, margin: "0 auto 28px", textAlign: "left" }}>
-                {PARSE_STEPS.map((label, i) => {
-                  const done   = i < parseStep
-                  const active = i === parseStep
-                  return (
-                    <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, opacity: i > parseStep ? 0.25 : 1, transition: "opacity 0.4s ease", animation: active ? "ob-parse-fadein 0.35s ease" : "none" }}>
-                      <div style={{
-                        width: 20, height: 20, borderRadius: "50%", flexShrink: 0,
-                        background: done ? "rgba(15,164,175,0.15)" : active ? "rgba(2,73,80,0.08)" : "rgba(0,49,53,0.05)",
-                        border: `1.5px solid ${done ? "rgba(15,164,175,0.4)" : active ? "rgba(2,73,80,0.25)" : "rgba(0,49,53,0.1)"}`,
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        transition: "all 0.3s ease",
-                      }}>
-                        {done ? (
-                          <svg width="9" height="9" viewBox="0 0 24 24" fill="none">
-                            <path d="M5 13l4 4L19 7" stroke="#0FA4AF" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
-                        ) : active ? (
-                          <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#024950", animation: "ob-parse-dot 1.2s ease-in-out infinite" }} />
-                        ) : (
-                          <div style={{ width: 4, height: 4, borderRadius: "50%", background: "rgba(0,49,53,0.2)" }} />
-                        )}
-                      </div>
-                      <span style={{ fontSize: 13, fontWeight: done ? 600 : active ? 700 : 500, color: done ? "#0FA4AF" : active ? "#003135" : "rgba(0,49,53,0.3)", transition: "color 0.3s ease" }}>
-                        {label}
-                      </span>
-                    </div>
-                  )
-                })}
-              </div>
-
-              {/* Progress bar */}
-              <div style={{ width: "100%", maxWidth: 280, margin: "0 auto", height: 2, borderRadius: 4, background: "rgba(0,49,53,0.08)", overflow: "hidden" }}>
-                <div className="ob-parse-shimmer" style={{ height: "100%", borderRadius: 4, width: `${((parseStep + 1) / PARSE_STEPS.length) * 100}%`, transition: "width 0.7s ease" }} />
-              </div>
-            </div>
-          )}
+            )
+          })()}
 
           {/* ── Stage: Review extracted ── */}
           {s.stage === "review" && (

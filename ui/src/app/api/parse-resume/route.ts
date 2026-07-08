@@ -274,7 +274,7 @@ function parseWorkHistory(text: string): WorkEntry[] {
   if (expIdx < 0) return []
 
   const afterExp = text.slice(expIdx)
-  const nextSection = afterExp.search(/\n(?:education|skills|technical skills|projects|certifications|awards|publications|volunteer|activities|interests|summary|objective)\s*\n/i)
+  const nextSection = afterExp.search(/\n(?:education|skills|technical skills|projects|certifications|awards|publications|volunteer|activities|leadership|interests|summary|objective)\s*\n/i)
   const section = nextSection > 0 ? afterExp.slice(0, nextSection) : afterExp.slice(0, 6000)
 
   const dateRe = /(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[.,]?\s*(?:20|19)\d{2}/gi
