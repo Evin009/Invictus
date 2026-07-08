@@ -1,12 +1,12 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import gsap from "gsap"
 import { ArrowRight, LockSimple, ArrowLeft, EnvelopeSimple } from "@phosphor-icons/react"
+import { createBrowserSupabaseClient } from "@/lib/supabase-browser"
 
 const CSS = `
-  @keyframes char-float  { 0%,100%{transform:translateY(0)}   50%{transform:translateY(-10px)} }
   @keyframes orb-drift-a { 0%,100%{transform:translate(0,0)}  50%{transform:translate(16px,-12px)} }
   @keyframes orb-drift-b { 0%,100%{transform:translate(0,0)}  50%{transform:translate(-10px,8px)} }
   @keyframes sparkle-a   { 0%,100%{opacity:0;transform:scale(0.3)} 55%{opacity:1;transform:scale(1)} }
@@ -43,6 +43,7 @@ const CSS = `
 
 export default function AccountExistsPage() {
   const router   = useRouter()
+  const supabase = useMemo(() => createBrowserSupabaseClient(), [])
   const rootRef  = useRef<HTMLDivElement>(null)
   const [email, setEmail] = useState("")
 
@@ -115,48 +116,16 @@ export default function AccountExistsPage() {
             <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: "-0.01em" }}>Invictus</span>
           </div>
 
-          {/* ── CHARACTER + ICON ZONE ── */}
-          <div className="ae-char" style={{ position: "relative", width: "100%", display: "flex", justifyContent: "center", marginBottom: 4 }}>
-            {/* Glow behind */}
+          {/* ── ICON ── */}
+          <div className="ae-char" style={{ marginBottom: 20 }}>
             <div style={{
-              position: "absolute", top: "50%", left: "50%",
-              transform: "translate(-50%,-50%)",
-              width: 280, height: 280, borderRadius: "50%",
-              background: "radial-gradient(circle, rgba(150,71,52,0.1) 0%, transparent 70%)",
-              pointerEvents: "none",
-            }} />
-
-            {/* Character */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/q1.png"
-              alt=""
-              aria-hidden
-              style={{
-                width: "78%", maxWidth: 300, height: "auto",
-                animation: "char-float 5.5s ease-in-out infinite",
-                mixBlendMode: "multiply",
-                userSelect: "none", pointerEvents: "none",
-                position: "relative", zIndex: 1,
-              }}
-            />
-
-            {/* Rust lock badge */}
-            <div style={{
-              position: "absolute", top: "6%", right: "6%", zIndex: 2,
-              width: 48, height: 48, borderRadius: "50%",
+              width: 64, height: 64, borderRadius: "50%",
               background: "#964734",
               display: "flex", alignItems: "center", justifyContent: "center",
-              boxShadow: "0 8px 20px rgba(150,71,52,0.35)",
-              border: "2px solid rgba(255,255,255,0.2)",
+              boxShadow: "0 8px 24px rgba(150,71,52,0.3)",
             }}>
-              <LockSimple size={20} color="white" weight="fill" />
+              <LockSimple size={28} color="white" weight="fill" />
             </div>
-
-            {/* Sparkles */}
-            <div style={{ position: "absolute", top: "2%",  right: "22%", zIndex: 2, width: 8, height: 8, borderRadius: "50%", background: "#964734", opacity: 0.8, animation: "sparkle-a 3s ease-in-out infinite" }} />
-            <div style={{ position: "absolute", top: "12%", right: "8%",  zIndex: 2, width: 5, height: 5, borderRadius: "50%", background: "#fff",    opacity: 0.6, animation: "sparkle-b 3.6s ease-in-out infinite 0.8s" }} />
-            <div style={{ position: "absolute", top: "7%",  left:  "18%", zIndex: 2, width: 6, height: 6, borderRadius: "50%", background: "#0FA4AF", opacity: 0.55, animation: "sparkle-a 4.2s ease-in-out infinite 1.4s" }} />
           </div>
 
           {/* ── COPY ── */}
@@ -241,7 +210,7 @@ export default function AccountExistsPage() {
           <div className="ae-stagger" style={{ marginTop: 14, textAlign: "center" }}>
             <button
               className="ae-link"
-              onClick={() => router.push("/login?signup=1")}
+              onClick={async () => { await supabase.auth.signOut(); router.push("/login?signup=1") }}
               style={{
                 background: "none", border: "none", padding: "6px 8px",
                 fontFamily: "inherit", fontSize: 13, fontWeight: 600,
