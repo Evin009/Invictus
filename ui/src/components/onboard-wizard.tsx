@@ -92,8 +92,16 @@ const CSS = `
   .ob-textarea::placeholder{color:rgba(0,49,53,0.4)}
   .ob-textarea:focus{border-color:#0FA4AF;background:#fff;box-shadow:0 0 0 3px rgba(15,164,175,0.15);}
   @keyframes ob-spin{to{transform:rotate(360deg)}}
+  @keyframes ob-parse-bar{0%{background-position:-200% 0}100%{background-position:200% 0}}
+  @keyframes ob-parse-dot{0%,80%,100%{transform:scale(0.6);opacity:0.3}40%{transform:scale(1);opacity:1}}
+  @keyframes ob-parse-fadein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+  .ob-parse-shimmer{
+    background:linear-gradient(90deg,#0FA4AF 0%,#024950 45%,#0FA4AF 100%);
+    background-size:200% 100%;
+    animation:ob-parse-bar 1.8s ease-in-out infinite;
+  }
   @media (prefers-reduced-motion: reduce){
-    [style*="ob-spin"]{animation:none !important;}
+    *{animation:none !important;}
   }
 `
 
@@ -136,11 +144,22 @@ function ChipRow({ chips }: { chips: string[]; }) {
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
+const PARSE_STEPS = [
+  "Scanning document",
+  "Extracting work history",
+  "Mapping skills & education",
+  "Finalizing your profile",
+]
+const MIN_PARSE_MS = 3500
+
 export function OnboardWizard() {
   const router = useRouter()
   const [s, setS] = useState<WizardState>(INITIAL_STATE)
   const [isSaving, setIsSaving] = useState(false)
+  const [parseStep, setParseStep] = useState(0)
   const isFirstMount = useRef(true)
+  const parseStartRef = useRef<number>(0)
+  const pendingParseData = useRef<Record<string, unknown> | null>(null)
 
   // Load persisted progress
   useEffect(() => {
@@ -164,6 +183,32 @@ export function OnboardWizard() {
   function toggleForm(key: keyof Form, val: string) { setS(p => ({ ...p, form: { ...p.form, [key]: p.form[key] === val ? null : val } })) }
   function toggleSeniority(label: string) { setS(p => ({ ...p, seniority: p.seniority.includes(label) ? p.seniority.filter(x => x !== label) : [...p.seniority, label] })) }
 
+  function applyParsedData(data: Record<string, unknown>) {
+    setS(p => ({
+      ...p, stage: "form", parsed: data as never,
+      form: {
+        ...p.form,
+        fullName:        (data.fullName        as string) ?? p.form.fullName,
+        email:           (data.email           as string) ?? p.form.email,
+        phone:           (data.phone           as string) ?? p.form.phone,
+        currentLocation: (data.currentLocation as string) ?? p.form.currentLocation,
+        linkedin:        (data.linkedin        as string) ?? p.form.linkedin,
+        github:          (data.github          as string) ?? p.form.github,
+        portfolio:       (data.portfolio       as string) ?? p.form.portfolio,
+        school:          (data.school          as string) ?? p.form.school,
+        degree:          (data.degree          as string) ?? p.form.degree,
+        major:           (data.major           as string) ?? p.form.major,
+        gpa:             (data.gpa             as string) ?? p.form.gpa,
+        gradMonth:       (data.gradMonth       as string) ?? p.form.gradMonth,
+        gradYear:        (data.gradYear        as string) ?? p.form.gradYear,
+      },
+      skills:      (data.skills as string[])?.length > 0 ? (data.skills as string[]) : p.skills,
+      workHistory: [...((data.workHistory as never[]) ?? []), ...((data.projects as never[]) ?? [])].length > 0
+        ? [...((data.workHistory as never[]) ?? []), ...((data.projects as never[]) ?? [])]
+        : p.workHistory,
+    }))
+  }
+
   // Resume upload
   function onFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -171,39 +216,37 @@ export function OnboardWizard() {
     const ext = "." + file.name.toLowerCase().split(".").pop()
     if (![".pdf", ".doc", ".docx"].includes(ext)) { upd({ uploadError: "Please upload a PDF, DOC, or DOCX file." }); e.target.value = ""; return }
     if (file.size > 8 * 1024 * 1024) { upd({ uploadError: "File is too large — max 8MB." }); e.target.value = ""; return }
+
+    parseStartRef.current = Date.now()
+    pendingParseData.current = null
+    setParseStep(0)
     upd({ stage: "extracting", resumeFileName: file.name, uploadError: null, extractError: null })
+
+    // Step ticker — advances label every ~800ms
+    let step = 0
+    const ticker = setInterval(() => {
+      step = Math.min(step + 1, PARSE_STEPS.length - 1)
+      setParseStep(step)
+    }, 850)
+
     const fd = new FormData()
     fd.append("file", file)
     fetch("/api/parse-resume", { method: "POST", body: fd })
       .then(r => r.json())
       .then(data => {
+        clearInterval(ticker)
         if (data.error) { upd({ stage: "upload", extractError: data.error }); return }
-        // Skip review stage — go directly to form with parsed data applied
-        setS(p => ({
-          ...p, stage: "form", parsed: data,
-          form: {
-            ...p.form,
-            fullName:        data.fullName        ?? p.form.fullName,
-            email:           data.email           ?? p.form.email,
-            phone:           data.phone           ?? p.form.phone,
-            currentLocation: data.currentLocation ?? p.form.currentLocation,
-            linkedin:        data.linkedin        ?? p.form.linkedin,
-            github:          data.github          ?? p.form.github,
-            portfolio:       data.portfolio       ?? p.form.portfolio,
-            school:          data.school          ?? p.form.school,
-            degree:          data.degree          ?? p.form.degree,
-            major:           data.major           ?? p.form.major,
-            gpa:             data.gpa             ?? p.form.gpa,
-            gradMonth:       data.gradMonth       ?? p.form.gradMonth,
-            gradYear:        data.gradYear        ?? p.form.gradYear,
-          },
-          skills:      data.skills?.length > 0 ? data.skills : p.skills,
-          workHistory: [...(data.workHistory ?? []), ...(data.projects ?? [])].length > 0
-            ? [...(data.workHistory ?? []), ...(data.projects ?? [])]
-            : p.workHistory,
-        }))
+        const elapsed = Date.now() - parseStartRef.current
+        const remaining = MIN_PARSE_MS - elapsed
+        if (remaining > 0) {
+          pendingParseData.current = data
+          setParseStep(PARSE_STEPS.length - 1)
+          setTimeout(() => { applyParsedData(data) }, remaining)
+        } else {
+          applyParsedData(data)
+        }
       })
-      .catch(() => upd({ stage: "upload", extractError: "Could not read resume — check the file and try again." }))
+      .catch(() => { clearInterval(ticker); upd({ stage: "upload", extractError: "Could not read resume — check the file and try again." }) })
     e.target.value = ""
   }
 
@@ -371,10 +414,57 @@ export function OnboardWizard() {
 
           {/* ── Stage: Extracting ── */}
           {s.stage === "extracting" && (
-            <div style={{ ...cardStyle, padding: 56, textAlign: "center" }}>
-              <div style={{ width: 36, height: 36, margin: "0 auto", borderRadius: "50%", border: "3px solid rgba(2,73,80,0.15)", borderTopColor: "#024950", animation: "ob-spin 0.8s linear infinite" }} />
-              <h1 style={{ fontSize: 19, fontWeight: 700, margin: "22px 0 6px" }}>Reading your resume…</h1>
-              <p style={{ fontSize: 13, color: "rgba(0,49,53,0.5)", margin: 0 }}>{s.resumeFileName}</p>
+            <div style={{ ...cardStyle, padding: "56px 40px", textAlign: "center" }}>
+              {/* Logo mark spinner */}
+              <div style={{ position: "relative", width: 56, height: 56, margin: "0 auto 28px" }}>
+                <svg viewBox="0 0 100 100" width={56} height={56} style={{ position: "absolute", inset: 0 }}>
+                  <path d="M50 6 L94 50 L50 94 L6 50 Z" fill="none" stroke="rgba(0,49,53,0.1)" strokeWidth="7" strokeLinejoin="round" />
+                  <path d="M50 26 L74 50 L50 74 L26 50 Z" fill="none" stroke="rgba(15,164,175,0.18)" strokeWidth="7" strokeLinejoin="round" />
+                </svg>
+                <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <div style={{ width: 28, height: 28, borderRadius: "50%", border: "2.5px solid rgba(15,164,175,0.2)", borderTopColor: "#0FA4AF", animation: "ob-spin 0.9s linear infinite" }} />
+                </div>
+              </div>
+
+              <h1 style={{ fontSize: 18, fontWeight: 700, margin: "0 0 6px", color: "#003135" }}>Reading your resume</h1>
+              <p style={{ fontSize: 12, color: "rgba(0,49,53,0.4)", margin: "0 0 32px", fontWeight: 500 }}>{s.resumeFileName}</p>
+
+              {/* Step list */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 280, margin: "0 auto 28px", textAlign: "left" }}>
+                {PARSE_STEPS.map((label, i) => {
+                  const done   = i < parseStep
+                  const active = i === parseStep
+                  return (
+                    <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, opacity: i > parseStep ? 0.25 : 1, transition: "opacity 0.4s ease", animation: active ? "ob-parse-fadein 0.35s ease" : "none" }}>
+                      <div style={{
+                        width: 20, height: 20, borderRadius: "50%", flexShrink: 0,
+                        background: done ? "rgba(15,164,175,0.15)" : active ? "rgba(2,73,80,0.08)" : "rgba(0,49,53,0.05)",
+                        border: `1.5px solid ${done ? "rgba(15,164,175,0.4)" : active ? "rgba(2,73,80,0.25)" : "rgba(0,49,53,0.1)"}`,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        transition: "all 0.3s ease",
+                      }}>
+                        {done ? (
+                          <svg width="9" height="9" viewBox="0 0 24 24" fill="none">
+                            <path d="M5 13l4 4L19 7" stroke="#0FA4AF" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        ) : active ? (
+                          <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#024950", animation: "ob-parse-dot 1.2s ease-in-out infinite" }} />
+                        ) : (
+                          <div style={{ width: 4, height: 4, borderRadius: "50%", background: "rgba(0,49,53,0.2)" }} />
+                        )}
+                      </div>
+                      <span style={{ fontSize: 13, fontWeight: done ? 600 : active ? 700 : 500, color: done ? "#0FA4AF" : active ? "#003135" : "rgba(0,49,53,0.3)", transition: "color 0.3s ease" }}>
+                        {label}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* Progress bar */}
+              <div style={{ width: "100%", maxWidth: 280, margin: "0 auto", height: 2, borderRadius: 4, background: "rgba(0,49,53,0.08)", overflow: "hidden" }}>
+                <div className="ob-parse-shimmer" style={{ height: "100%", borderRadius: 4, width: `${((parseStep + 1) / PARSE_STEPS.length) * 100}%`, transition: "width 0.7s ease" }} />
+              </div>
             </div>
           )}
 
