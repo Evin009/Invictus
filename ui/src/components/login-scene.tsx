@@ -41,10 +41,6 @@ export default function LoginScene() {
       gsap.to(".ls-torso", { scaleY: 1.016, transformOrigin: "50% 100%", duration: 2.4, ease: "sine.inOut", yoyo: true, repeat: -1 })
       // Head sway — gentle nod with a hint of rotation, pivots at the neck
       gsap.to(".ls-head", { y: 1.8, rotation: 1.4, transformOrigin: "50% 92%", duration: 2.1, ease: "sine.inOut", yoyo: true, repeat: -1 })
-      // Blink — quick double-frame shut every few seconds
-      gsap.timeline({ repeat: -1, repeatDelay: 3.1 })
-        .to(".ls-eye", { scaleY: 0.08, transformOrigin: "50% 50%", duration: 0.07 })
-        .to(".ls-eye", { scaleY: 1, duration: 0.09 })
       // Typing — hands alternate in a tight rhythm
       gsap.to(".ls-hand-l", { y: -2.6, duration: 0.13, ease: "sine.inOut", yoyo: true, repeat: -1 })
       gsap.to(".ls-hand-r", { y: -2.6, duration: 0.13, ease: "sine.inOut", yoyo: true, repeat: -1, delay: 0.1 })
@@ -112,14 +108,6 @@ export default function LoginScene() {
   return (
     <svg ref={ref} viewBox="0 0 520 540" preserveAspectRatio="xMidYMid meet" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}>
       <defs>
-        <linearGradient id="ls-g-hoodie" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#A65138" />
-          <stop offset="1" stopColor="#7E3B2A" />
-        </linearGradient>
-        <linearGradient id="ls-g-skin" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#EFCA9F" />
-          <stop offset="1" stopColor="#E3B285" />
-        </linearGradient>
         <linearGradient id="ls-g-portal" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stopColor="#23BCC7" />
           <stop offset="1" stopColor="#0A7680" />
@@ -159,7 +147,7 @@ export default function LoginScene() {
       {/* Conveyor lane */}
       <line className="ls-dash" x1="252" y1="503" x2="442" y2="503" stroke="rgba(2,73,80,0.25)" strokeWidth="2" strokeDasharray="3 7" strokeDashoffset="0" strokeLinecap="round" />
 
-      {/* ── Student — seated profile, character-animation style ── */}
+      {/* ── Student — flat vector style, matched to reference art ── */}
       <g className="ls-kid">
         {/* Backpack */}
         <rect x="36" y="466" width="27" height="38" rx="9" fill="#0C7F88" />
@@ -171,42 +159,34 @@ export default function LoginScene() {
         <path d="M90 501 Q109 490 128 501" fill="none" stroke="#082F33" strokeWidth="5" strokeLinecap="round" />
         <circle cx="90" cy="502" r="3" fill="#082F33" />
         <circle cx="128" cy="502" r="3" fill="#082F33" />
-        {/* Legs — hip to knee to shin, seated */}
-        <path d="M98 443 L144 445 Q157 446 157 456 L157 460 Q157 464 150 464 L98 462 Z" fill="#0A3A40" />
-        <path d="M143 458 L157 458 L155 494 Q155 497 150 497 L146 497 Q142 497 142 493 Z" fill="#0A3A40" />
-        <line x1="143.5" y1="490" x2="154.5" y2="490" stroke="#EFF3F1" strokeWidth="1.6" strokeLinecap="round" opacity="0.5" />
-        {/* White sneaker */}
-        <path d="M141 495 L141 500 Q141 504.5 147 504.5 L169 504.5 Q173 504.5 172.2 500 Q171.4 496.2 163 494.2 Q152 492 148 492.2 Q142.5 492.6 141 495 Z" fill="#F4F6F5" stroke="rgba(2,49,53,0.18)" strokeWidth="1" />
-        <path d="M141 500.5 L172 500.5" stroke="#041F23" strokeWidth="2" strokeLinecap="round" />
-        <path d="M148 493.5 Q153 496.5 160 497" fill="none" stroke="#964734" strokeWidth="1.5" strokeLinecap="round" opacity="0.8" />
-        {/* Hood bunched behind the neck */}
-        <path d="M100 396 Q95 381 108 379 Q117 378 119 386 Q110 388 106 394 Q102 396 100 396 Z" fill="#6E3323" />
+
+        {/* Far leg — darker trousers + shoe, slightly behind */}
+        <path d="M104 444 L140 447 Q150 448 150 456 L150 459 Q150 463 143 462.5 L104 460 Z" fill="#3A44AC" />
+        <path d="M130 457 L144 457 L142 493 Q142 496 137 496 L134 496 Q130 496 130.2 492 Z" fill="#3A44AC" />
+        <path d="M129 494 L129 499 Q129 502.5 134.5 502.5 L154 502.5 Q157 502.5 156.2 499 Q155 495.8 148 494.4 Q139 492.8 134.5 493.2 Q130.5 493.6 129 494 Z" fill="#141B26" />
+
+        {/* Near leg — indigo trousers + navy flat */}
+        <path d="M102 442 L150 445 Q162 446 162 456 L162 460 Q162 465 154 464.5 L102 461 Z" fill="#4A55C7" />
+        <path d="M148 459 L162 459 L160 495 Q160 498 155 498 L151 498 Q147 498 147 494 Z" fill="#4A55C7" />
+        <path d="M146 496 L146 501 Q146 505 152 505 L173 505 Q176.5 505 175.5 501 Q174 497.4 166 495.8 Q156 493.8 151 494.2 Q147 494.6 146 496 Z" fill="#1B2430" />
+
         {/* Neck */}
-        <path d="M120 376 L120 393 L131 393 L131.5 376 Z" fill="url(#ls-g-skin)" />
-        <path d="M120 379 Q126 382 131 379" fill="none" stroke="#D9A87F" strokeWidth="2" opacity="0.7" />
-        {/* Torso — hoodie leaning toward the laptop */}
-        <path className="ls-torso" d="M96 458 L96 428 C96 405 104 393 118 390 L127 388.5 C139 390.5 145.5 400 146.5 412 L147 430 Q147 445 143 458 Z" fill="url(#ls-g-hoodie)" />
-        {/* Zipper, drawstrings, kangaroo pocket */}
-        <path d="M124 392 C122 410 120.5 428 121 446" fill="none" stroke="rgba(255,255,255,0.16)" strokeWidth="1.6" strokeLinecap="round" />
-        <path d="M121.5 395 q1.5 6 -0.5 10" fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="1.4" strokeLinecap="round" />
-        <path d="M126.5 394 q2 5.5 0.5 10" fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="1.4" strokeLinecap="round" />
-        <path d="M104 442 Q122 449 140 441" fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="1.6" strokeLinecap="round" />
-        {/* Head — profile with brow, nose, jaw */}
+        <path d="M124 378 L124 394 L134 393 L134 377 Z" fill="#F2B58B" />
+        <path d="M124 381 Q129 384 134 381" fill="none" stroke="#E09E77" strokeWidth="2" opacity="0.8" />
+
+        {/* Torso — mustard long-sleeve, slight forward lean */}
+        <path className="ls-torso" d="M100 458 L100 424 Q100 400 118 394 L130 392 Q147 396 149 412 L150 430 Q150 446 146 458 Z" fill="#EFC63E" />
+        <path d="M104 444 Q124 450 146 443" fill="none" stroke="rgba(0,0,0,0.08)" strokeWidth="1.6" strokeLinecap="round" />
+
+        {/* Head — flat vector profile, minimal face */}
         <g className="ls-head">
-          <path d="M112 371 C109 356 117 347 128 347 C137 347 143 353 143.5 362 L145 367.5 Q146 369.5 144 370.5 L142.5 373 Q144 378 139.5 381 Q131 384.5 123 382 Q113.5 379 112 371 Z" fill="url(#ls-g-skin)" />
-          {/* Hair — short crop with fringe swoop */}
-          <path d="M111 369 C107 352 116 343 128 344 C139 345 144 352 144.5 361 C141 356.5 137 355 132.5 356 C123 353.5 115 357.5 112.5 365 Q111.6 367 111 369 Z" fill="#06272B" />
+          {/* Face */}
+          <path d="M115 372 Q114 360 121 354 Q129 349 137 353 L143.5 362 L146 367 Q147 369 145 370 L144 373 Q145.5 378 141 381 Q133 384.5 125 381.5 Q116.5 378.5 115 372 Z" fill="#F2B58B" />
+          {/* Hair — voluminous swoop, fringe sweeping low over the forehead */}
+          <path d="M113 378 Q104 370 105 355 Q107 341 122 339 Q138 337 144 347 Q148 354 146.5 360 L145.5 362 Q137 358 129 358.5 Q119 359 116.5 367 Q114.5 372 113 378 Z" fill="#1B2430" />
           {/* Ear */}
-          <path d="M118 366 Q114.5 366 114.5 370 Q114.5 374 118.5 373.5" fill="#E3B285" stroke="#D9A87F" strokeWidth="1" />
-          {/* Headphones — band + cup over the ear */}
-          <path d="M111 355 A18 18 0 0 1 143 357" fill="none" stroke="#06272B" strokeWidth="3.5" strokeLinecap="round" />
-          <rect x="112.5" y="362.5" width="8" height="13" rx="4" fill="#06272B" />
-          <line x1="116.5" y1="365.5" x2="116.5" y2="372.5" stroke="rgba(255,255,255,0.25)" strokeWidth="1.4" strokeLinecap="round" />
-          {/* Brow, eye, blush, mouth */}
-          <line x1="133" y1="360.5" x2="139.5" y2="360" stroke="#06272B" strokeWidth="1.6" strokeLinecap="round" />
-          <rect className="ls-eye" x="135.4" y="363.8" width="2.8" height="4.2" rx="1.4" fill="#06272B" />
-          <circle cx="134.5" cy="372.5" r="2.2" fill="rgba(150,71,52,0.2)" />
-          <path d="M137.5 376.5 q2.5 1.5 4.5 0" fill="none" stroke="#06272B" strokeWidth="1.5" strokeLinecap="round" />
+          <ellipse cx="123" cy="370" rx="3" ry="4" fill="#E09E77" />
+          <path d="M122 369 Q124 370 123 372" fill="none" stroke="#D08D66" strokeWidth="1" strokeLinecap="round" />
         </g>
       </g>
 
@@ -230,10 +210,10 @@ export default function LoginScene() {
 
       {/* Arms + typing hands, over the desk — shoulder → elbow → wrist */}
       <g className="ls-arm-grp">
-        <path d="M126 392 Q142 407 160 405 Q174 402 184 390" fill="none" stroke="#6E3323" strokeWidth="7" strokeLinecap="round" />
-        <path d="M120 396 Q132 412 150 410 Q162 407 170 395" fill="none" stroke="#964734" strokeWidth="8" strokeLinecap="round" />
-        <circle className="ls-hand-l" cx="171" cy="393" r="4.5" fill="url(#ls-g-skin)" />
-        <circle className="ls-hand-r" cx="185" cy="389" r="4" fill="url(#ls-g-skin)" />
+        <path d="M128 394 Q144 409 162 406 Q175 403 186 391" fill="none" stroke="#D9AF2C" strokeWidth="7" strokeLinecap="round" />
+        <path d="M122 398 Q134 414 152 411 Q164 408 172 396" fill="none" stroke="#EFC63E" strokeWidth="8" strokeLinecap="round" />
+        <circle className="ls-hand-l" cx="174" cy="393" r="4.5" fill="#F2B58B" />
+        <circle className="ls-hand-r" cx="188" cy="389" r="4" fill="#F2B58B" />
       </g>
 
       {/* ── Marching agent bots ── */}
