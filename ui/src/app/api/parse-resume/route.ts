@@ -109,10 +109,14 @@ function parseEducation(text: string): EducationResult {
   const eduIdx = lines.findIndex(l => /^education$/i.test(l) || /^education\s*:/i.test(l))
   const slice = eduIdx >= 0 ? lines.slice(eduIdx, eduIdx + 20) : lines
 
-  // School: line with university/college/institute
+  // School: line with university/college/institute — strip dates and anything after them
   for (const line of slice) {
     if (/university|college|institute|polytechnic|academy|school of/i.test(line) && !school) {
-      school = line.replace(/[|\-–—].*/g, "").trim()
+      school = line
+        .replace(/[|\-–—].*/g, "")
+        .replace(/\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*[.,]?\s+(?:20|19)\d{2}.*/gi, "")
+        .replace(/\s+(?:20|19)\d{2}.*/g, "")
+        .trim()
     }
   }
 
@@ -144,13 +148,17 @@ function parseEducation(text: string): EducationResult {
   const gpaM = text.match(/GPA[:\s]+(\d+(?:\.\d+)?)/i)
   if (gpaM) gpa = gpaM[1]
 
-  // Grad date
+  // Grad date — pick the END of a date range (graduation), not the start (enrollment)
   const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
     "January", "February", "March", "April", "June", "July", "August", "September", "October", "November", "December"]
   const monthPattern = months.join("|")
   const dateRe = new RegExp(`(${monthPattern})[.,]?\\s*(20\\d{2}|19\\d{2})`, "i")
+  // Matches "Month Year – Month Year" — capture group 3+4 is the END date
+  const rangeRe = new RegExp(
+    `(?:${monthPattern})[.,]?\\s*(?:20|19)\\d{2}\\s*[–—\\-]\\s*(${monthPattern})[.,]?\\s*(20\\d{2}|19\\d{2})`,
+    "i"
+  )
 
-  // Look near degree line, "Expected" keyword, or any date near school name
   let foundDegreeIdx = -1
   for (let i = 0; i < slice.length; i++) {
     if (degreeRe.test(slice[i]) || /expected|graduating|graduation|grad/i.test(slice[i])) {
@@ -158,73 +166,98 @@ function parseEducation(text: string): EducationResult {
     }
   }
   const dateSearchSlice = foundDegreeIdx >= 0 ? slice.slice(Math.max(0, foundDegreeIdx - 2), foundDegreeIdx + 4) : slice
+
+  // Prefer explicit "Expected Month Year" first
   for (const line of dateSearchSlice) {
-    const dm = line.match(dateRe)
-    if (dm) {
-      gradMonth = dm[1].slice(0, 3)
-      gradYear = dm[2]
-      break
+    const expM = line.match(new RegExp(`[Ee]xpected\\s+(${monthPattern})[.,]?\\s*(20\\d{2}|19\\d{2})`, "i"))
+    if (expM) { gradMonth = expM[1].slice(0, 3); gradYear = expM[2]; break }
+  }
+
+  // Next: try to find end of a date range (e.g. "Aug 2022 – May 2026")
+  if (!gradYear) {
+    for (const line of dateSearchSlice) {
+      const rm = line.match(rangeRe)
+      if (rm) { gradMonth = rm[1].slice(0, 3); gradYear = rm[2]; break }
     }
+  }
+
+  // Fallback: last date found in search slice (end date appears later in text than start)
+  if (!gradYear) {
+    let lastMonth = "", lastYear = ""
+    for (const line of dateSearchSlice) {
+      const allDates = [...line.matchAll(new RegExp(dateRe.source, "gi"))]
+      if (allDates.length > 0) {
+        const last = allDates[allDates.length - 1]
+        lastMonth = last[1]
+        lastYear = last[2]
+      }
+    }
+    if (lastYear) { gradMonth = lastMonth.slice(0, 3); gradYear = lastYear }
   }
 
   // Fallback: just find a year in the edu section
   if (!gradYear) {
+    const allYears: string[] = []
     for (const line of slice.slice(0, 10)) {
-      const ym = line.match(/20(\d{2})/)
-      if (ym) { gradYear = "20" + ym[1]; break }
+      const ym = line.match(/(?:20|19)(\d{2})/g)
+      if (ym) allYears.push(...ym)
     }
+    if (allYears.length > 0) gradYear = allYears[allYears.length - 1]
   }
 
   return { school, degree, major, gpa, gradMonth, gradYear }
 }
 
 function parseSkills(text: string): string[] {
-  // Step 1: locate the skills section header
-  const headerRe = /(?:^|\n)(technical\s+skills?|skills?|core\s+competencies|technologies|tech\s+stack|tools(?:\s*&\s*technologies)?|expertise|proficiencies?)\s*:?\s*\n/i
-  const headerM = text.match(headerRe)
-  if (!headerM) return []
+  // Step 1: find skills section header line index
+  const lines = text.split("\n")
+  let sectionLine = -1
+  const skillHeaderRe = /^(technical\s+skills?|skills?|core\s+competencies|technologies|tech\s+stack|tools(?:\s*[&\/]\s*technologies)?|expertise|proficiencies?)\s*:?\s*$/i
+  for (let i = 0; i < lines.length; i++) {
+    if (skillHeaderRe.test(lines[i].trim())) { sectionLine = i; break }
+  }
+  if (sectionLine < 0) return []
 
-  const sectionStart = (headerM.index ?? 0) + headerM[0].length
+  // Step 2: collect lines until we hit a clear non-skills section header
+  // Only stop on these — do NOT stop on Languages/Frameworks/Tools (those are skill categories)
+  const hardStopRe = /^(experience|work\s+experience|professional\s+experience|employment(?:\s+history)?|education|projects?|certifications?|awards?|publications?|volunteer|activities|leadership|honors?|references?|summary|objective)\s*:?\s*$/i
+  const collected: string[] = []
+  for (let i = sectionLine + 1; i < lines.length; i++) {
+    const t = lines[i].trim()
+    if (hardStopRe.test(t)) break
+    collected.push(t)
+  }
 
-  // Step 2: find where the next section begins — look for a known keyword alone on its own line
-  const nextHeaderRe = /\n(experience|work\s+experience|employment(?:\s+history)?|education|projects?|certifications?|awards?|publications?|volunteer|activities|interests?|summary|objective|references?|languages?)\s*\n/i
-  const tail = text.slice(sectionStart)
-  const endM  = tail.match(nextHeaderRe)
-  const raw   = endM ? tail.slice(0, endM.index) : tail.slice(0, 6000)
+  const raw = collected.join("\n")
 
-  // Step 3: extract every skill token
+  // Step 3: extract every skill token from collected lines
   const seen   = new Set<string>()
   const skills: string[] = []
 
-  for (const line of raw.split("\n")) {
-    const trimmed = line.trim()
-    if (!trimmed) continue
+  for (const line of collected) {
+    if (!line) continue
 
     // "Category: skill1, skill2" — strip category label, keep values only
-    const catMatch = trimmed.match(/^[A-Za-z &\/\-]{2,35}:\s*(.+)/)
-    const content  = catMatch ? catMatch[1] : trimmed
+    const catMatch = line.match(/^[A-Za-z &\/\-]{2,40}:\s*(.+)/)
+    const content  = catMatch ? catMatch[1] : line
 
-    // Split on all common delimiters
-    for (const part of content.split(/[,|•·\/;\t]+/)) {
-      // Strip leading/trailing bullet chars, whitespace, parenthetical notes
+    // Split on all common delimiters: comma, pipe, bullet, middle-dot, semicolon, tab
+    for (const part of content.split(/[,|•·;\t]+/)) {
       const s = part
         .trim()
         .replace(/^[\-\*\s]+/, "")
         .replace(/[\-\*\s]+$/, "")
-        .replace(/\s*\(.*?\)\s*$/, "")   // strip "(proficient)" / "(3 yrs)" etc.
+        .replace(/\s*\(.*?\)\s*$/, "")  // strip "(proficient)" / "(3 yrs)"
         .trim()
-      if (
-        s.length > 1 &&
-        s.length < 60 &&
-        !/^\d+$/.test(s) &&
-        !seen.has(s.toLowerCase())
-      ) {
+      if (s.length > 1 && s.length < 60 && !/^\d+$/.test(s) && !seen.has(s.toLowerCase())) {
         seen.add(s.toLowerCase())
         skills.push(s)
       }
     }
   }
 
+  // suppress unused variable warning
+  void raw
   return skills
 }
 
