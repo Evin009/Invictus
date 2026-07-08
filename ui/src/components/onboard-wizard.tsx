@@ -8,7 +8,6 @@ const STORAGE_KEY = "strata-onboarding-progress-v1"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface WorkEntry  { employer: string; title: string; startDate: string; endDate: string; description: string }
-interface SeedEntry  { label: string; text: string }
 
 interface Form {
   fullName: string; email: string; phone: string; currentLocation: string
@@ -16,6 +15,8 @@ interface Form {
   school: string; major: string; degree: string; gpa: string; gradMonth: string; gradYear: string
   workAuth: string | null; sponsorship: string | null; relocate: string | null; workMode: string[]; startDate: string
   minSalary: string; desiredSalary: string
+  rewriteLevel: string | null
+  internshipCycle: string | null
   gender: string | null; race: string | null; veteran: string | null; disability: string | null; pronouns: string
 }
 
@@ -43,8 +44,6 @@ interface WizardState {
   keywords: string[]; keywordInput: string
   companies: Array<{ name: string; url: string }>; companyName: string; companyUrl: string
   workHistory: WorkEntry[]
-  coverSamples: SeedEntry[]
-  outreachSamples: SeedEntry[]
   emailError: boolean
 }
 
@@ -54,6 +53,8 @@ const INITIAL_FORM: Form = {
   school: "", major: "", degree: "", gpa: "", gradMonth: "", gradYear: "",
   workAuth: null, sponsorship: null, relocate: null, workMode: [], startDate: "",
   minSalary: "", desiredSalary: "",
+  rewriteLevel: null,
+  internshipCycle: null,
   gender: null, race: null, veteran: null, disability: null, pronouns: "",
 }
 
@@ -66,12 +67,10 @@ const INITIAL_STATE: WizardState = {
   keywords: [], keywordInput: "",
   companies: [], companyName: "", companyUrl: "",
   workHistory: [{ employer: "", title: "", startDate: "", endDate: "", description: "" }],
-  coverSamples: [{ label: "", text: "" }],
-  outreachSamples: [{ label: "", text: "" }],
   emailError: false,
 }
 
-const TAB_LABELS = ["Personal", "Work Auth", "Work History", "Preferences", "Watchlist", "Demographics", "Tone Samples"]
+const TAB_LABELS = ["Personal", "Work Auth", "Work History", "Preferences", "Watchlist", "Demographics", "AI Settings"]
 const SENIORITY_LEVELS = ["Internship", "Entry Level", "Mid Level", "Senior", "Lead", "Staff"]
 const GENDER_OPTIONS = ["Woman", "Man", "Non-binary", "Prefer not to say"]
 const RACE_OPTIONS = ["American Indian / Alaska Native", "Asian", "Black / African American", "Hispanic / Latino", "Native Hawaiian / Pacific Islander", "White", "Two or more races", "Prefer not to say"]
@@ -79,6 +78,7 @@ const YES_NO = ["Yes", "No"]
 const VETERAN_OPTIONS = ["Yes", "No", "Prefer not to say"]
 const DISABILITY_OPTIONS = ["Yes", "No", "Prefer not to say"]
 const WORK_MODE_OPTIONS = ["Remote", "Hybrid", "On-site"]
+const INTERNSHIP_CYCLES = ["Fall 2026", "Spring 2027", "Summer 2027", "Fall 2027", "Spring 2028", "Summer 2028"]
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 // ─── Injected CSS ─────────────────────────────────────────────────────────────
@@ -252,11 +252,6 @@ export function OnboardWizard() {
   function removeWorkEntry(i: number) { setS(p => ({ ...p, workHistory: p.workHistory.filter((_, idx) => idx !== i) })) }
   function updateWork(i: number, key: keyof WorkEntry, val: string) { setS(p => ({ ...p, workHistory: p.workHistory.map((w, idx) => idx === i ? { ...w, [key]: val } : w) })) }
 
-  function addCover() { setS(p => ({ ...p, coverSamples: [...p.coverSamples, { label: "", text: "" }] })) }
-  function addOutreach() { setS(p => ({ ...p, outreachSamples: [...p.outreachSamples, { label: "", text: "" }] })) }
-  function updateCover(i: number, key: keyof SeedEntry, val: string) { setS(p => ({ ...p, coverSamples: p.coverSamples.map((r, idx) => idx === i ? { ...r, [key]: val } : r) })) }
-  function updateOutreach(i: number, key: keyof SeedEntry, val: string) { setS(p => ({ ...p, outreachSamples: p.outreachSamples.map((r, idx) => idx === i ? { ...r, [key]: val } : r) })) }
-
   function goBack() { upd({ step: Math.max(0, s.step - 1) }) }
 
   async function goNext() {
@@ -283,6 +278,7 @@ export function OnboardWizard() {
           relocate: s.form.relocate, work_mode: s.form.workMode.join(", ") || null, start_date: s.form.startDate,
           gender: s.form.gender, race: s.form.race, veteran: s.form.veteran,
           disability: s.form.disability, pronouns: s.form.pronouns,
+          rewrite_level: s.form.rewriteLevel,
         }),
       })
 
@@ -296,17 +292,11 @@ export function OnboardWizard() {
             salary_floor: s.form.minSalary ? Number(s.form.minSalary) : null,
             desired_salary: s.form.desiredSalary ? Number(s.form.desiredSalary) : null,
             role_keywords: s.keywords,
+            internship_cycle: s.form.internshipCycle,
           },
           watchlist: s.companies.map(c => ({ company_name: c.name, careers_url: c.url })),
         }),
       })
-
-      for (const c of s.coverSamples) {
-        if (c.text.trim()) await fetch("/api/seeds", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ table: "cover_letter_seeds", label: c.label, content: c.text }) })
-      }
-      for (const o of s.outreachSamples) {
-        if (o.text.trim()) await fetch("/api/seeds", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ table: "outreach_seeds", label: o.label, content: o.text }) })
-      }
 
       try { localStorage.removeItem(STORAGE_KEY) } catch {}
       upd({ showSuccess: true })
@@ -614,6 +604,15 @@ export function OnboardWizard() {
                       </div>
                     </div>
 
+                    {s.seniority.includes("Internship") && (
+                      <div style={{ marginBottom: 24 }}>
+                        <Label>Target internship cycle</Label>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+                          {INTERNSHIP_CYCLES.map(o => <Pill key={o} label={o} selected={s.form.internshipCycle === o} onClick={() => toggleForm("internshipCycle", o)} />)}
+                        </div>
+                      </div>
+                    )}
+
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 24 }}>
                       <div><Label>Minimum salary (USD/yr)</Label><input className="ob-input" type="text" placeholder="80000" value={s.form.minSalary} onChange={e => updForm("minSalary", e.target.value)} /></div>
                       <div><Label>Desired salary (USD/yr)</Label><input className="ob-input" type="text" placeholder="110000" value={s.form.desiredSalary} onChange={e => updForm("desiredSalary", e.target.value)} /></div>
@@ -704,36 +703,48 @@ export function OnboardWizard() {
                   </div>
                 )}
 
-                {/* ── Step 6: Tone Samples ── */}
+                {/* ── Step 6: AI Settings ── */}
                 {s.step === 6 && (
                   <div>
-                    <h2 style={{ fontSize: 19, fontWeight: 700, margin: "0 0 4px" }}>Tone samples</h2>
-                    <p style={{ fontSize: 13, color: "rgba(0,49,53,0.5)", margin: "0 0 24px" }}>Paste real cover letters and outreach you've written — the agent matches your voice</p>
+                    <h2 style={{ fontSize: 19, fontWeight: 700, margin: "0 0 4px" }}>AI rewrite settings</h2>
+                    <p style={{ fontSize: 13, color: "rgba(0,49,53,0.5)", margin: "0 0 28px" }}>How aggressively should Invictus rewrite your resume and cover letter for each job?</p>
 
-                    <div style={{ marginBottom: 24 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                        <span style={{ fontSize: 14, fontWeight: 700 }}>Cover letter samples</span>
-                        <span onClick={addCover} style={{ fontSize: 13, fontWeight: 600, color: "#024950", cursor: "pointer" }}>+ Add another</span>
-                      </div>
-                      {s.coverSamples.map((sample, i) => (
-                        <div key={i} style={{ border: "1px solid rgba(0,49,53,0.12)", borderRadius: 10, padding: 16, marginBottom: 12 }}>
-                          <input className="ob-input" type="text" placeholder='Label (e.g. "Google cover letter")' value={sample.label} onChange={e => updateCover(i, "label", e.target.value)} />
-                          <textarea className="ob-textarea" placeholder="Paste your cover letter here…" value={sample.text} onChange={e => updateCover(i, "text", e.target.value)} />
-                        </div>
-                      ))}
-                    </div>
-
-                    <div>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                        <span style={{ fontSize: 14, fontWeight: 700 }}>Cold outreach samples</span>
-                        <span onClick={addOutreach} style={{ fontSize: 13, fontWeight: 600, color: "#024950", cursor: "pointer" }}>+ Add another</span>
-                      </div>
-                      {s.outreachSamples.map((sample, i) => (
-                        <div key={i} style={{ border: "1px solid rgba(0,49,53,0.12)", borderRadius: 10, padding: 16, marginBottom: 12 }}>
-                          <input className="ob-input" type="text" placeholder='Label (e.g. "Engineering recruiter email")' value={sample.label} onChange={e => updateOutreach(i, "label", e.target.value)} />
-                          <textarea className="ob-textarea" placeholder="Paste your outreach message here…" value={sample.text} onChange={e => updateOutreach(i, "text", e.target.value)} />
-                        </div>
-                      ))}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                      {([
+                        { value: "minimal",    label: "Minimal",    desc: "Keep your exact wording — only insert missing keywords and fill gaps" },
+                        { value: "balanced",   label: "Balanced",   desc: "Tailor bullet emphasis and keyword density while preserving your voice" },
+                        { value: "aggressive", label: "Aggressive", desc: "Fully rewrite each section to match the job description as closely as possible" },
+                      ] as const).map(opt => {
+                        const active = s.form.rewriteLevel === opt.value
+                        return (
+                          <div
+                            key={opt.value}
+                            onClick={() => updForm("rewriteLevel", opt.value)}
+                            style={{
+                              border: `1.5px solid ${active ? "#0FA4AF" : "rgba(0,49,53,0.12)"}`,
+                              borderRadius: 12,
+                              padding: "16px 18px",
+                              cursor: "pointer",
+                              background: active ? "rgba(15,164,175,0.06)" : "#F5F8F7",
+                              display: "flex", alignItems: "flex-start", gap: 14,
+                              transition: "border-color 0.2s, background 0.2s",
+                            }}
+                          >
+                            <div style={{
+                              width: 18, height: 18, borderRadius: "50%", flexShrink: 0, marginTop: 2,
+                              border: `2px solid ${active ? "#0FA4AF" : "rgba(0,49,53,0.25)"}`,
+                              background: active ? "#0FA4AF" : "transparent",
+                              display: "flex", alignItems: "center", justifyContent: "center",
+                            }}>
+                              {active && <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#fff" }} />}
+                            </div>
+                            <div>
+                              <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "#003135" }}>{opt.label}</p>
+                              <p style={{ margin: "3px 0 0", fontSize: 12, color: "rgba(0,49,53,0.55)", lineHeight: 1.5 }}>{opt.desc}</p>
+                            </div>
+                          </div>
+                        )
+                      })}
                     </div>
                   </div>
                 )}
