@@ -362,7 +362,7 @@ function parseProjects(text: string): WorkEntry[] {
   if (projIdx < 0) return []
 
   const afterProj = text.slice(projIdx)
-  const nextSection = afterProj.search(/\n(?:experience|education|skills|technical skills|certifications|awards|publications|volunteer|activities|interests)\s*\n/i)
+  const nextSection = afterProj.search(/\n\s*(?:experience|education|skills|technical skills|certifications|awards|publications|volunteer|activities|leadership|honors?|interests|summary|objective)\s*\n/i)
   const section = nextSection > 0 ? afterProj.slice(0, nextSection) : afterProj.slice(0, 5000)
 
   const dateRe = /(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[.,]?\s*(?:20|19)\d{2}/gi
