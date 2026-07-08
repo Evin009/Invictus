@@ -487,7 +487,7 @@ export function OnboardWizard() {
 
                     <div style={{ marginBottom: 20 }}>
                       <Label>Portfolio / personal website</Label>
-                      <input className="ob-input" type="text" placeholder="jordanreyes.com" value={s.form.portfolio} onChange={e => updForm("portfolio", e.target.value)} />
+                      <input className="ob-input" type="text" placeholder="yoursite.com" value={s.form.portfolio} onChange={e => updForm("portfolio", e.target.value)} />
                     </div>
 
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 20 }}>
