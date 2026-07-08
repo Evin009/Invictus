@@ -2,6 +2,21 @@ import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase"
 import { requireAuth } from "@/lib/require-auth"
 
+export async function GET() {
+  const auth = await requireAuth()
+  if (auth instanceof NextResponse) return auth
+
+  const db = createClient()
+  const [prefsRes, watchlistRes] = await Promise.all([
+    db.from("preferences").select("*").limit(1),
+    db.from("watchlist").select("*"),
+  ])
+  return NextResponse.json({
+    preferences: prefsRes.data?.[0] ?? {},
+    watchlist: (watchlistRes.data ?? []).map((r: Record<string, string>) => ({ name: r.company_name, url: r.careers_url ?? r.url ?? "" })),
+  })
+}
+
 export async function PATCH(req: NextRequest) {
   const auth = await requireAuth()
   if (auth instanceof NextResponse) return auth

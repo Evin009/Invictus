@@ -42,7 +42,7 @@ const STEPS = [
   { label: "Resume tools ready",         sub: "RAG pipeline online" },
 ]
 
-const STEP_DUR = 1.15   // seconds per step — readable pace
+const STEP_DUR = 1.9   // seconds per step — give user time to read each item
 
 export default function SignupLoadingPage() {
   const router       = useRouter()

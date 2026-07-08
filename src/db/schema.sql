@@ -74,7 +74,23 @@ create table if not exists user_profile (
     github_url text,
     education jsonb,
     work_history jsonb,
-    skills text[]
+    skills text[],
+    current_location text,
+    portfolio text,
+    major text,
+    gpa text,
+    grad_month text,
+    grad_year text,
+    work_auth text,
+    sponsorship text,
+    relocate text,
+    work_mode text,
+    start_date text,
+    gender text,
+    race text,
+    veteran text,
+    disability text,
+    pronouns text
 );
 
 create table if not exists preferences (
@@ -82,6 +98,7 @@ create table if not exists preferences (
     locations text[],    -- e.g. ['Remote', 'Tampa', 'New York']
     seniority text[],    -- e.g. ['entry', 'intern']
     salary_floor int,
+    desired_salary int,
     role_keywords text[] -- e.g. ['SWE', 'Data Engineer', 'ML Engineer']
 );
 

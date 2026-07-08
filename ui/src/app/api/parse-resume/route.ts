@@ -239,7 +239,14 @@ function parseWorkHistory(text: string): WorkEntry[] {
       if (current) entries.push(current)
 
       // Case 1: title embedded in the date line ("Technical Lead  Aug 2025 – May 2026")
-      const beforeDates = line.replace(dateRe, "").replace(/[–—\-|·,•]+/g, " ").trim().replace(/\s+/g, " ")
+      // Strip dates first, then strip anything after a company separator (|, ·, •, /) or remaining dash
+      const stripped = line.replace(/(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[.,]?\s*(?:20|19)\d{2}/gi, "")
+      const beforeDates = stripped
+        .replace(/\s*[|·•\/]\s*.*/g, "")  // strip company part after common separators
+        .replace(/\s*[–—]\s*.*/g, "")      // strip remaining dashes (date range dashes already removed)
+        .replace(/[-,]+\s*$/, "")          // trailing punctuation
+        .trim()
+        .replace(/\s+/g, " ")
       let title = ""
       let employer = ""
 
@@ -277,7 +284,7 @@ function parseWorkHistory(text: string): WorkEntry[] {
       // Accumulate ALL bullet lines — skip only all-caps section headers and section dividers
       const isHeader = /^[A-Z\s]{5,}$/.test(line) || /^(experience|education|skills|projects|certifications|awards)/i.test(line)
       if (!isHeader && line.length > 3) {
-        current.description += (current.description ? "\n" : "") + line
+        current.description += (current.description ? "\n" : "") + "• " + line
       }
     }
   }
@@ -330,7 +337,7 @@ function parseProjects(text: string): WorkEntry[] {
       } else if (current) {
         const isHeader = /^[A-Z\s]{5,}$/.test(line)
         if (!isHeader && line.length > 3) {
-          current.description += (current.description ? "\n" : "") + line
+          current.description += (current.description ? "\n" : "") + "• " + line
         }
       }
     }
