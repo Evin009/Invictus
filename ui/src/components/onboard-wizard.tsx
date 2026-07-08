@@ -178,7 +178,30 @@ export function OnboardWizard() {
       .then(r => r.json())
       .then(data => {
         if (data.error) { upd({ stage: "upload", extractError: data.error }); return }
-        upd({ stage: "review", parsed: data })
+        // Skip review stage — go directly to form with parsed data applied
+        setS(p => ({
+          ...p, stage: "form", parsed: data,
+          form: {
+            ...p.form,
+            fullName:        data.fullName        ?? p.form.fullName,
+            email:           data.email           ?? p.form.email,
+            phone:           data.phone           ?? p.form.phone,
+            currentLocation: data.currentLocation ?? p.form.currentLocation,
+            linkedin:        data.linkedin        ?? p.form.linkedin,
+            github:          data.github          ?? p.form.github,
+            portfolio:       data.portfolio       ?? p.form.portfolio,
+            school:          data.school          ?? p.form.school,
+            degree:          data.degree          ?? p.form.degree,
+            major:           data.major           ?? p.form.major,
+            gpa:             data.gpa             ?? p.form.gpa,
+            gradMonth:       data.gradMonth       ?? p.form.gradMonth,
+            gradYear:        data.gradYear        ?? p.form.gradYear,
+          },
+          skills:      data.skills?.length > 0 ? data.skills : p.skills,
+          workHistory: [...(data.workHistory ?? []), ...(data.projects ?? [])].length > 0
+            ? [...(data.workHistory ?? []), ...(data.projects ?? [])]
+            : p.workHistory,
+        }))
       })
       .catch(() => upd({ stage: "upload", extractError: "Could not read resume — check the file and try again." }))
     e.target.value = ""
