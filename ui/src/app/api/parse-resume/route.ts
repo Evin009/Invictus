@@ -283,6 +283,7 @@ function parseWorkHistory(text: string): WorkEntry[] {
   const lines = section.split("\n").map(l => l.replace(/^[·•\-\*\s]+/, "").trim()).filter(Boolean)
 
   let current: WorkEntry | null = null
+  let employerLineIdx = -1  // tracks line consumed by forward-look so it's not re-added as description
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
@@ -302,6 +303,7 @@ function parseWorkHistory(text: string): WorkEntry[] {
         .replace(/\s+/g, " ")
       let title = ""
       let employer = ""
+      employerLineIdx = -1
 
       if (beforeDates.length > 2 && beforeDates.length <= 80) {
         // Pre-date text = job title; next non-date line = employer/company
@@ -319,6 +321,7 @@ function parseWorkHistory(text: string): WorkEntry[] {
                 /^(Inc|LLC|Ltd|Corp|Co|Group|Labs?|Technologies|Solutions|Systems|Studios?|Foundation|Institute|University|College|Agency|Partners|Ventures|Capital|Consulting|Services|Software|Digital|Global|International|National|Associates|Alliance|Networks?|Cent(?:er|re))\.?$/i.test(word) ? m : ""
               )
               .trim()
+            employerLineIdx = fwd  // mark so main loop skips it
             break
           }
         }
@@ -341,6 +344,7 @@ function parseWorkHistory(text: string): WorkEntry[] {
         description: "",
       }
     } else if (current) {
+      if (i === employerLineIdx) continue  // skip — already used as employer name
       // Accumulate ALL bullet lines — skip only all-caps section headers and section dividers
       const isHeader = /^[A-Z\s]{5,}$/.test(line) || /^(experience|education|skills|projects|certifications|awards)/i.test(line)
       if (!isHeader && line.length > 3) {
