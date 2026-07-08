@@ -42,7 +42,7 @@ interface WizardState {
   locations: string[]; selectedState: string
   seniority: string[]
   keywords: string[]; keywordInput: string
-  companies: Array<{ name: string; url: string }>; companyName: string; companyUrl: string
+  companies: Array<{ name: string }>; companyName: string; selectedCategory: string
   workHistory: WorkEntry[]
   emailError: boolean
 }
@@ -65,7 +65,7 @@ const INITIAL_STATE: WizardState = {
   locations: [], selectedState: "",
   seniority: [],
   keywords: [], keywordInput: "",
-  companies: [], companyName: "", companyUrl: "",
+  companies: [], companyName: "", selectedCategory: "",
   workHistory: [{ employer: "", title: "", startDate: "", endDate: "", description: "" }],
   emailError: false,
 }
@@ -80,6 +80,23 @@ const DISABILITY_OPTIONS = ["Yes", "No", "Prefer not to say"]
 const WORK_MODE_OPTIONS = ["Remote", "Hybrid", "On-site"]
 const INTERNSHIP_CYCLES = ["Fall 2026", "Spring 2027", "Summer 2027", "Fall 2027", "Spring 2028", "Summer 2028"]
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+const COMPANY_CATEGORIES: Record<string, string[]> = {
+  "Technology":           ["Apple","Google","Microsoft","Meta","Amazon","Netflix","Nvidia","Salesforce","Adobe","Oracle","Cisco","IBM","Intel","Uber","Airbnb","Stripe","Snowflake","Databricks","OpenAI","Anthropic","Palantir","SpaceX","Robinhood","DoorDash"],
+  "Finance & Banking":    ["JPMorgan Chase","Goldman Sachs","Morgan Stanley","Bank of America","Wells Fargo","Citigroup","BlackRock","Vanguard","Fidelity","Charles Schwab","American Express","Visa","Mastercard","PayPal","Capital One","Jane Street","Citadel","Two Sigma","Bloomberg","Moody's"],
+  "Healthcare & Biotech": ["Johnson & Johnson","Pfizer","Moderna","Abbott Laboratories","Medtronic","UnitedHealth Group","CVS Health","Humana","Cigna","HCA Healthcare","Mayo Clinic","Kaiser Permanente","Genentech","Amgen","Gilead Sciences","Regeneron"],
+  "Consulting":           ["McKinsey & Company","Boston Consulting Group","Bain & Company","Deloitte","PwC","EY","KPMG","Accenture","Oliver Wyman","Booz Allen Hamilton","Leidos","SAIC","Gartner","Capgemini"],
+  "E-commerce & Retail":  ["Amazon","Walmart","Target","Costco","The Home Depot","Best Buy","Wayfair","Chewy","eBay","Shopify","Etsy","Instacart","Rakuten"],
+  "Media & Entertainment":["Disney","Warner Bros. Discovery","NBCUniversal","Netflix","Spotify","Hulu","Paramount","Sony Pictures","Electronic Arts","Riot Games","Roblox","Epic Games","Activision","Take-Two Interactive"],
+  "Aerospace & Defense":  ["Boeing","Lockheed Martin","Raytheon Technologies","Northrop Grumman","General Dynamics","NASA","SpaceX","Blue Origin","L3Harris","BAE Systems","Aerojet Rocketdyne"],
+  "Energy & Utilities":   ["ExxonMobil","Chevron","BP","Shell","NextEra Energy","Duke Energy","Southern Company","Schlumberger","Halliburton","Baker Hughes","Enphase Energy","First Solar"],
+  "Automotive":           ["Tesla","Ford","General Motors","Toyota","BMW","Mercedes-Benz","Rivian","Lucid Motors","Waymo","Zoox","Aurora Innovation","Mobileye"],
+  "Startups & Unicorns":  ["OpenAI","Anthropic","Figma","Notion","Linear","Vercel","Supabase","Plaid","Scale AI","Brex","Mercury","Rippling","Ramp","Deel","Intercom","Retool"],
+  "Government & Defense": ["U.S. Department of Defense","CIA","NSA","FBI","U.S. Army","U.S. Navy","U.S. Air Force","DHS","DARPA","DOE","State Department"],
+  "Education & Research": ["MIT","Stanford University","Harvard University","Carnegie Mellon","Georgia Tech","Coursera","Duolingo","Chegg","2U","Khan Academy","Pearson"],
+  "Real Estate & Proptech":["CBRE","JLL","Zillow","Redfin","Opendoor","WeWork","Compass","CoStar","Realogy","Invitation Homes"],
+  "Telecommunications":   ["AT&T","Verizon","T-Mobile","Comcast","Charter Communications","Lumen Technologies","CrowdStrike","Palo Alto Networks","Zscaler","Cloudflare"],
+}
 
 const STATE_ABBREV: Record<string, string> = {
   "Alabama":"AL","Alaska":"AK","Arizona":"AZ","Arkansas":"AR","California":"CA",
@@ -367,8 +384,18 @@ export function OnboardWizard() {
   function removeKeyword(i: number) { setS(p => ({ ...p, keywords: p.keywords.filter((_, idx) => idx !== i) })) }
 
   function addCompany() {
-    if (!s.companyName.trim()) return
-    setS(p => ({ ...p, companies: [...p.companies, { name: p.companyName, url: p.companyUrl }], companyName: "", companyUrl: "" }))
+    const name = s.companyName.trim()
+    if (!name) return
+    if (s.companies.some(c => c.name.toLowerCase() === name.toLowerCase())) { setS(p => ({ ...p, companyName: "" })); return }
+    setS(p => ({ ...p, companies: [...p.companies, { name }], companyName: "" }))
+  }
+  function toggleCompany(name: string) {
+    setS(p => ({
+      ...p,
+      companies: p.companies.some(c => c.name === name)
+        ? p.companies.filter(c => c.name !== name)
+        : [...p.companies, { name }],
+    }))
   }
   function removeCompany(i: number) { setS(p => ({ ...p, companies: p.companies.filter((_, idx) => idx !== i) })) }
 
@@ -418,7 +445,7 @@ export function OnboardWizard() {
             role_keywords: s.keywords,
             internship_cycle: s.form.internshipCycle,
           },
-          watchlist: s.companies.map(c => ({ company_name: c.name, careers_url: c.url })),
+          watchlist: s.companies.map(c => ({ company_name: c.name, careers_url: "" })),
         }),
       })
 
@@ -915,27 +942,83 @@ export function OnboardWizard() {
                 {s.step === 4 && (
                   <div>
                     <h2 style={{ fontSize: 19, fontWeight: 700, margin: "0 0 4px" }}>Company watchlist</h2>
-                    <p style={{ fontSize: 13, color: "rgba(0,49,53,0.5)", margin: "0 0 24px" }}>Companies to monitor closely — agent checks these every run</p>
+                    <p style={{ fontSize: 13, color: "rgba(0,49,53,0.5)", margin: "0 0 24px" }}>Agent checks these companies every run — pick from popular lists or type your own</p>
 
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 20 }}>
-                      <div><Label>Company name</Label><input className="ob-input" type="text" placeholder="Stripe" value={s.companyName} onChange={e => upd({ companyName: e.target.value })} /></div>
-                      <div><Label>Careers page URL</Label><input className="ob-input" type="text" placeholder="https://stripe.com/jobs" value={s.companyUrl} onChange={e => upd({ companyUrl: e.target.value })} /></div>
+                    {/* Category picker */}
+                    <div style={{ marginBottom: 20 }}>
+                      <Label>Industry</Label>
+                      <select
+                        className="ob-select"
+                        value={s.selectedCategory}
+                        onChange={e => upd({ selectedCategory: e.target.value })}
+                      >
+                        <option value="">Select an industry…</option>
+                        {Object.keys(COMPANY_CATEGORIES).map(cat => (
+                          <option key={cat} value={cat}>{cat}</option>
+                        ))}
+                      </select>
                     </div>
 
-                    <button onClick={addCompany} style={{ padding: "11px 20px", borderRadius: 20, border: "none", background: "rgba(15,164,175,0.14)", color: "#024950", fontFamily: "'Space Grotesk', sans-serif", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>+ Add company</button>
+                    {/* Company pills for selected category */}
+                    {s.selectedCategory && (
+                      <div style={{ marginBottom: 20 }}>
+                        <Label>Popular companies</Label>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 4 }}>
+                          {COMPANY_CATEGORIES[s.selectedCategory]?.map(name => {
+                            const selected = s.companies.some(c => c.name === name)
+                            return (
+                              <button
+                                key={name}
+                                type="button"
+                                onClick={() => toggleCompany(name)}
+                                style={{
+                                  padding: "7px 14px", borderRadius: 20, fontSize: 13, fontWeight: 600,
+                                  fontFamily: "var(--font-space-grotesk,'Space Grotesk',sans-serif)",
+                                  cursor: "pointer", border: "1.5px solid",
+                                  borderColor: selected ? "#0FA4AF" : "rgba(0,49,53,0.14)",
+                                  background: selected ? "rgba(15,164,175,0.1)" : "#F5F8F7",
+                                  color: selected ? "#0FA4AF" : "rgba(0,49,53,0.6)",
+                                  transition: "all 0.18s ease",
+                                }}
+                              >
+                                {name}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
 
+                    {/* Manual add */}
+                    <div style={{ marginBottom: 20 }}>
+                      <Label>Add a company manually</Label>
+                      <div style={{ display: "flex", gap: 10 }}>
+                        <input
+                          className="ob-input"
+                          type="text"
+                          placeholder="e.g. Stripe"
+                          value={s.companyName}
+                          onChange={e => upd({ companyName: e.target.value })}
+                          onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addCompany() } }}
+                        />
+                        <PlusBtn onClick={addCompany} />
+                      </div>
+                    </div>
+
+                    {/* Selected companies */}
                     {s.companies.length > 0 ? (
-                      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 20 }}>
-                        {s.companies.map((co, i) => (
-                          <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", background: "#F5F8F7", borderRadius: 8 }}>
-                            <span style={{ fontSize: 14, fontWeight: 600 }}>{co.name}</span>
-                            <span style={{ fontSize: 12, color: "rgba(0,49,53,0.5)" }}>{co.url}</span>
-                            <span onClick={() => removeCompany(i)} style={{ cursor: "pointer", opacity: 0.5, fontSize: 14 }}>×</span>
-                          </div>
-                        ))}
+                      <div style={{ marginTop: 4 }}>
+                        <p style={{ fontSize: 11, fontWeight: 600, color: "rgba(0,49,53,0.4)", letterSpacing: "0.06em", textTransform: "uppercase", margin: "0 0 10px" }}>
+                          Watchlist ({s.companies.length})
+                        </p>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                          {s.companies.map((co, i) => (
+                            <Chip key={i} label={co.name} onRemove={() => removeCompany(i)} />
+                          ))}
+                        </div>
                       </div>
                     ) : (
-                      <p style={{ textAlign: "center", fontSize: 13, color: "rgba(0,49,53,0.45)", margin: "24px 0 0" }}>No companies added yet — you can skip this and add later in Settings</p>
+                      <p style={{ textAlign: "center", fontSize: 13, color: "rgba(0,49,53,0.4)", margin: "8px 0 0" }}>No companies added yet — you can skip this and add later in Settings</p>
                     )}
                   </div>
                 )}
