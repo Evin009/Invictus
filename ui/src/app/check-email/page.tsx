@@ -51,15 +51,28 @@ export default function CheckEmailPage() {
   const supabase = useMemo(() => createBrowserSupabaseClient(), [])
   const rootRef  = useRef<HTMLDivElement>(null)
   const barRef   = useRef<HTMLDivElement>(null)
+  // ref so onAuthStateChange closure sees current verified value
+  const verifiedRef = useRef(false)
 
   const [pendingEmail, setPendingEmail] = useState("")
   const [checking,     setChecking]     = useState(false)
   const [error,        setError]        = useState<string | null>(null)
   const [resent,       setResent]       = useState(false)
   const [confirmed,    setConfirmed]    = useState(false)
+  // verified = landed here after clicking confirmation link — show manual CTA
+  const [verified,     setVerified]     = useState(false)
+  const [proceeding,   setProceeding]   = useState(false)
 
   useEffect(() => {
     try { setPendingEmail(localStorage.getItem("invictus-pending-email") ?? "") } catch {}
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search)
+      if (params.get("verified") === "1") {
+        verifiedRef.current = true
+        setVerified(true)
+        try { localStorage.removeItem("invictus-pending-email") } catch {}
+      }
+    }
   }, [])
 
   // GSAP entrance — character drops from slight above, content staggers up
@@ -85,6 +98,8 @@ export default function CheckEmailPage() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === "SIGNED_IN" && session) {
         try { localStorage.removeItem("invictus-pending-email") } catch {}
+        // On verified page user confirms manually — don't auto-redirect
+        if (verifiedRef.current) return
         setConfirmed(true)
         if (barRef.current) {
           gsap.fromTo(barRef.current,
@@ -92,7 +107,6 @@ export default function CheckEmailPage() {
             { y: 0, opacity: 1, duration: 0.5, ease: "power3.out" }
           )
         }
-        // Route based on whether profile exists
         const { data: profile } = await supabase
           .from("user_profile").select("full_name").limit(1).maybeSingle()
         setTimeout(() => router.push(profile?.full_name ? "/dashboard" : "/signup-loading"), 1500)
@@ -100,6 +114,11 @@ export default function CheckEmailPage() {
     })
     return () => subscription.unsubscribe()
   }, [router, supabase])
+
+  async function handleProceed() {
+    setProceeding(true)
+    router.push("/signup-loading")
+  }
 
   async function handleContinue() {
     setChecking(true); setError(null)
@@ -268,151 +287,237 @@ export default function CheckEmailPage() {
           </div>
 
           {/* ── COPY ── */}
-          <div className="ce-stagger" style={{ textAlign: "center", marginBottom: 6 }}>
-            <span style={{
-              fontSize: 10, fontWeight: 700, letterSpacing: "0.14em",
-              textTransform: "uppercase", color: "#0FA4AF",
-            }}>
-              One more step
-            </span>
-          </div>
-
-          <h1 className="ce-stagger" style={{
-            fontSize: "clamp(26px, 5vw, 38px)", fontWeight: 800,
-            letterSpacing: "-0.03em", lineHeight: 1.08,
-            margin: "6px 0 0", textAlign: "center", color: "#003135",
-          }}>
-            Check your inbox
-          </h1>
-
-          <p className="ce-stagger" style={{
-            fontSize: 14, lineHeight: 1.7, color: "rgba(0,49,53,0.52)",
-            margin: "12px 0 0", textAlign: "center", maxWidth: "44ch",
-          }}>
-            {pendingEmail
-              ? <>Sent to <strong style={{ color: "#003135", fontWeight: 700 }}>{pendingEmail}</strong>. Click the link inside, then come back here.</>
-              : <>Confirmation sent. Click the link in your email, then return here.</>
-            }
-          </p>
-
-          {/* ── STEPS (horizontal) ── */}
-          <div className="ce-stagger" style={{
-            display: "flex", alignItems: "flex-start", gap: 0,
-            margin: "32px 0 0", width: "100%",
-          }}>
-            {steps.map((step, i) => (
-              <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", position: "relative" }}>
-                {/* Connector line */}
-                {i < steps.length - 1 && (
-                  <div style={{
-                    position: "absolute", top: 18, left: "50%", right: "-50%",
-                    height: 1,
-                    background: "rgba(0,49,53,0.1)",
-                    zIndex: 0,
-                  }} />
-                )}
-                {/* Circle */}
-                <div style={{
-                  width: 36, height: 36, borderRadius: "50%",
-                  background: i === 0 ? "#003135" : "#fff",
-                  border: `1px solid ${i === 0 ? "transparent" : "rgba(0,49,53,0.12)"}`,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  position: "relative", zIndex: 1,
-                  boxShadow: i === 0 ? "0 4px 14px rgba(0,49,53,0.18)" : "none",
-                  marginBottom: 10,
-                }}>
-                  <span style={{
-                    fontSize: 9, fontWeight: 800, letterSpacing: "0.05em",
-                    color: i === 0 ? "#0FA4AF" : "rgba(0,49,53,0.3)",
-                  }}>
-                    {step.n}
-                  </span>
-                </div>
-                {/* Label */}
+          {verified ? (
+            <>
+              <div className="ce-stagger" style={{ textAlign: "center", marginBottom: 6 }}>
                 <span style={{
-                  fontSize: 11, fontWeight: i === 0 ? 700 : 500,
-                  color: i === 0 ? "#003135" : "rgba(0,49,53,0.4)",
-                  textAlign: "center", lineHeight: 1.4, padding: "0 4px",
+                  fontSize: 10, fontWeight: 700, letterSpacing: "0.14em",
+                  textTransform: "uppercase", color: "#0FA4AF",
                 }}>
-                  {step.label}
+                  Email confirmed
                 </span>
               </div>
-            ))}
-          </div>
 
-          {/* ── ERROR ── */}
-          {error && (
-            <div className="ce-stagger" style={{
-              marginTop: 20, width: "100%", padding: "12px 16px", borderRadius: 10,
-              background: "rgba(150,71,52,0.07)", border: "1px solid rgba(150,71,52,0.18)",
-              display: "flex", gap: 10, alignItems: "flex-start",
-            }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0, marginTop: 1 }}>
-                <path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="#964734" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-              <span style={{ fontSize: 13, fontWeight: 600, color: "#964734", lineHeight: 1.5 }}>{error}</span>
-            </div>
-          )}
-
-          {/* ── CTA ── */}
-          <div className="ce-stagger" style={{ marginTop: 28, width: "100%", display: "flex", flexDirection: "column", gap: 14 }}>
-            <button
-              className="ce-btn"
-              onClick={handleContinue}
-              disabled={checking || confirmed}
-              style={{
-                width: "100%", padding: "15px 24px",
-                background: "#964734", color: "#fff", border: "none",
-                borderRadius: 14, fontFamily: "inherit",
-                fontSize: 15, fontWeight: 700,
-                cursor: checking || confirmed ? "default" : "pointer",
-                display: "flex", alignItems: "center", justifyContent: "space-between",
-                opacity: checking || confirmed ? 0.72 : 1,
-                position: "relative", zIndex: 0,
-              }}
-            >
-              <span style={{ position: "relative", zIndex: 1 }}>
-                {checking ? "Checking…" : confirmed ? "Confirmed!" : "I confirmed my email"}
-              </span>
-              <span style={{
-                width: 32, height: 32, borderRadius: "50%",
-                background: "rgba(0,0,0,0.14)",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                position: "relative", zIndex: 1, flexShrink: 0,
+              <h1 className="ce-stagger" style={{
+                fontSize: "clamp(26px, 5vw, 38px)", fontWeight: 800,
+                letterSpacing: "-0.03em", lineHeight: 1.08,
+                margin: "6px 0 0", textAlign: "center", color: "#003135",
               }}>
-                {checking ? (
-                  <div style={{ width: 13, height: 13, borderRadius: "50%", border: "2px solid rgba(255,255,255,0.3)", borderTopColor: "#fff", animation: "spin-slow 0.75s linear infinite" }} />
-                ) : confirmed ? (
-                  <CheckCircle size={15} color="#fff" weight="fill" />
-                ) : (
-                  <ArrowRight size={15} color="#fff" weight="bold" />
-                )}
-              </span>
-            </button>
+                Account verified!
+              </h1>
 
-            {/* Resend row */}
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div style={{ flex: 1, height: 1, background: "rgba(0,49,53,0.08)" }} />
-              <button
-                className="ce-resend"
-                onClick={handleResend}
-                disabled={resent || !pendingEmail}
-                style={{
-                  background: "none", border: "none", padding: "6px 10px",
-                  borderRadius: 8, fontFamily: "inherit", fontSize: 12, fontWeight: 600,
-                  color: resent ? "#0FA4AF" : "rgba(0,49,53,0.42)",
-                  cursor: resent ? "default" : "pointer",
-                  display: "flex", alignItems: "center", gap: 5,
-                }}
-              >
-                {resent
-                  ? <><CheckCircle size={13} weight="fill" color="#0FA4AF" /> Sent!</>
-                  : <><ArrowClockwise size={13} weight="bold" /> Resend email</>
+              <p className="ce-stagger" style={{
+                fontSize: 14, lineHeight: 1.7, color: "rgba(0,49,53,0.52)",
+                margin: "12px 0 0", textAlign: "center", maxWidth: "44ch",
+              }}>
+                You&apos;re in. Hit the button below to start setting up your workspace.
+              </p>
+
+              {/* Verified success row */}
+              <div className="ce-stagger" style={{
+                margin: "28px 0 0", width: "100%",
+                padding: "14px 18px", borderRadius: 12,
+                background: "rgba(15,164,175,0.07)",
+                border: "1px solid rgba(15,164,175,0.2)",
+                display: "flex", alignItems: "center", gap: 10,
+              }}>
+                <div style={{
+                  width: 32, height: 32, borderRadius: "50%",
+                  background: "#0FA4AF",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  flexShrink: 0,
+                }}>
+                  <CheckCircle size={17} color="#fff" weight="fill" />
+                </div>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#003135", lineHeight: 1.3 }}>
+                    Identity confirmed
+                  </div>
+                  <div style={{ fontSize: 11, color: "rgba(0,49,53,0.5)", marginTop: 1 }}>
+                    Your account is active and secure
+                  </div>
+                </div>
+              </div>
+
+              {/* Proceed CTA */}
+              <div className="ce-stagger" style={{ marginTop: 20, width: "100%" }}>
+                <button
+                  className="ce-btn"
+                  onClick={handleProceed}
+                  disabled={proceeding}
+                  style={{
+                    width: "100%", padding: "15px 24px",
+                    background: "#003135", color: "#fff", border: "none",
+                    borderRadius: 14, fontFamily: "inherit",
+                    fontSize: 15, fontWeight: 700,
+                    cursor: proceeding ? "default" : "pointer",
+                    display: "flex", alignItems: "center", justifyContent: "space-between",
+                    opacity: proceeding ? 0.72 : 1,
+                    position: "relative", zIndex: 0,
+                  }}
+                >
+                  <span style={{ position: "relative", zIndex: 1 }}>
+                    {proceeding ? "Launching…" : "Set up my workspace"}
+                  </span>
+                  <span style={{
+                    width: 32, height: 32, borderRadius: "50%",
+                    background: "rgba(255,255,255,0.12)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    position: "relative", zIndex: 1, flexShrink: 0,
+                  }}>
+                    {proceeding ? (
+                      <div style={{ width: 13, height: 13, borderRadius: "50%", border: "2px solid rgba(255,255,255,0.3)", borderTopColor: "#fff", animation: "spin-slow 0.75s linear infinite" }} />
+                    ) : (
+                      <ArrowRight size={15} color="#fff" weight="bold" />
+                    )}
+                  </span>
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="ce-stagger" style={{ textAlign: "center", marginBottom: 6 }}>
+                <span style={{
+                  fontSize: 10, fontWeight: 700, letterSpacing: "0.14em",
+                  textTransform: "uppercase", color: "#0FA4AF",
+                }}>
+                  One more step
+                </span>
+              </div>
+
+              <h1 className="ce-stagger" style={{
+                fontSize: "clamp(26px, 5vw, 38px)", fontWeight: 800,
+                letterSpacing: "-0.03em", lineHeight: 1.08,
+                margin: "6px 0 0", textAlign: "center", color: "#003135",
+              }}>
+                Check your inbox
+              </h1>
+
+              <p className="ce-stagger" style={{
+                fontSize: 14, lineHeight: 1.7, color: "rgba(0,49,53,0.52)",
+                margin: "12px 0 0", textAlign: "center", maxWidth: "44ch",
+              }}>
+                {pendingEmail
+                  ? <>Sent to <strong style={{ color: "#003135", fontWeight: 700 }}>{pendingEmail}</strong>. Click the link inside, then come back here.</>
+                  : <>Confirmation sent. Click the link in your email, then return here.</>
                 }
-              </button>
-              <div style={{ flex: 1, height: 1, background: "rgba(0,49,53,0.08)" }} />
-            </div>
-          </div>
+              </p>
+
+              {/* ── STEPS (horizontal) ── */}
+              <div className="ce-stagger" style={{
+                display: "flex", alignItems: "flex-start", gap: 0,
+                margin: "32px 0 0", width: "100%",
+              }}>
+                {steps.map((step, i) => (
+                  <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", position: "relative" }}>
+                    {i < steps.length - 1 && (
+                      <div style={{
+                        position: "absolute", top: 18, left: "50%", right: "-50%",
+                        height: 1, background: "rgba(0,49,53,0.1)", zIndex: 0,
+                      }} />
+                    )}
+                    <div style={{
+                      width: 36, height: 36, borderRadius: "50%",
+                      background: i === 0 ? "#003135" : "#fff",
+                      border: `1px solid ${i === 0 ? "transparent" : "rgba(0,49,53,0.12)"}`,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      position: "relative", zIndex: 1,
+                      boxShadow: i === 0 ? "0 4px 14px rgba(0,49,53,0.18)" : "none",
+                      marginBottom: 10,
+                    }}>
+                      <span style={{
+                        fontSize: 9, fontWeight: 800, letterSpacing: "0.05em",
+                        color: i === 0 ? "#0FA4AF" : "rgba(0,49,53,0.3)",
+                      }}>
+                        {step.n}
+                      </span>
+                    </div>
+                    <span style={{
+                      fontSize: 11, fontWeight: i === 0 ? 700 : 500,
+                      color: i === 0 ? "#003135" : "rgba(0,49,53,0.4)",
+                      textAlign: "center", lineHeight: 1.4, padding: "0 4px",
+                    }}>
+                      {step.label}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              {/* ── ERROR ── */}
+              {error && (
+                <div className="ce-stagger" style={{
+                  marginTop: 20, width: "100%", padding: "12px 16px", borderRadius: 10,
+                  background: "rgba(150,71,52,0.07)", border: "1px solid rgba(150,71,52,0.18)",
+                  display: "flex", gap: 10, alignItems: "flex-start",
+                }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0, marginTop: 1 }}>
+                    <path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="#964734" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: "#964734", lineHeight: 1.5 }}>{error}</span>
+                </div>
+              )}
+
+              {/* ── CTA ── */}
+              <div className="ce-stagger" style={{ marginTop: 28, width: "100%", display: "flex", flexDirection: "column", gap: 14 }}>
+                <button
+                  className="ce-btn"
+                  onClick={handleContinue}
+                  disabled={checking || confirmed}
+                  style={{
+                    width: "100%", padding: "15px 24px",
+                    background: "#964734", color: "#fff", border: "none",
+                    borderRadius: 14, fontFamily: "inherit",
+                    fontSize: 15, fontWeight: 700,
+                    cursor: checking || confirmed ? "default" : "pointer",
+                    display: "flex", alignItems: "center", justifyContent: "space-between",
+                    opacity: checking || confirmed ? 0.72 : 1,
+                    position: "relative", zIndex: 0,
+                  }}
+                >
+                  <span style={{ position: "relative", zIndex: 1 }}>
+                    {checking ? "Checking…" : confirmed ? "Confirmed!" : "I confirmed my email"}
+                  </span>
+                  <span style={{
+                    width: 32, height: 32, borderRadius: "50%",
+                    background: "rgba(0,0,0,0.14)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    position: "relative", zIndex: 1, flexShrink: 0,
+                  }}>
+                    {checking ? (
+                      <div style={{ width: 13, height: 13, borderRadius: "50%", border: "2px solid rgba(255,255,255,0.3)", borderTopColor: "#fff", animation: "spin-slow 0.75s linear infinite" }} />
+                    ) : confirmed ? (
+                      <CheckCircle size={15} color="#fff" weight="fill" />
+                    ) : (
+                      <ArrowRight size={15} color="#fff" weight="bold" />
+                    )}
+                  </span>
+                </button>
+
+                {/* Resend row */}
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div style={{ flex: 1, height: 1, background: "rgba(0,49,53,0.08)" }} />
+                  <button
+                    className="ce-resend"
+                    onClick={handleResend}
+                    disabled={resent || !pendingEmail}
+                    style={{
+                      background: "none", border: "none", padding: "6px 10px",
+                      borderRadius: 8, fontFamily: "inherit", fontSize: 12, fontWeight: 600,
+                      color: resent ? "#0FA4AF" : "rgba(0,49,53,0.42)",
+                      cursor: resent ? "default" : "pointer",
+                      display: "flex", alignItems: "center", gap: 5,
+                    }}
+                  >
+                    {resent
+                      ? <><CheckCircle size={13} weight="fill" color="#0FA4AF" /> Sent!</>
+                      : <><ArrowClockwise size={13} weight="bold" /> Resend email</>
+                    }
+                  </button>
+                  <div style={{ flex: 1, height: 1, background: "rgba(0,49,53,0.08)" }} />
+                </div>
+              </div>
+            </>
+          )}
 
           {/* Back */}
           <div className="ce-stagger" style={{ marginTop: 4 }}>
