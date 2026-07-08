@@ -313,7 +313,11 @@ function parseWorkHistory(text: string): WorkEntry[] {
           if (next.length <= 80 && !/^(scaled|built|led|managed|developed|designed|created|implemented|improved)/i.test(next)) {
             employer = next
               .replace(/[,|·–—].*/g, "")
+              .replace(/\s+(?:Remote|Hybrid|Onsite|On-?site|In-?person)\s*$/i, "")
               .replace(/\s+(?:[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?\s+)?[A-Z]{2}\s*$/, "")
+              .replace(/\s+([A-Z][a-z]+)\s*$/, (m, word) =>
+                /^(Inc|LLC|Ltd|Corp|Co|Group|Labs?|Technologies|Solutions|Systems|Studios?|Foundation|Institute|University|College|Agency|Partners|Ventures|Capital|Consulting|Services|Software|Digital|Global|International|National|Associates|Alliance|Networks?|Cent(?:er|re))\.?$/i.test(word) ? m : ""
+              )
               .trim()
             break
           }
