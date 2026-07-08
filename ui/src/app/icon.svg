@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Outer diamond -->
+  <path d="M50 6 L94 50 L50 94 L6 50 Z" fill="none" stroke="#003135" stroke-width="7" stroke-linejoin="round"/>
+  <!-- Inner diamond -->
+  <path d="M50 26 L74 50 L50 74 L26 50 Z" fill="none" stroke="#0FA4AF" stroke-width="7" stroke-linejoin="round"/>
+  <!-- Center square (rotated 45deg around center) -->
+  <rect x="42" y="42" width="16" height="16" rx="5" fill="#964734" transform="rotate(45 50 50)"/>
+</svg>
