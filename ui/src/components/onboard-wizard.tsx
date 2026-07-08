@@ -39,7 +39,7 @@ interface WizardState {
   parsed: ParsedResume | null
   form: Form
   skills: string[]; skillInput: string
-  locations: string[]; locationInput: string
+  locations: string[]; selectedState: string
   seniority: string[]
   keywords: string[]; keywordInput: string
   companies: Array<{ name: string; url: string }>; companyName: string; companyUrl: string
@@ -62,7 +62,7 @@ const INITIAL_STATE: WizardState = {
   stage: "upload", resumeFileName: "", step: 0, showSuccess: false, uploadError: null, extractError: null, parsed: null,
   form: INITIAL_FORM,
   skills: [], skillInput: "",
-  locations: [], locationInput: "",
+  locations: [], selectedState: "",
   seniority: [],
   keywords: [], keywordInput: "",
   companies: [], companyName: "", companyUrl: "",
@@ -81,6 +81,72 @@ const WORK_MODE_OPTIONS = ["Remote", "Hybrid", "On-site"]
 const INTERNSHIP_CYCLES = ["Fall 2026", "Spring 2027", "Summer 2027", "Fall 2027", "Spring 2028", "Summer 2028"]
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
+const STATE_ABBREV: Record<string, string> = {
+  "Alabama":"AL","Alaska":"AK","Arizona":"AZ","Arkansas":"AR","California":"CA",
+  "Colorado":"CO","Connecticut":"CT","Delaware":"DE","Florida":"FL","Georgia":"GA",
+  "Hawaii":"HI","Idaho":"ID","Illinois":"IL","Indiana":"IN","Iowa":"IA",
+  "Kansas":"KS","Kentucky":"KY","Louisiana":"LA","Maine":"ME","Maryland":"MD",
+  "Massachusetts":"MA","Michigan":"MI","Minnesota":"MN","Mississippi":"MS","Missouri":"MO",
+  "Montana":"MT","Nebraska":"NE","Nevada":"NV","New Hampshire":"NH","New Jersey":"NJ",
+  "New Mexico":"NM","New York":"NY","North Carolina":"NC","North Dakota":"ND","Ohio":"OH",
+  "Oklahoma":"OK","Oregon":"OR","Pennsylvania":"PA","Rhode Island":"RI","South Carolina":"SC",
+  "South Dakota":"SD","Tennessee":"TN","Texas":"TX","Utah":"UT","Vermont":"VT",
+  "Virginia":"VA","Washington":"WA","West Virginia":"WV","Wisconsin":"WI","Wyoming":"WY",
+}
+
+const STATE_CITIES: Record<string, string[]> = {
+  "Alabama":       ["Birmingham","Huntsville","Mobile","Montgomery"],
+  "Alaska":        ["Anchorage","Fairbanks","Juneau"],
+  "Arizona":       ["Chandler","Mesa","Phoenix","Scottsdale","Tempe","Tucson"],
+  "Arkansas":      ["Fayetteville","Fort Smith","Little Rock"],
+  "California":    ["Irvine","Los Angeles","Oakland","Sacramento","San Diego","San Francisco","San Jose","Santa Clara"],
+  "Colorado":      ["Aurora","Boulder","Colorado Springs","Denver","Fort Collins"],
+  "Connecticut":   ["Bridgeport","Hartford","New Haven","Stamford"],
+  "Delaware":      ["Dover","Newark","Wilmington"],
+  "Florida":       ["Fort Lauderdale","Jacksonville","Miami","Orlando","St. Petersburg","Tallahassee","Tampa"],
+  "Georgia":       ["Atlanta","Augusta","Columbus","Savannah"],
+  "Hawaii":        ["Hilo","Honolulu","Kailua"],
+  "Idaho":         ["Boise","Idaho Falls","Nampa"],
+  "Illinois":      ["Aurora","Chicago","Naperville","Rockford"],
+  "Indiana":       ["Fort Wayne","Indianapolis","South Bend"],
+  "Iowa":          ["Cedar Rapids","Des Moines","Sioux City"],
+  "Kansas":        ["Kansas City","Olathe","Overland Park","Wichita"],
+  "Kentucky":      ["Bowling Green","Lexington","Louisville"],
+  "Louisiana":     ["Baton Rouge","New Orleans","Shreveport"],
+  "Maine":         ["Bangor","Portland"],
+  "Maryland":      ["Annapolis","Baltimore","Frederick","Rockville"],
+  "Massachusetts": ["Boston","Cambridge","Lowell","Springfield","Worcester"],
+  "Michigan":      ["Ann Arbor","Detroit","Grand Rapids","Lansing"],
+  "Minnesota":     ["Minneapolis","Rochester","St. Paul"],
+  "Mississippi":   ["Gulfport","Jackson","Southaven"],
+  "Missouri":      ["Columbia","Kansas City","Springfield","St. Louis"],
+  "Montana":       ["Billings","Bozeman","Great Falls","Missoula"],
+  "Nebraska":      ["Lincoln","Omaha"],
+  "Nevada":        ["Henderson","Las Vegas","Reno"],
+  "New Hampshire": ["Concord","Manchester","Nashua"],
+  "New Jersey":    ["Edison","Jersey City","Newark","Trenton"],
+  "New Mexico":    ["Albuquerque","Rio Rancho","Santa Fe"],
+  "New York":      ["Albany","Buffalo","New York City","Rochester","Syracuse","Yonkers"],
+  "North Carolina":["Charlotte","Durham","Greensboro","Raleigh","Winston-Salem"],
+  "North Dakota":  ["Bismarck","Fargo","Grand Forks"],
+  "Ohio":          ["Cincinnati","Cleveland","Columbus","Dayton","Toledo"],
+  "Oklahoma":      ["Norman","Oklahoma City","Tulsa"],
+  "Oregon":        ["Eugene","Portland","Salem"],
+  "Pennsylvania":  ["Allentown","Philadelphia","Pittsburgh","Reading"],
+  "Rhode Island":  ["Cranston","Providence","Warwick"],
+  "South Carolina":["Charleston","Columbia","Greenville"],
+  "South Dakota":  ["Rapid City","Sioux Falls"],
+  "Tennessee":     ["Chattanooga","Knoxville","Memphis","Nashville"],
+  "Texas":         ["Austin","Dallas","El Paso","Fort Worth","Houston","San Antonio"],
+  "Utah":          ["Ogden","Provo","Salt Lake City","West Valley City"],
+  "Vermont":       ["Burlington","Essex","Montpelier"],
+  "Virginia":      ["Arlington","Chesapeake","Norfolk","Richmond","Virginia Beach"],
+  "Washington":    ["Bellevue","Seattle","Spokane","Tacoma"],
+  "West Virginia": ["Charleston","Huntington","Morgantown"],
+  "Wisconsin":     ["Green Bay","Madison","Milwaukee"],
+  "Wyoming":       ["Casper","Cheyenne","Laramie"],
+}
+
 // ─── Injected CSS ─────────────────────────────────────────────────────────────
 const CSS = `
   *{box-sizing:border-box}
@@ -88,6 +154,9 @@ const CSS = `
   .ob-input{width:100%;padding:13px 14px;font-size:14px;font-family:'Space Grotesk',sans-serif;border-radius:8px;border:1px solid rgba(0,49,53,0.14);outline:none;background:#F5F8F7;color:#003135;}
   .ob-input::placeholder{color:rgba(0,49,53,0.4)}
   .ob-input:focus{border-color:#0FA4AF;background:#fff;box-shadow:0 0 0 3px rgba(15,164,175,0.15);}
+  .ob-select{width:100%;padding:13px 14px;font-size:14px;font-family:'Space Grotesk',sans-serif;border-radius:8px;border:1px solid rgba(0,49,53,0.14);outline:none;background:#F5F8F7;color:#003135;appearance:none;cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23003135' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;}
+  .ob-select:focus{border-color:#0FA4AF;background-color:#fff;box-shadow:0 0 0 3px rgba(15,164,175,0.15);}
+  .ob-select option{background:#fff;color:#003135;}
   .ob-textarea{width:100%;padding:13px 14px;font-size:14px;font-family:'Space Grotesk',sans-serif;border-radius:8px;border:1px solid rgba(0,49,53,0.14);outline:none;background:#F5F8F7;color:#003135;resize:vertical;min-height:110px;margin-top:10px;}
   .ob-textarea::placeholder{color:rgba(0,49,53,0.4)}
   .ob-textarea:focus{border-color:#0FA4AF;background:#fff;box-shadow:0 0 0 3px rgba(15,164,175,0.15);}
@@ -285,7 +354,14 @@ export function OnboardWizard() {
   // Chip helpers
   function addSkill() { const v = s.skillInput.trim(); if (!v) return; setS(p => ({ ...p, skills: [...p.skills, v], skillInput: "" })) }
   function removeSkill(i: number) { setS(p => ({ ...p, skills: p.skills.filter((_, idx) => idx !== i) })) }
-  function addLocation() { const v = s.locationInput.trim(); if (!v) return; setS(p => ({ ...p, locations: [...p.locations, v], locationInput: "" })) }
+  function toggleCity(city: string, state: string) {
+    const abbr = STATE_ABBREV[state] ?? state
+    const tag = `${city}, ${abbr}`
+    setS(p => ({
+      ...p,
+      locations: p.locations.includes(tag) ? p.locations.filter(l => l !== tag) : [...p.locations, tag],
+    }))
+  }
   function removeLocation(i: number) { setS(p => ({ ...p, locations: p.locations.filter((_, idx) => idx !== i) })) }
   function addKeyword() { const v = s.keywordInput.trim(); if (!v) return; setS(p => ({ ...p, keywords: [...p.keywords, v], keywordInput: "" })) }
   function removeKeyword(i: number) { setS(p => ({ ...p, keywords: p.keywords.filter((_, idx) => idx !== i) })) }
@@ -745,16 +821,58 @@ export function OnboardWizard() {
                     <p style={{ fontSize: 13, color: "rgba(0,49,53,0.5)", margin: "0 0 24px" }}>Controls which jobs the agent pursues</p>
 
                     <div style={{ marginBottom: 24 }}>
-                      <Label>Target locations</Label>
-                      {s.locations.length > 0 && (
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
-                          {s.locations.map((loc, i) => <Chip key={i} label={loc} onRemove={() => removeLocation(i)} />)}
+                      <Label>Target state</Label>
+                      <div style={{ position: "relative" }}>
+                        <select
+                          className="ob-select"
+                          value={s.selectedState}
+                          onChange={e => upd({ selectedState: e.target.value })}
+                        >
+                          <option value="">Select a state…</option>
+                          {Object.keys(STATE_CITIES).sort().map(st => (
+                            <option key={st} value={st}>{st}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {s.selectedState && (
+                        <div style={{ marginTop: 14 }}>
+                          <Label>Targeted cities</Label>
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 4 }}>
+                            {STATE_CITIES[s.selectedState]?.map(city => {
+                              const tag = `${city}, ${STATE_ABBREV[s.selectedState] ?? s.selectedState}`
+                              const selected = s.locations.includes(tag)
+                              return (
+                                <button
+                                  key={city}
+                                  type="button"
+                                  onClick={() => toggleCity(city, s.selectedState)}
+                                  style={{
+                                    padding: "7px 14px", borderRadius: 20, fontSize: 13, fontWeight: 600,
+                                    fontFamily: "var(--font-space-grotesk,'Space Grotesk',sans-serif)",
+                                    cursor: "pointer", border: "1.5px solid",
+                                    borderColor: selected ? "#0FA4AF" : "rgba(0,49,53,0.14)",
+                                    background: selected ? "rgba(15,164,175,0.1)" : "#F5F8F7",
+                                    color: selected ? "#0FA4AF" : "rgba(0,49,53,0.6)",
+                                    transition: "all 0.18s ease",
+                                  }}
+                                >
+                                  {city}
+                                </button>
+                              )
+                            })}
+                          </div>
                         </div>
                       )}
-                      <div style={{ display: "flex", gap: 10 }}>
-                        <input className="ob-input" type="text" placeholder="San Francisco, CA" value={s.locationInput} onChange={e => upd({ locationInput: e.target.value })} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addLocation() } }} />
-                        <PlusBtn onClick={addLocation} />
-                      </div>
+
+                      {s.locations.length > 0 && (
+                        <div style={{ marginTop: 14 }}>
+                          <p style={{ fontSize: 11, fontWeight: 600, color: "rgba(0,49,53,0.4)", letterSpacing: "0.06em", textTransform: "uppercase", margin: "0 0 8px" }}>Selected</p>
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                            {s.locations.map((loc, i) => <Chip key={i} label={loc} onRemove={() => removeLocation(i)} />)}
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     <div style={{ marginBottom: 24 }}>
