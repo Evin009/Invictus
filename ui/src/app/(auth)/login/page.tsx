@@ -173,7 +173,7 @@ export default function LoginPage() {
       if (isSignUp) {
         const { data: signUpData, error } = await supabase.auth.signUp({
           email: email.trim(), password,
-          options: { emailRedirectTo: `${location.origin}/check-email` },
+          options: { emailRedirectTo: `${location.origin}/auth/callback` },
         })
         // "User already registered" error
         if (error) {

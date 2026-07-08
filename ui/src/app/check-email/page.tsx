@@ -80,9 +80,9 @@ export default function CheckEmailPage() {
     return () => ctx.revert()
   }, [])
 
-  // Supabase auto-detect confirmation
+  // Auto-detect confirmation in any tab via auth state change
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === "SIGNED_IN" && session) {
         try { localStorage.removeItem("invictus-pending-email") } catch {}
         setConfirmed(true)
@@ -92,7 +92,10 @@ export default function CheckEmailPage() {
             { y: 0, opacity: 1, duration: 0.5, ease: "power3.out" }
           )
         }
-        setTimeout(() => router.push("/login?confirmed=1"), 1800)
+        // Route based on whether profile exists
+        const { data: profile } = await supabase
+          .from("user_profile").select("full_name").limit(1).maybeSingle()
+        setTimeout(() => router.push(profile?.full_name ? "/dashboard" : "/signup-loading"), 1500)
       }
     })
     return () => subscription.unsubscribe()
@@ -111,7 +114,9 @@ export default function CheckEmailPage() {
             { y: 0, opacity: 1, duration: 0.5, ease: "power3.out" }
           )
         }
-        setTimeout(() => router.push("/login?confirmed=1"), 1400)
+        const { data: profile } = await supabase
+          .from("user_profile").select("full_name").limit(1).maybeSingle()
+        setTimeout(() => router.push(profile?.full_name ? "/dashboard" : "/signup-loading"), 1200)
       } else {
         setError("Still waiting — click the confirmation link in your email first.")
       }
@@ -152,7 +157,7 @@ export default function CheckEmailPage() {
           boxShadow: "0 4px 20px rgba(15,164,175,0.3)",
         }}>
           <CheckCircle size={18} weight="fill" />
-          Email confirmed — heading to setup…
+          Email confirmed — launching workspace…
           <div style={{ width: 15, height: 15, borderRadius: "50%", border: "2px solid rgba(255,255,255,0.3)", borderTopColor: "#fff", animation: "spin-slow 0.75s linear infinite", marginLeft: 4 }} />
         </div>
       )}
