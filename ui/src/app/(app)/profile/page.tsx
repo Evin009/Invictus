@@ -220,7 +220,7 @@ export default function ProfilePage() {
   async function save() {
     setSaving(true)
     try {
-      await Promise.all([
+      const [profileRes, settingsRes] = await Promise.all([
         fetch("/api/profile", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -245,10 +245,11 @@ export default function ProfilePage() {
               salary_floor: form.minSalary ? parseInt(form.minSalary.replace(/\D/g, ""), 10) : null,
               desired_salary: form.desiredSalary ? parseInt(form.desiredSalary.replace(/\D/g, ""), 10) : null,
             },
-            watchlist: companies.map(c => ({ company_name: c.name, url: c.url })),
+            watchlist: companies.map(c => ({ company_name: c.name, careers_url: c.url })),
           }),
         }),
       ])
+      if (!profileRes.ok || !settingsRes.ok) throw new Error("save failed")
       setSaveMsg("Saved")
     } catch {
       setSaveMsg("Error saving")
