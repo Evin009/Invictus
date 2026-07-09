@@ -162,8 +162,9 @@ export default function ProfilePage() {
       fetch("/api/profile").then(r => r.json()).catch(() => ({})),
       fetch("/api/settings").then(r => r.json()).catch(() => ({})),
       fetch("/api/watchlist").then(r => r.json()).catch(() => ({ watchlist: [] })),
-      fetch("/api/seeds").then(r => r.json()).catch(() => []),
-    ]).then(([profileData, settingsData, watchlistData, seedsData]) => {
+      fetch("/api/seeds?table=cover_letter_seeds").then(r => r.json()).catch(() => []),
+      fetch("/api/seeds?table=outreach_seeds").then(r => r.json()).catch(() => []),
+    ]).then(([profileData, settingsData, watchlistData, coverSeeds, outreachSeeds]) => {
       const p = profileData ?? {}
       const prefs = settingsData?.preferences ?? {}
       setForm(prev => ({
@@ -202,9 +203,8 @@ export default function ProfilePage() {
       setKeywords(Array.isArray(prefs.role_keywords) ? prefs.role_keywords : [])
       if (Array.isArray(p.work_history)) setWorkHistory(p.work_history as WorkEntry[])
       if (Array.isArray(watchlistData?.watchlist)) setCompanies(watchlistData.watchlist)
-      if (Array.isArray(seedsData)) {
-        setToneSamples(seedsData.map((s: Record<string,string>) => ({ label: s.type ?? "Sample", text: s.text ?? "" })))
-      }
+      const allSeeds = [...(Array.isArray(coverSeeds) ? coverSeeds : []), ...(Array.isArray(outreachSeeds) ? outreachSeeds : [])]
+      setToneSamples(allSeeds.map((s: Record<string, string>) => ({ label: s.label ?? "Sample", text: s.content ?? "" })))
     }).finally(() => setLoading(false))
   }, [])
 

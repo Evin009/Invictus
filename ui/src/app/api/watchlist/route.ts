@@ -7,7 +7,8 @@ export async function GET() {
   if (auth instanceof NextResponse) return auth
 
   const db = createClient()
-  const { data } = await db.from("watchlist").select("*")
+  const { data, error } = await db.from("watchlist").select("*")
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({
     watchlist: (data ?? []).map((r: Record<string, string>) => ({ name: r.company_name, url: r.careers_url ?? r.url ?? "" })),
   })
@@ -35,7 +36,8 @@ export async function DELETE(req: NextRequest) {
   try {
     const { id } = await req.json()
     const db = createClient()
-    await db.from("watchlist").delete().eq("id", id)
+    const { error } = await db.from("watchlist").delete().eq("id", id)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ ok: true })
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 500 })
