@@ -217,25 +217,30 @@ export default function ProfilePage() {
     setEditing(prev => ({ ...prev, [key]: !prev[key] }))
   }
 
+  function persistProfile(f: Form, sk: string[], wh: WorkEntry[]) {
+    return fetch("/api/profile", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        full_name: f.fullName, email: f.email, phone: f.phone,
+        current_location: f.currentLocation, linkedin_url: f.linkedin,
+        github_url: f.github, portfolio: f.portfolio,
+        education: [{ institution: f.school, degree: f.degree, field: f.major }],
+        major: f.major, gpa: f.gpa, grad_month: f.gradMonth, grad_year: f.gradYear,
+        work_auth: f.workAuth, sponsorship: f.sponsorship, relocate: f.relocate,
+        work_mode: f.workMode, start_date: f.startDate, skills: sk,
+        work_history: wh,
+        gender: f.gender, race: f.race, veteran: f.veteran,
+        disability: f.disability, pronouns: f.pronouns,
+      }),
+    })
+  }
+
   async function save() {
     setSaving(true)
     try {
       const [profileRes, settingsRes] = await Promise.all([
-        fetch("/api/profile", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            full_name: form.fullName, email: form.email, phone: form.phone,
-            current_location: form.currentLocation, linkedin_url: form.linkedin,
-            github_url: form.github, portfolio: form.portfolio, major: form.major,
-            gpa: form.gpa, grad_month: form.gradMonth, grad_year: form.gradYear,
-            work_auth: form.workAuth, sponsorship: form.sponsorship, relocate: form.relocate,
-            work_mode: form.workMode, start_date: form.startDate, skills,
-            work_history: workHistory,
-            gender: form.gender, race: form.race, veteran: form.veteran,
-            disability: form.disability, pronouns: form.pronouns,
-          }),
-        }),
+        persistProfile(form, skills, workHistory),
         fetch("/api/settings", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -275,26 +280,32 @@ export default function ProfilePage() {
     const [data] = await Promise.all([parsePromise, minDelay])
 
     if (data && !data.error) {
-      setForm(prev => ({
-        ...prev,
-        fullName: data.fullName || prev.fullName,
-        email: data.email || prev.email,
-        phone: data.phone || prev.phone,
-        currentLocation: data.currentLocation || prev.currentLocation,
-        linkedin: data.linkedin || prev.linkedin,
-        github: data.github || prev.github,
-        portfolio: data.portfolio || prev.portfolio,
-        school: data.school || prev.school,
-        major: data.major || prev.major,
-        degree: data.degree || prev.degree,
-        gpa: data.gpa || prev.gpa,
-        gradMonth: data.gradMonth || prev.gradMonth,
-        gradYear: data.gradYear || prev.gradYear,
-      }))
-      if (Array.isArray(data.skills) && data.skills.length > 0) setSkills(data.skills)
+      const mergedForm: Form = {
+        ...form,
+        fullName: data.fullName || form.fullName,
+        email: data.email || form.email,
+        phone: data.phone || form.phone,
+        currentLocation: data.currentLocation || form.currentLocation,
+        linkedin: data.linkedin || form.linkedin,
+        github: data.github || form.github,
+        portfolio: data.portfolio || form.portfolio,
+        school: data.school || form.school,
+        major: data.major || form.major,
+        degree: data.degree || form.degree,
+        gpa: data.gpa || form.gpa,
+        gradMonth: data.gradMonth || form.gradMonth,
+        gradYear: data.gradYear || form.gradYear,
+      }
+      const mergedSkills = Array.isArray(data.skills) && data.skills.length > 0 ? data.skills : skills
       const combinedHistory = [...(data.workHistory ?? []), ...(data.projects ?? [])]
-      if (combinedHistory.length > 0) setWorkHistory(combinedHistory)
-      setParseToast(`Parsed ${file.name}`)
+      const mergedWorkHistory = combinedHistory.length > 0 ? combinedHistory : workHistory
+
+      setForm(mergedForm)
+      setSkills(mergedSkills)
+      setWorkHistory(mergedWorkHistory)
+
+      const persistRes = await persistProfile(mergedForm, mergedSkills, mergedWorkHistory).catch(() => null)
+      setParseToast(persistRes?.ok ? `Parsed ${file.name}` : "Parsed, but couldn't save — try Save all")
     } else {
       setParseToast(`Couldn't parse ${file.name}`)
     }
