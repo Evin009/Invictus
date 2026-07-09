@@ -72,6 +72,7 @@ export default function LoginPage() {
   const router = useRouter()
   const supabase = useMemo(() => createBrowserSupabaseClient(), [])
   const formPanelRef = useRef<HTMLDivElement>(null)
+  const scenePanelRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (typeof window === "undefined") return
@@ -88,6 +89,28 @@ export default function LoginPage() {
         stagger: 0.07, delay: 0.1, clearProps: "transform,opacity",
       })
     }, formPanelRef)
+    return () => ctx.revert()
+  }, [])
+
+  // Right panel: headline entrance + endless stream of "job applied" cards
+  useEffect(() => {
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    const ctx = gsap.context(() => {
+      const cards = gsap.utils.toArray<HTMLElement>(".li-jobcard")
+      if (reduced) {
+        cards.forEach((c, i) => gsap.set(c, { y: -14 - i * 26, autoAlpha: 1 }))
+        gsap.set(".li-jobcard-badge", { scale: 1, autoAlpha: 1 })
+        return
+      }
+      gsap.from(".li-scene-head > *", { autoAlpha: 0, y: 14, duration: 0.6, ease: "power3.out", stagger: 0.12, delay: 0.2 })
+      cards.forEach((card, i) => {
+        const badge = card.querySelector(".li-jobcard-badge")
+        gsap.timeline({ repeat: -1, repeatDelay: 0.6, delay: i * 2.1 })
+          .fromTo(card, { y: 26, autoAlpha: 0 }, { y: -18, autoAlpha: 1, duration: 1, ease: "power2.out" })
+          .fromTo(badge, { scale: 0, autoAlpha: 0 }, { scale: 1, autoAlpha: 1, duration: 0.45, ease: "back.out(2.2)" }, 0.75)
+          .to(card, { y: -150, autoAlpha: 0, duration: 2.8, ease: "power1.in" }, 1.5)
+      })
+    }, scenePanelRef)
     return () => ctx.revert()
   }, [])
 
@@ -539,8 +562,8 @@ export default function LoginPage() {
             </div>
           </div>
 
-          {/* ── Right: animated pipeline panel ── */}
-          <div style={{
+          {/* ── Right: animated scene panel ── */}
+          <div ref={scenePanelRef} style={{
             flex: 1, position: "relative", margin: "14px 14px 14px 0",
             borderRadius: 24, overflow: "hidden",
             background: "radial-gradient(circle at 50% 34%, #F4FBFB 0%, #DCEEEF 45%, #C7E4E6 100%)",
@@ -553,16 +576,52 @@ export default function LoginPage() {
             <div style={{ position: "absolute", top: "12%", left: "10%", width: 170, height: 170, borderRadius: "50%", background: "radial-gradient(circle, rgba(15,164,175,0.22), rgba(15,164,175,0) 70%)", animation: "li-pulse 6s ease-in-out infinite" }} />
             <div style={{ position: "absolute", bottom: "8%", right: "8%", width: 190, height: 190, borderRadius: "50%", background: "radial-gradient(circle, rgba(150,71,52,0.2), rgba(150,71,52,0) 70%)", animation: "li-pulse 7s ease-in-out infinite", animationDelay: "1.5s" }} />
 
-            {/* ── Animated scene: man and robot working side by side ── */}
-            <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", padding: "56px 20px 24px" }}>
-              <Lottie animationData={sceneAnimation} loop autoplay style={{ width: "100%", maxWidth: 560 }} />
+            {/* ── Headline ── */}
+            <div className="li-scene-head" style={{ position: "absolute", top: 38, left: 40, right: 32, zIndex: 3 }}>
+              <p style={{ margin: "0 0 10px", fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", color: "rgba(2,73,80,0.55)", textTransform: "uppercase" }}>
+                Invictus Agents · Working for you
+              </p>
+              <h2 style={{ margin: 0, fontSize: "clamp(24px, 2.6vw, 31px)", fontWeight: 800, lineHeight: 1.18, letterSpacing: "-0.02em", color: "#04353B" }}>
+                We{"’"}ll deal with applying,<br />
+                <span style={{ color: "#964734" }}>you deal with studying.</span>
+              </h2>
             </div>
 
-            {/* Caption */}
-            <div style={{ position: "absolute", left: 0, right: 0, top: 24, textAlign: "center" }}>
-              <p style={{ margin: 0, fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", color: "rgba(2,49,53,0.5)" }}>
-                YOU STUDY. YOUR AGENTS APPLY.
-              </p>
+            {/* ── Floating "job applied" cards above the scene ── */}
+            {[
+              { left: "10%", top: "46%", dot: "#964734" },
+              { left: "40%", top: "40%", dot: "#0FA4AF" },
+              { left: "64%", top: "49%", dot: "#024950" },
+            ].map((c, i) => (
+              <div key={i} className="li-jobcard" style={{
+                position: "absolute", left: c.left, top: c.top, zIndex: 2,
+                width: 158, padding: "12px 13px", opacity: 0,
+                background: "#fff", borderRadius: 12,
+                boxShadow: "0 10px 26px rgba(2,49,53,0.13)",
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 9 }}>
+                  <div style={{ width: 13, height: 13, borderRadius: "50%", background: c.dot, flexShrink: 0 }} />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ height: 5, borderRadius: 3, background: "rgba(2,49,53,0.72)", width: "78%", marginBottom: 4 }} />
+                    <div style={{ height: 4, borderRadius: 2, background: "rgba(2,49,53,0.26)", width: "52%" }} />
+                  </div>
+                </div>
+                <span className="li-jobcard-badge" style={{
+                  display: "inline-flex", alignItems: "center", gap: 5, opacity: 0,
+                  background: "rgba(15,164,175,0.13)", color: "#0FA4AF",
+                  fontSize: 10.5, fontWeight: 700, padding: "4px 9px", borderRadius: 8,
+                }}>
+                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none">
+                    <path d="M5 13l4 4L19 7" stroke="#0FA4AF" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  Applied
+                </span>
+              </div>
+            ))}
+
+            {/* ── Lottie scene pinned to the bottom ── */}
+            <div style={{ position: "absolute", left: 0, right: 0, bottom: -6, display: "flex", justifyContent: "center", zIndex: 1 }}>
+              <Lottie animationData={sceneAnimation} loop autoplay style={{ width: "100%", maxWidth: 620 }} />
             </div>
           </div>
 
