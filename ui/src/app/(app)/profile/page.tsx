@@ -5,6 +5,7 @@ import { CompanyLogo } from "@/components/company-logo"
 
 const CSS = `
   @keyframes prof-shimmer { 0%{background-position:100% 0} 100%{background-position:0 0} }
+  @keyframes prof-spin { to { transform: rotate(360deg) } }
   .pf-input:focus { border-color: #0FA4AF !important; background: #fff !important; box-shadow: 0 0 0 3px rgba(15,164,175,0.15) !important; }
   .pf-textarea:focus { border-color: #0FA4AF !important; background: #fff !important; box-shadow: 0 0 0 3px rgba(15,164,175,0.15) !important; }
   input::placeholder, textarea::placeholder { color: rgba(0,49,53,0.4); }
@@ -154,6 +155,7 @@ export default function ProfilePage() {
   const [workHistory, setWorkHistory] = useState<WorkEntry[]>([])
   const [toneSamples, setToneSamples] = useState<ToneSample[]>([])
   const [resumeFileName, setResumeFileName] = useState("Upload resume")
+  const [parsingResume, setParsingResume] = useState(false)
 
   useEffect(() => {
     Promise.all([
@@ -256,6 +258,50 @@ export default function ProfilePage() {
     }
   }
 
+  async function handleResumeUpload(file: File) {
+    setResumeFileName(file.name)
+    setParsingResume(true)
+    if (toastTimer.current) clearTimeout(toastTimer.current)
+
+    const body = new FormData()
+    body.append("file", file)
+
+    const minDelay = new Promise(resolve => setTimeout(resolve, 3000))
+    const parsePromise = fetch("/api/parse-resume", { method: "POST", body })
+      .then(r => (r.ok ? r.json() : null))
+      .catch(() => null)
+
+    const [data] = await Promise.all([parsePromise, minDelay])
+
+    if (data && !data.error) {
+      setForm(prev => ({
+        ...prev,
+        fullName: data.fullName || prev.fullName,
+        email: data.email || prev.email,
+        phone: data.phone || prev.phone,
+        currentLocation: data.currentLocation || prev.currentLocation,
+        linkedin: data.linkedin || prev.linkedin,
+        github: data.github || prev.github,
+        portfolio: data.portfolio || prev.portfolio,
+        school: data.school || prev.school,
+        major: data.major || prev.major,
+        degree: data.degree || prev.degree,
+        gpa: data.gpa || prev.gpa,
+        gradMonth: data.gradMonth || prev.gradMonth,
+        gradYear: data.gradYear || prev.gradYear,
+      }))
+      if (Array.isArray(data.skills) && data.skills.length > 0) setSkills(data.skills)
+      const combinedHistory = [...(data.workHistory ?? []), ...(data.projects ?? [])]
+      if (combinedHistory.length > 0) setWorkHistory(combinedHistory)
+      setParseToast(`Parsed ${file.name}`)
+    } else {
+      setParseToast(`Couldn't parse ${file.name}`)
+    }
+
+    setParsingResume(false)
+    toastTimer.current = setTimeout(() => setParseToast(null), 3000)
+  }
+
   const ins = form.fullName.trim().split(/\s+/).map(w => w[0]).join("").slice(0, 2).toUpperCase() || "—"
 
   const normalizeUrl = (v: string) => {
@@ -322,17 +368,27 @@ export default function ProfilePage() {
             </p>
           </div>
           <div style={{ display: "flex", gap: 10, flexShrink: 0 }}>
-            <label style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#F5F8F7", borderRadius: 10, padding: "9px 14px", fontSize: 13, fontWeight: 600, cursor: "pointer", color: "#024950" }}>
-              <input type="file" accept=".pdf,.doc,.docx" onChange={e => {
+            <label style={{
+              display: "inline-flex", alignItems: "center", gap: 8, background: "#F5F8F7", borderRadius: 10,
+              padding: "9px 14px", fontSize: 13, fontWeight: 600,
+              cursor: parsingResume ? "default" : "pointer", color: "#024950",
+              opacity: parsingResume ? 0.85 : 1,
+            }}>
+              <input type="file" accept=".pdf,.doc,.docx" disabled={parsingResume} onChange={e => {
                 const file = e.target.files?.[0]
+                e.target.value = ""
                 if (!file) return
                 if (file.size > 8 * 1024 * 1024) return
-                setResumeFileName(file.name)
-                if (toastTimer.current) clearTimeout(toastTimer.current)
-                setParseToast(`Uploaded ${file.name}`)
-                toastTimer.current = setTimeout(() => setParseToast(null), 3000)
+                handleResumeUpload(file)
               }} style={{ display: "none" }} />
-              {resumeFileName}
+              {parsingResume && (
+                <span style={{
+                  width: 13, height: 13, borderRadius: "50%", flexShrink: 0,
+                  border: "2px solid rgba(2,73,80,0.25)", borderTopColor: "#0FA4AF",
+                  animation: "prof-spin 0.7s linear infinite",
+                }} />
+              )}
+              {parsingResume ? "Parsing resume…" : resumeFileName}
             </label>
             <button onClick={save} disabled={saving} style={{
               padding: "9px 20px", borderRadius: 10, border: "none", fontFamily: "inherit",
