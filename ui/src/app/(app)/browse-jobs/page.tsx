@@ -63,6 +63,15 @@ function sourceColor(src: string | null) {
   return "#9CA3A0"
 }
 
+// Muted pastel wash per card, deterministic by company name — brand-adjacent
+// hues only (teal/rust family + restrained neutrals), no purple.
+const CARD_TINTS = ["#EEF7F6", "#FBF1EA", "#EEF3FB", "#F1F7ED", "#FBF0EF", "#F3F6F1"]
+function cardTint(name: string) {
+  let h = 0
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0
+  return CARD_TINTS[h % CARD_TINTS.length]
+}
+
 interface RawJob {
   id: string
   url: string
@@ -425,7 +434,7 @@ export default function BrowseJobsPage() {
                     onClick={() => setSelectedId(j.id)}
                     style={{
                       display: "flex", flexDirection: "column",
-                      background: "#fff",
+                      background: isSelected ? "#fff" : cardTint(co),
                       borderRadius: 28, padding: "20px 20px 18px",
                       border: isSelected ? "1.5px solid rgba(150,71,52,0.85)" : "1px solid rgba(0,49,53,0.065)",
                       boxShadow: isSelected
