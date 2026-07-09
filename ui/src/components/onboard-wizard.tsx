@@ -3,6 +3,10 @@
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { CompanyLogo } from "@/components/company-logo"
+import {
+  STATE_ABBREV, STATE_CITIES, CITY_STATE_OPTIONS, DEGREE_OPTIONS,
+  MAJOR_OPTIONS, SCHOOL_OPTIONS, MONTH_OPTIONS, gradYearOptions,
+} from "@/lib/location-data"
 
 // ─── Storage ──────────────────────────────────────────────────────────────────
 const STORAGE_KEY = "strata-onboarding-progress-v1"
@@ -97,72 +101,6 @@ const COMPANY_CATEGORIES: Record<string, string[]> = {
   "Education & Research": ["MIT","Stanford University","Harvard University","Carnegie Mellon","Georgia Tech","Coursera","Duolingo","Chegg","2U","Khan Academy","Pearson"],
   "Real Estate & Proptech":["CBRE","JLL","Zillow","Redfin","Opendoor","WeWork","Compass","CoStar","Realogy","Invitation Homes"],
   "Telecommunications":   ["AT&T","Verizon","T-Mobile","Comcast","Charter Communications","Lumen Technologies","CrowdStrike","Palo Alto Networks","Zscaler","Cloudflare"],
-}
-
-const STATE_ABBREV: Record<string, string> = {
-  "Alabama":"AL","Alaska":"AK","Arizona":"AZ","Arkansas":"AR","California":"CA",
-  "Colorado":"CO","Connecticut":"CT","Delaware":"DE","Florida":"FL","Georgia":"GA",
-  "Hawaii":"HI","Idaho":"ID","Illinois":"IL","Indiana":"IN","Iowa":"IA",
-  "Kansas":"KS","Kentucky":"KY","Louisiana":"LA","Maine":"ME","Maryland":"MD",
-  "Massachusetts":"MA","Michigan":"MI","Minnesota":"MN","Mississippi":"MS","Missouri":"MO",
-  "Montana":"MT","Nebraska":"NE","Nevada":"NV","New Hampshire":"NH","New Jersey":"NJ",
-  "New Mexico":"NM","New York":"NY","North Carolina":"NC","North Dakota":"ND","Ohio":"OH",
-  "Oklahoma":"OK","Oregon":"OR","Pennsylvania":"PA","Rhode Island":"RI","South Carolina":"SC",
-  "South Dakota":"SD","Tennessee":"TN","Texas":"TX","Utah":"UT","Vermont":"VT",
-  "Virginia":"VA","Washington":"WA","West Virginia":"WV","Wisconsin":"WI","Wyoming":"WY",
-}
-
-const STATE_CITIES: Record<string, string[]> = {
-  "Alabama":       ["Birmingham","Huntsville","Mobile","Montgomery"],
-  "Alaska":        ["Anchorage","Fairbanks","Juneau"],
-  "Arizona":       ["Chandler","Mesa","Phoenix","Scottsdale","Tempe","Tucson"],
-  "Arkansas":      ["Fayetteville","Fort Smith","Little Rock"],
-  "California":    ["Irvine","Los Angeles","Oakland","Sacramento","San Diego","San Francisco","San Jose","Santa Clara"],
-  "Colorado":      ["Aurora","Boulder","Colorado Springs","Denver","Fort Collins"],
-  "Connecticut":   ["Bridgeport","Hartford","New Haven","Stamford"],
-  "Delaware":      ["Dover","Newark","Wilmington"],
-  "Florida":       ["Fort Lauderdale","Jacksonville","Miami","Orlando","St. Petersburg","Tallahassee","Tampa"],
-  "Georgia":       ["Atlanta","Augusta","Columbus","Savannah"],
-  "Hawaii":        ["Hilo","Honolulu","Kailua"],
-  "Idaho":         ["Boise","Idaho Falls","Nampa"],
-  "Illinois":      ["Aurora","Chicago","Naperville","Rockford"],
-  "Indiana":       ["Fort Wayne","Indianapolis","South Bend"],
-  "Iowa":          ["Cedar Rapids","Des Moines","Sioux City"],
-  "Kansas":        ["Kansas City","Olathe","Overland Park","Wichita"],
-  "Kentucky":      ["Bowling Green","Lexington","Louisville"],
-  "Louisiana":     ["Baton Rouge","New Orleans","Shreveport"],
-  "Maine":         ["Bangor","Portland"],
-  "Maryland":      ["Annapolis","Baltimore","Frederick","Rockville"],
-  "Massachusetts": ["Boston","Cambridge","Lowell","Springfield","Worcester"],
-  "Michigan":      ["Ann Arbor","Detroit","Grand Rapids","Lansing"],
-  "Minnesota":     ["Minneapolis","Rochester","St. Paul"],
-  "Mississippi":   ["Gulfport","Jackson","Southaven"],
-  "Missouri":      ["Columbia","Kansas City","Springfield","St. Louis"],
-  "Montana":       ["Billings","Bozeman","Great Falls","Missoula"],
-  "Nebraska":      ["Lincoln","Omaha"],
-  "Nevada":        ["Henderson","Las Vegas","Reno"],
-  "New Hampshire": ["Concord","Manchester","Nashua"],
-  "New Jersey":    ["Edison","Jersey City","Newark","Trenton"],
-  "New Mexico":    ["Albuquerque","Rio Rancho","Santa Fe"],
-  "New York":      ["Albany","Buffalo","New York City","Rochester","Syracuse","Yonkers"],
-  "North Carolina":["Charlotte","Durham","Greensboro","Raleigh","Winston-Salem"],
-  "North Dakota":  ["Bismarck","Fargo","Grand Forks"],
-  "Ohio":          ["Cincinnati","Cleveland","Columbus","Dayton","Toledo"],
-  "Oklahoma":      ["Norman","Oklahoma City","Tulsa"],
-  "Oregon":        ["Eugene","Portland","Salem"],
-  "Pennsylvania":  ["Allentown","Philadelphia","Pittsburgh","Reading"],
-  "Rhode Island":  ["Cranston","Providence","Warwick"],
-  "South Carolina":["Charleston","Columbia","Greenville"],
-  "South Dakota":  ["Rapid City","Sioux Falls"],
-  "Tennessee":     ["Chattanooga","Knoxville","Memphis","Nashville"],
-  "Texas":         ["Austin","Dallas","El Paso","Fort Worth","Houston","San Antonio"],
-  "Utah":          ["Ogden","Provo","Salt Lake City","West Valley City"],
-  "Vermont":       ["Burlington","Essex","Montpelier"],
-  "Virginia":      ["Arlington","Chesapeake","Norfolk","Richmond","Virginia Beach"],
-  "Washington":    ["Bellevue","Seattle","Spokane","Tacoma"],
-  "West Virginia": ["Charleston","Huntington","Morgantown"],
-  "Wisconsin":     ["Green Bay","Madison","Milwaukee"],
-  "Wyoming":       ["Casper","Cheyenne","Laramie"],
 }
 
 // ─── Injected CSS ─────────────────────────────────────────────────────────────
@@ -743,7 +681,10 @@ export function OnboardWizard() {
 
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 20 }}>
                       <div><Label>Phone</Label><input className="ob-input" type="text" placeholder="+1 (555) 000-0000" value={s.form.phone} onChange={e => updForm("phone", e.target.value)} /></div>
-                      <div><Label>Current location</Label><input className="ob-input" type="text" placeholder="Tampa, FL" value={s.form.currentLocation} onChange={e => updForm("currentLocation", e.target.value)} /></div>
+                      <div>
+                        <Label>Current location</Label>
+                        <input className="ob-input" type="text" list="ob-city-options" placeholder="Tampa, FL" value={s.form.currentLocation} onChange={e => updForm("currentLocation", e.target.value)} />
+                      </div>
                     </div>
 
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 20 }}>
@@ -757,16 +698,56 @@ export function OnboardWizard() {
                     </div>
 
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 20 }}>
-                      <div><Label>School</Label><input className="ob-input" type="text" placeholder="University of…" value={s.form.school} onChange={e => updForm("school", e.target.value)} /></div>
-                      <div><Label>Major / field of study</Label><input className="ob-input" type="text" placeholder="Computer Science" value={s.form.major} onChange={e => updForm("major", e.target.value)} /></div>
+                      <div>
+                        <Label>School</Label>
+                        <input className="ob-input" type="text" list="ob-school-options" placeholder="University of…" value={s.form.school} onChange={e => updForm("school", e.target.value)} />
+                      </div>
+                      <div>
+                        <Label>Major / field of study</Label>
+                        <input className="ob-input" type="text" list="ob-major-options" placeholder="Computer Science" value={s.form.major} onChange={e => updForm("major", e.target.value)} />
+                      </div>
                     </div>
 
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 20, marginBottom: 20 }}>
-                      <div><Label>Degree</Label><input className="ob-input" type="text" placeholder="B.S." value={s.form.degree} onChange={e => updForm("degree", e.target.value)} /></div>
+                      <div>
+                        <Label>Degree</Label>
+                        <select className="ob-select" value={s.form.degree} onChange={e => updForm("degree", e.target.value)}>
+                          <option value="">Select degree…</option>
+                          {s.form.degree && !DEGREE_OPTIONS.includes(s.form.degree) && (
+                            <option value={s.form.degree}>{s.form.degree}</option>
+                          )}
+                          {DEGREE_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                        </select>
+                      </div>
                       <div><Label>GPA</Label><input className="ob-input" type="text" placeholder="3.8" value={s.form.gpa} onChange={e => updForm("gpa", e.target.value)} /></div>
-                      <div><Label>Grad month</Label><input className="ob-input" type="text" placeholder="May" value={s.form.gradMonth} onChange={e => updForm("gradMonth", e.target.value)} /></div>
-                      <div><Label>Grad year</Label><input className="ob-input" type="text" placeholder="2027" value={s.form.gradYear} onChange={e => updForm("gradYear", e.target.value)} /></div>
+                      <div>
+                        <Label>Grad month</Label>
+                        <select className="ob-select" value={s.form.gradMonth} onChange={e => updForm("gradMonth", e.target.value)}>
+                          <option value="">Month…</option>
+                          {MONTH_OPTIONS.map(m => <option key={m} value={m}>{m}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <Label>Grad year</Label>
+                        <select className="ob-select" value={s.form.gradYear} onChange={e => updForm("gradYear", e.target.value)}>
+                          <option value="">Year…</option>
+                          {s.form.gradYear && !gradYearOptions().includes(s.form.gradYear) && (
+                            <option value={s.form.gradYear}>{s.form.gradYear}</option>
+                          )}
+                          {gradYearOptions().map(y => <option key={y} value={y}>{y}</option>)}
+                        </select>
+                      </div>
                     </div>
+
+                    <datalist id="ob-city-options">
+                      {CITY_STATE_OPTIONS.map(c => <option key={c} value={c} />)}
+                    </datalist>
+                    <datalist id="ob-school-options">
+                      {SCHOOL_OPTIONS.map(s => <option key={s} value={s} />)}
+                    </datalist>
+                    <datalist id="ob-major-options">
+                      {MAJOR_OPTIONS.map(m => <option key={m} value={m} />)}
+                    </datalist>
 
                     <div>
                       <Label>Skills</Label>

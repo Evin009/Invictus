@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react"
 import { CompanyLogo } from "@/components/company-logo"
+import { CITY_STATE_OPTIONS, DEGREE_OPTIONS, MAJOR_OPTIONS, SCHOOL_OPTIONS, MONTH_OPTIONS, gradYearOptions } from "@/lib/location-data"
 
 const CSS = `
   @keyframes prof-shimmer { 0%{background-position:100% 0} 100%{background-position:0 0} }
@@ -208,7 +209,7 @@ export default function ProfilePage() {
     }).finally(() => setLoading(false))
   }, [])
 
-  const f = useCallback((key: keyof Form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const f = useCallback((key: keyof Form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const v = e.target.value
     setForm(prev => ({ ...prev, [key]: v }))
   }, [])
@@ -514,9 +515,9 @@ export default function ProfilePage() {
             <>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
                 {([
-                  ["Full name", "fullName"], ["Email", "email"], ["Phone", "phone"], ["Current location", "currentLocation"],
+                  ["Full name", "fullName"], ["Email", "email"], ["Phone", "phone"],
                   ["LinkedIn", "linkedin"], ["GitHub", "github"], ["Portfolio", "portfolio"],
-                  ["School", "school"], ["Major", "major"], ["Degree", "degree"], ["GPA", "gpa"],
+                  ["GPA", "gpa"],
                 ] as [string, keyof Form][]).map(([label, key]) => (
                   <div key={key}>
                     <label style={LABEL}>{label}</label>
@@ -524,11 +525,45 @@ export default function ProfilePage() {
                   </div>
                 ))}
                 <div>
+                  <label style={LABEL}>Current location</label>
+                  <input className="pf-input" type="text" list="pf-city-options" value={form.currentLocation} onChange={f("currentLocation")} style={INPUT} placeholder="Tampa, FL" />
+                </div>
+                <div>
+                  <label style={LABEL}>School</label>
+                  <input className="pf-input" type="text" list="pf-school-options" value={form.school} onChange={f("school")} style={INPUT} />
+                </div>
+                <div>
+                  <label style={LABEL}>Major</label>
+                  <input className="pf-input" type="text" list="pf-major-options" value={form.major} onChange={f("major")} style={INPUT} />
+                </div>
+                <div>
+                  <label style={LABEL}>Degree</label>
+                  <select className="pf-input" value={form.degree} onChange={f("degree")} style={INPUT}>
+                    <option value="">Select degree…</option>
+                    {form.degree && !DEGREE_OPTIONS.includes(form.degree) && (
+                      <option value={form.degree}>{form.degree}</option>
+                    )}
+                    {DEGREE_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                  </select>
+                </div>
+                <div>
                   <label style={LABEL}>Grad month / year</label>
                   <div style={{ display: "flex", gap: 8 }}>
-                    <input className="pf-input" type="text" value={form.gradMonth} onChange={f("gradMonth")} style={INPUT} placeholder="May" />
-                    <input className="pf-input" type="text" value={form.gradYear} onChange={f("gradYear")} style={INPUT} placeholder="2027" />
+                    <select className="pf-input" value={form.gradMonth} onChange={f("gradMonth")} style={INPUT}>
+                      <option value="">Month…</option>
+                      {MONTH_OPTIONS.map(m => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                    <select className="pf-input" value={form.gradYear} onChange={f("gradYear")} style={INPUT}>
+                      <option value="">Year…</option>
+                      {form.gradYear && !gradYearOptions().includes(form.gradYear) && (
+                        <option value={form.gradYear}>{form.gradYear}</option>
+                      )}
+                      {gradYearOptions().map(y => <option key={y} value={y}>{y}</option>)}
+                    </select>
                   </div>
+                  <datalist id="pf-city-options">{CITY_STATE_OPTIONS.map(c => <option key={c} value={c} />)}</datalist>
+                  <datalist id="pf-school-options">{SCHOOL_OPTIONS.map(s => <option key={s} value={s} />)}</datalist>
+                  <datalist id="pf-major-options">{MAJOR_OPTIONS.map(m => <option key={m} value={m} />)}</datalist>
                 </div>
               </div>
               <label style={LABEL}>Skills</label>
