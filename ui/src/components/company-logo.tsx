@@ -8,43 +8,70 @@ import { companyLogoUrls } from "@/lib/company-logo"
 /**
  * Renders a company's brand logo, trying each logo source in turn
  * (Google favicon service → DuckDuckGo icon cache). Falls back to a
- * branded letter tile when every source fails.
+ * branded letter tile when every source fails. Hovering either shows
+ * the company name in a small tooltip.
  */
 export function CompanyLogo({ name, size = 40 }: { name: string; size?: number }) {
   const [srcIdx, setSrcIdx] = useState(0)
+  const [hovered, setHovered] = useState(false)
   const sources = companyLogoUrls(name)
 
   // New name → restart the source chain
   useEffect(() => { setSrcIdx(0) }, [name])
 
-  if (sources.length === 0 || srcIdx >= sources.length) {
-    return (
-      <span title={name} style={{
-        width: size, height: size, borderRadius: size * 0.25, flexShrink: 0,
-        display: "inline-flex", alignItems: "center", justifyContent: "center",
-        background: "rgba(2,73,80,0.1)", color: "#024950",
-        fontSize: size * 0.42, fontWeight: 800, fontFamily: "'Space Grotesk', sans-serif",
-        textTransform: "uppercase", userSelect: "none",
-      }}>
-        {name.trim().charAt(0) || "?"}
-      </span>
-    )
-  }
+  const failed = sources.length === 0 || srcIdx >= sources.length
 
   return (
-    <img
-      src={sources[srcIdx]}
-      alt={name}
-      title={name}
-      width={size}
-      height={size}
-      onError={() => setSrcIdx(i => i + 1)}
-      style={{
-        width: size, height: size, borderRadius: size * 0.25, flexShrink: 0,
-        objectFit: "contain", background: "#fff", padding: 4,
-        border: "1px solid rgba(0,49,53,0.08)",
-        boxSizing: "border-box",
-      }}
-    />
+    <span
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{ position: "relative", display: "inline-flex", flexShrink: 0 }}
+    >
+      {failed ? (
+        <span style={{
+          width: size, height: size, borderRadius: size * 0.25, flexShrink: 0,
+          display: "inline-flex", alignItems: "center", justifyContent: "center",
+          background: "rgba(2,73,80,0.1)", color: "#024950",
+          fontSize: size * 0.42, fontWeight: 800, fontFamily: "'Space Grotesk', sans-serif",
+          textTransform: "uppercase", userSelect: "none",
+        }}>
+          {name.trim().charAt(0) || "?"}
+        </span>
+      ) : (
+        <img
+          src={sources[srcIdx]}
+          alt={name}
+          width={size}
+          height={size}
+          onError={() => setSrcIdx(i => i + 1)}
+          style={{
+            width: size, height: size, borderRadius: size * 0.25, flexShrink: 0,
+            objectFit: "contain", background: "#fff", padding: 4,
+            border: "1px solid rgba(0,49,53,0.08)",
+            boxSizing: "border-box",
+          }}
+        />
+      )}
+
+      {hovered && (
+        <span style={{
+          position: "absolute", bottom: "calc(100% + 8px)", left: "50%",
+          transform: "translateX(-50%)", whiteSpace: "nowrap",
+          background: "#003135", color: "#fff",
+          fontSize: 12, fontWeight: 600, fontFamily: "'Space Grotesk', sans-serif",
+          padding: "6px 10px", borderRadius: 7,
+          boxShadow: "0 6px 16px rgba(0,49,53,0.28)",
+          pointerEvents: "none", zIndex: 20,
+        }}>
+          {name}
+          <span style={{
+            position: "absolute", top: "100%", left: "50%", transform: "translateX(-50%)",
+            width: 0, height: 0,
+            borderLeft: "5px solid transparent", borderRight: "5px solid transparent",
+            borderTop: "5px solid #003135",
+          }} />
+        </span>
+      )}
+    </span>
   )
 }
