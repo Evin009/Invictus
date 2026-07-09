@@ -63,9 +63,11 @@ function sourceColor(src: string | null) {
   return "#9CA3A0"
 }
 
-// Muted pastel wash per card, deterministic by company name — brand-adjacent
-// hues only (teal/rust family + restrained neutrals), no purple.
-const CARD_TINTS = ["#EEF7F6", "#FBF1EA", "#EEF3FB", "#F1F7ED", "#FBF0EF", "#F3F6F1"]
+// Pastel wash per card, deterministic by company name — deep enough to read
+// as distinct color against the page's own #EFF3F1 background (not smudge
+// into it). Brand-adjacent hues only (teal/rust family + restrained
+// neutrals), no purple.
+const CARD_TINTS = ["#C9E8E4", "#F4D9C6", "#CFE0F0", "#D7EAC8", "#F6D8DA", "#EBDFC4"]
 function cardTint(name: string) {
   let h = 0
   for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0
