@@ -256,7 +256,12 @@ function parseSkills(text: string): string[] {
         .replace(/[\-\*\s]+$/, "")
         .replace(/\s*\(.*?\)\s*$/, "")  // strip "(proficient)" / "(3 yrs)"
         .trim()
-      if (s.length > 1 && s.length < 60 && !/^\d+$/.test(s) && !seen.has(s.toLowerCase())) {
+      // Junk tokens: PDF page footers ("1 of 1", "Page 2 of 3", "Page 1"), URLs, emails
+      const isJunk =
+        /^(?:page\s*)?\d+\s*(?:of|\/)\s*\d+$/i.test(s) ||
+        /^page\s*\d+$/i.test(s) ||
+        /https?:\/\/|www\.|@/.test(s)
+      if (s.length > 1 && s.length < 60 && !/^\d+$/.test(s) && !isJunk && !seen.has(s.toLowerCase())) {
         seen.add(s.toLowerCase())
         skills.push(s)
       }
