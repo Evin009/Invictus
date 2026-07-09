@@ -4,7 +4,11 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { createBrowserSupabaseClient } from "@/lib/supabase-browser"
 import gsap from "gsap"
-import LoginScene from "@/components/login-scene"
+import dynamic from "next/dynamic"
+import sceneAnimation from "@/assets/man-robot-workplace.json"
+
+// lottie-web touches browser globals at import time — load client-side only
+const Lottie = dynamic(() => import("lottie-react"), { ssr: false })
 
 type View = "auth" | "forgot" | "forgot_sent"
 
@@ -549,8 +553,10 @@ export default function LoginPage() {
             <div style={{ position: "absolute", top: "12%", left: "10%", width: 170, height: 170, borderRadius: "50%", background: "radial-gradient(circle, rgba(15,164,175,0.22), rgba(15,164,175,0) 70%)", animation: "li-pulse 6s ease-in-out infinite" }} />
             <div style={{ position: "absolute", bottom: "8%", right: "8%", width: 190, height: 190, borderRadius: "50%", background: "radial-gradient(circle, rgba(150,71,52,0.2), rgba(150,71,52,0) 70%)", animation: "li-pulse 7s ease-in-out infinite", animationDelay: "1.5s" }} />
 
-            {/* ── Animated desk scene: student studies, agents apply ── */}
-            <LoginScene />
+            {/* ── Animated scene: man and robot working side by side ── */}
+            <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", padding: "56px 20px 24px" }}>
+              <Lottie animationData={sceneAnimation} loop autoplay style={{ width: "100%", maxWidth: 560 }} />
+            </div>
 
             {/* Caption */}
             <div style={{ position: "absolute", left: 0, right: 0, top: 24, textAlign: "center" }}>
