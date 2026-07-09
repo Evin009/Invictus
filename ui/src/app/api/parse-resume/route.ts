@@ -136,6 +136,13 @@ function parseEducation(text: string): EducationResult {
         .replace(/[–—]\s*(?:Present|\w+\s+\d{4}).*/g, "")
         .replace(/,\s*[A-Z]{2}\b.*/g, "")
         .replace(/[,|;].*/g, "")
+        // "of Science in Computer Science" → "Computer Science" (degree words left over after the degree match)
+        .replace(/^of\s+(?:science|arts|engineering|business|fine\s+arts|applied\s+science)\s*(?:in|,)?\s*/i, "")
+        .replace(/^in\s+/i, "")
+        // Trailing standalone city word ("Computer Science Tampa") — keep known field-of-study tail words
+        .replace(/\s+([A-Z][a-z]+)$/, (m, w) =>
+          /^(Science|Sciences|Engineering|Technology|Systems|Studies|Analytics|Administration|Management|Mathematics|Math|Physics|Chemistry|Biology|Economics|Finance|Accounting|Marketing|Design|Security|Intelligence|Development|Informatics|Arts|Business|Communications?|Psychology|Statistics|Cybersecurity|Relations|Policy|Law|Medicine|Nursing|Education|Architecture|Journalism|Linguistics|Philosophy|History|Sociology|Anthropology)$/.test(w) ? m : ""
+        )
         .replace(/\s+/g, " ")
         .trim()
       if (cleanedForMajor && cleanedForMajor.length > 1 && cleanedForMajor.length < 80) {

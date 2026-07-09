@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
+import { CompanyLogo } from "@/components/company-logo"
 
 // ─── Storage ──────────────────────────────────────────────────────────────────
 const STORAGE_KEY = "strata-onboarding-progress-v1"
@@ -16,7 +17,7 @@ interface Form {
   workAuth: string | null; sponsorship: string | null; relocate: string | null; workMode: string[]; startDate: string
   minSalary: string; desiredSalary: string
   rewriteLevel: string | null
-  internshipCycle: string | null
+  internshipCycles: string[]
   gender: string | null; race: string | null; veteran: string | null; disability: string | null; pronouns: string
 }
 
@@ -54,7 +55,7 @@ const INITIAL_FORM: Form = {
   workAuth: null, sponsorship: null, relocate: null, workMode: [], startDate: "",
   minSalary: "", desiredSalary: "",
   rewriteLevel: null,
-  internshipCycle: null,
+  internshipCycles: [],
   gender: null, race: null, veteran: null, disability: null, pronouns: "",
 }
 
@@ -256,7 +257,19 @@ export function OnboardWizard() {
       const raw = localStorage.getItem(STORAGE_KEY)
       if (raw) {
         const saved = JSON.parse(raw)
-        if (saved && typeof saved === "object") setS(saved)
+        if (saved && typeof saved === "object") {
+          // Merge over defaults so shape changes (e.g. new array fields) don't crash old saves
+          setS({
+            ...INITIAL_STATE,
+            ...saved,
+            form: {
+              ...INITIAL_FORM,
+              ...(saved.form ?? {}),
+              internshipCycles: Array.isArray(saved.form?.internshipCycles) ? saved.form.internshipCycles : [],
+              workMode: Array.isArray(saved.form?.workMode) ? saved.form.workMode : [],
+            },
+          })
+        }
       }
     } catch {}
   }, [])
@@ -443,7 +456,7 @@ export function OnboardWizard() {
             salary_floor: s.form.minSalary ? Number(s.form.minSalary) : null,
             desired_salary: s.form.desiredSalary ? Number(s.form.desiredSalary) : null,
             role_keywords: s.keywords,
-            internship_cycle: s.form.internshipCycle,
+            internship_cycle: s.form.internshipCycles.join(", ") || null,
           },
           watchlist: s.companies.map(c => ({ company_name: c.name, careers_url: "" })),
         }),
@@ -913,7 +926,7 @@ export function OnboardWizard() {
                       <div style={{ marginBottom: 24 }}>
                         <Label>Target internship cycle</Label>
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-                          {INTERNSHIP_CYCLES.map(o => <Pill key={o} label={o} selected={s.form.internshipCycle === o} onClick={() => toggleForm("internshipCycle", o)} />)}
+                          {INTERNSHIP_CYCLES.map(o => <Pill key={o} label={o} selected={s.form.internshipCycles.includes(o)} onClick={() => setS(p => ({ ...p, form: { ...p.form, internshipCycles: p.form.internshipCycles.includes(o) ? p.form.internshipCycles.filter(c => c !== o) : [...p.form.internshipCycles, o] } }))} />)}
                         </div>
                       </div>
                     )}
@@ -992,7 +1005,8 @@ export function OnboardWizard() {
                     {/* Manual add */}
                     <div style={{ marginBottom: 20 }}>
                       <Label>Add a company manually</Label>
-                      <div style={{ display: "flex", gap: 10 }}>
+                      <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                        {s.companyName.trim() && <CompanyLogo name={s.companyName.trim()} size={42} />}
                         <input
                           className="ob-input"
                           type="text"
@@ -1011,9 +1025,20 @@ export function OnboardWizard() {
                         <p style={{ fontSize: 11, fontWeight: 600, color: "rgba(0,49,53,0.4)", letterSpacing: "0.06em", textTransform: "uppercase", margin: "0 0 10px" }}>
                           Watchlist ({s.companies.length})
                         </p>
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
                           {s.companies.map((co, i) => (
-                            <Chip key={i} label={co.name} onRemove={() => removeCompany(i)} />
+                            <div key={i} style={{ position: "relative" }}>
+                              <CompanyLogo name={co.name} size={46} />
+                              <span
+                                onClick={() => removeCompany(i)}
+                                style={{
+                                  position: "absolute", top: -6, right: -6, width: 17, height: 17,
+                                  borderRadius: "50%", background: "#003135", color: "#fff",
+                                  fontSize: 11, lineHeight: "17px", textAlign: "center",
+                                  cursor: "pointer", userSelect: "none",
+                                }}
+                              >×</span>
+                            </div>
                           ))}
                         </div>
                       </div>

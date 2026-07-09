@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState, useCallback } from "react"
+import { CompanyLogo } from "@/components/company-logo"
 
 const CSS = `
   @keyframes prof-shimmer { 0%{background-position:100% 0} 100%{background-position:0 0} }
@@ -373,14 +374,35 @@ export default function ProfilePage() {
                 <p style={SUMMARY_LABEL}>Links</p>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 6 }}>
                   {[
-                    { label: form.linkedin, href: normalizeUrl(form.linkedin), bg: "#0A66C2" },
-                    { label: form.github, href: normalizeUrl(form.github), bg: "#181717" },
-                    { label: form.portfolio, href: normalizeUrl(form.portfolio), bg: "#024950" },
-                  ].filter(l => l.label).map((l, i) => (
-                    <a key={i} href={l.href} target="_blank" rel="noopener noreferrer"
-                      style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "8px 14px 8px 8px", background: "#F5F8F7", borderRadius: 20, textDecoration: "none", color: "#003135", fontSize: 13, fontWeight: 600 }}>
-                      <span style={{ width: 22, height: 22, borderRadius: 6, background: l.bg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }} />
-                      {l.label}
+                    {
+                      title: "LinkedIn", value: form.linkedin, href: normalizeUrl(form.linkedin), bg: "#0A66C2",
+                      icon: (
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="#fff">
+                          <path d="M20.45 20.45h-3.55v-5.57c0-1.33-.03-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.67H9.36V9h3.41v1.56h.05c.48-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.46v6.28zM5.34 7.43a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12zM7.12 20.45H3.55V9h3.57v11.45z" />
+                        </svg>
+                      ),
+                    },
+                    {
+                      title: "GitHub", value: form.github, href: normalizeUrl(form.github), bg: "#181717",
+                      icon: (
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="#fff">
+                          <path d="M12 .3a12 12 0 0 0-3.79 23.39c.6.11.82-.26.82-.58v-2.03c-3.34.73-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.09-.75.08-.73.08-.73 1.2.08 1.84 1.24 1.84 1.24 1.07 1.83 2.81 1.3 3.5 1 .1-.78.42-1.31.76-1.61-2.66-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.13-.3-.54-1.52.12-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.66 1.66.25 2.88.12 3.18.77.84 1.23 1.91 1.23 3.22 0 4.61-2.81 5.63-5.49 5.92.43.37.82 1.1.82 2.22v3.29c0 .32.21.7.82.58A12 12 0 0 0 12 .3z" />
+                        </svg>
+                      ),
+                    },
+                    {
+                      title: "Portfolio", value: form.portfolio, href: normalizeUrl(form.portfolio), bg: "#024950",
+                      icon: (
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2">
+                          <circle cx="12" cy="12" r="9" />
+                          <path d="M3 12h18M12 3c2.5 2.6 3.9 5.7 3.9 9S14.5 18.4 12 21c-2.5-2.6-3.9-5.7-3.9-9S9.5 5.6 12 3z" />
+                        </svg>
+                      ),
+                    },
+                  ].filter(l => l.value).map((l, i) => (
+                    <a key={i} href={l.href} target="_blank" rel="noopener noreferrer" title={l.title}
+                      style={{ width: 40, height: 40, borderRadius: 12, background: l.bg, display: "inline-flex", alignItems: "center", justifyContent: "center", textDecoration: "none" }}>
+                      {l.icon}
                     </a>
                   ))}
                 </div>
@@ -592,16 +614,13 @@ export default function ProfilePage() {
         {/* Company watchlist */}
         <div style={CARD}>
           <SectionHeader title="Company watchlist" editing={!!editing.watchlist} onToggle={() => toggleSection("watchlist")} />
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
             {companies.length > 0 ? companies.map((co, i) => (
-              <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, padding: "12px 16px", background: "#F5F8F7", borderRadius: 8 }}>
-                <span style={{ fontSize: 14, fontWeight: 600, flexShrink: 0 }}>{co.name}</span>
-                <a href={normalizeUrl(co.url)} target="_blank" rel="noopener noreferrer"
-                  style={{ fontSize: 12, color: "#0FA4AF", fontWeight: 600, textDecoration: "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
-                  {co.url}
-                </a>
+              <div key={i} style={{ position: "relative" }}>
+                <CompanyLogo name={co.name} size={46} />
                 {editing.watchlist && (
-                  <span onClick={() => setCompanies(p => p.filter((_, idx) => idx !== i))} style={{ cursor: "pointer", opacity: 0.5, fontSize: 14, flexShrink: 0 }}>×</span>
+                  <span onClick={() => setCompanies(p => p.filter((_, idx) => idx !== i))}
+                    style={{ position: "absolute", top: -6, right: -6, width: 17, height: 17, borderRadius: "50%", background: "#003135", color: "#fff", fontSize: 11, lineHeight: "17px", textAlign: "center", cursor: "pointer", userSelect: "none" }}>×</span>
                 )}
               </div>
             )) : (
@@ -613,11 +632,14 @@ export default function ProfilePage() {
           </div>
           {editing.watchlist && (
             <>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 16 }}>
-                <input className="pf-input" type="text" placeholder="Company name" value={companyName} onChange={e => setCompanyName(e.target.value)} style={INPUT} />
-                <input className="pf-input" type="text" placeholder="Careers page URL" value={companyUrl} onChange={e => setCompanyUrl(e.target.value)} style={INPUT} />
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 16 }}>
+                {companyName.trim() && <CompanyLogo name={companyName.trim()} size={42} />}
+                <input className="pf-input" type="text" placeholder="Company name" value={companyName}
+                  onChange={e => setCompanyName(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter" && companyName.trim()) { e.preventDefault(); setCompanies(p => [...p, { name: companyName.trim(), url: companyUrl }]); setCompanyName(""); setCompanyUrl("") } }}
+                  style={{ ...INPUT, flex: 1 }} />
               </div>
-              <button onClick={() => { if (!companyName.trim()) return; setCompanies(p => [...p, { name: companyName, url: companyUrl }]); setCompanyName(""); setCompanyUrl("") }}
+              <button onClick={() => { if (!companyName.trim()) return; setCompanies(p => [...p, { name: companyName.trim(), url: companyUrl }]); setCompanyName(""); setCompanyUrl("") }}
                 style={{ marginTop: 14, padding: "11px 20px", borderRadius: 20, border: "none", background: "rgba(15,164,175,0.14)", color: "#024950", fontFamily: "inherit", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
                 + Add company
               </button>
