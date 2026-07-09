@@ -132,7 +132,6 @@ export default function SettingsPage() {
     <>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
       <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 16 }}>
-        <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>Settings</h1>
         {[2, 3, 4, 3].map((rows, i) => (
           <div key={i} style={CARD}>
             <div style={{ ...SHIMMER, height: 16, width: 140, marginBottom: 10 }} />
@@ -172,7 +171,6 @@ export default function SettingsPage() {
       )}
 
       <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 16, paddingRight: 4, paddingBottom: 80 }}>
-        <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>Settings</h1>
 
         {/* Account */}
         <div style={CARD}>
@@ -182,8 +180,17 @@ export default function SettingsPage() {
           {/* Identity row */}
           {(fullName || email) && (
             <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 16px", background: "#F5F8F7", borderRadius: 12, marginBottom: 20 }}>
-              <div style={{ width: 42, height: 42, borderRadius: 12, background: "#024950", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 700, flexShrink: 0, letterSpacing: "-0.01em" }}>
-                {fullName.trim().split(/\s+/).map(w => w[0]).join("").slice(0, 2).toUpperCase() || email[0]?.toUpperCase() || "?"}
+              <div style={{
+                position: "relative", width: 42, height: 42, flexShrink: 0, borderRadius: 12, overflow: "hidden",
+                background: "linear-gradient(155deg, #024950 0%, #003135 100%)",
+                boxShadow: "0 3px 8px rgba(2,49,53,0.24)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}>
+                <svg viewBox="0 0 100 100" width={26} height={26}>
+                  <path d="M50 6 L94 50 L50 94 L6 50 Z" fill="none" stroke="#fff" strokeWidth="9" strokeLinejoin="round" strokeLinecap="round" />
+                  <path d="M50 26 L74 50 L50 74 L26 50 Z" fill="none" stroke="#0FA4AF" strokeWidth="9" strokeLinejoin="round" strokeLinecap="round" />
+                  <rect x="42" y="42" width="16" height="16" rx="5" fill="#964734" transform="rotate(45 50 50)" />
+                </svg>
               </div>
               <div style={{ minWidth: 0 }}>
                 {fullName && <p style={{ margin: "0 0 2px", fontSize: 14, fontWeight: 700, color: "#003135" }}>{fullName}</p>}

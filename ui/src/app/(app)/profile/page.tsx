@@ -405,8 +405,17 @@ export default function ProfilePage() {
 
         {/* Header card */}
         <div style={{ ...CARD, display: "flex", alignItems: "center", gap: 20 }}>
-          <div style={{ width: 64, height: 64, borderRadius: 16, background: "#024950", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, fontWeight: 700, flexShrink: 0 }}>
-            {ins}
+          <div style={{
+            position: "relative", width: 64, height: 64, flexShrink: 0, borderRadius: 18,
+            background: "linear-gradient(155deg, #024950 0%, #003135 100%)",
+            boxShadow: "0 6px 16px rgba(2,49,53,0.28), inset 0 1px 0 rgba(255,255,255,0.08)",
+            display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden",
+          }}>
+            <svg viewBox="0 0 100 100" width={38} height={38}>
+              <path d="M50 6 L94 50 L50 94 L6 50 Z" fill="none" stroke="#fff" strokeWidth="8" strokeLinejoin="round" strokeLinecap="round" />
+              <path d="M50 26 L74 50 L50 74 L26 50 Z" fill="none" stroke="#0FA4AF" strokeWidth="8" strokeLinejoin="round" strokeLinecap="round" />
+              <rect x="42" y="42" width="16" height="16" rx="5" fill="#964734" transform="rotate(45 50 50)" />
+            </svg>
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <h1 style={{ margin: "0 0 4px", fontSize: 20, fontWeight: 700 }}>{form.fullName || "—"}</h1>
