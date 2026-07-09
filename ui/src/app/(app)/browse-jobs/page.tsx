@@ -7,11 +7,11 @@ import { CompanyLogo } from "@/components/company-logo"
 const CSS = `
   @keyframes bj-shimmer { 0%{background-position:100% 0} 100%{background-position:0 0} }
   .bj-card {
-    transition: transform 0.24s cubic-bezier(0.16,1,0.3,1), box-shadow 0.24s cubic-bezier(0.16,1,0.3,1), border-color 0.24s cubic-bezier(0.16,1,0.3,1);
+    transition: transform 0.32s cubic-bezier(0.16,1,0.3,1), box-shadow 0.32s cubic-bezier(0.16,1,0.3,1), border-color 0.32s cubic-bezier(0.16,1,0.3,1);
     cursor: pointer;
   }
-  .bj-card:hover { transform: translateY(-3px); box-shadow: 0 16px 32px rgba(0,49,53,0.12) !important; }
-  .bj-card:active { transform: translateY(-1px) scale(0.996); }
+  .bj-card:hover { transform: translateY(-4px); box-shadow: 0 1px 2px rgba(2,49,53,0.04), 0 20px 36px -12px rgba(2,49,53,0.16) !important; }
+  .bj-card:active { transform: translateY(-1px) scale(0.994); }
   .bj-pill { transition: opacity 0.12s ease; }
   .bj-pill:hover { opacity: 0.82; }
   .bj-opt:hover { background: rgba(0,49,53,0.05); }
@@ -388,17 +388,17 @@ export default function BrowseJobsPage() {
           {loading ? (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 16 }}>
               {[0,1,2,3,4,5].map(i => (
-                <div key={i} style={{ background: "#fff", borderRadius: 26, padding: 20, boxShadow: "0 1px 3px rgba(0,49,53,0.05)" }}>
-                  <div style={{ ...SHIMMER, width: 48, height: 48, borderRadius: 14, marginBottom: 16 }} />
+                <div key={i} style={{ background: "#fff", borderRadius: 28, padding: "20px 20px 18px", border: "1px solid rgba(0,49,53,0.065)", boxShadow: "0 1px 2px rgba(2,49,53,0.03), 0 8px 20px -12px rgba(2,49,53,0.08)" }}>
+                  <div style={{ ...SHIMMER, width: 44, height: 44, borderRadius: 12, marginBottom: 18 }} />
                   <div style={{ ...SHIMMER, height: 15, width: "80%", marginBottom: 8 }} />
-                  <div style={{ ...SHIMMER, height: 12, width: "50%", marginBottom: 16 }} />
+                  <div style={{ ...SHIMMER, height: 12, width: "50%", marginBottom: 18 }} />
                   <div style={{ display: "flex", gap: 6, marginBottom: 20 }}>
-                    <div style={{ ...SHIMMER, height: 20, width: 60, borderRadius: 10 }} />
-                    <div style={{ ...SHIMMER, height: 20, width: 50, borderRadius: 10 }} />
+                    <div style={{ ...SHIMMER, height: 20, width: 60, borderRadius: 8 }} />
+                    <div style={{ ...SHIMMER, height: 20, width: 50, borderRadius: 8 }} />
                   </div>
                   <div style={{ display: "flex", gap: 8 }}>
-                    <div style={{ ...SHIMMER, height: 36, flex: 1, borderRadius: 14 }} />
-                    <div style={{ ...SHIMMER, height: 36, flex: 1.4, borderRadius: 14 }} />
+                    <div style={{ ...SHIMMER, height: 36, width: 40, borderRadius: 15 }} />
+                    <div style={{ ...SHIMMER, height: 36, flex: 1, borderRadius: 15 }} />
                   </div>
                 </div>
               ))}
@@ -426,54 +426,60 @@ export default function BrowseJobsPage() {
                     style={{
                       display: "flex", flexDirection: "column",
                       background: "#fff",
-                      borderRadius: 26, padding: 20,
-                      border: isSelected ? "1.5px solid #964734" : "1.5px solid rgba(0,49,53,0.07)",
+                      borderRadius: 28, padding: "20px 20px 18px",
+                      border: isSelected ? "1.5px solid rgba(150,71,52,0.85)" : "1px solid rgba(0,49,53,0.065)",
                       boxShadow: isSelected
-                        ? "0 10px 26px rgba(150,71,52,0.14)"
-                        : "0 1px 3px rgba(0,49,53,0.05)",
+                        ? "0 0 0 3px rgba(150,71,52,0.1), 0 1px 2px rgba(2,49,53,0.04), 0 14px 28px -10px rgba(150,71,52,0.22)"
+                        : "0 1px 2px rgba(2,49,53,0.03), 0 8px 20px -12px rgba(2,49,53,0.08)",
                     }}
                   >
-                    {/* Logo + source dot */}
-                    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 16 }}>
-                      <CompanyLogo name={co} size={48} />
-                      {j.source && (
-                        <span
-                          title={`via ${j.source}`}
-                          style={{ width: 9, height: 9, borderRadius: "50%", background: sourceColor(j.source), flexShrink: 0, marginTop: 4 }}
-                        />
-                      )}
+                    {/* Logo tile (nested bezel) + source/time cluster */}
+                    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 18 }}>
+                      <div style={{
+                        padding: 5, borderRadius: 16,
+                        background: "rgba(2,49,53,0.025)",
+                        border: "1px solid rgba(2,49,53,0.04)",
+                      }}>
+                        <CompanyLogo name={co} size={44} />
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 5, marginTop: 2 }}>
+                        {j.source && (
+                          <span
+                            title={`via ${j.source}`}
+                            style={{ width: 7, height: 7, borderRadius: "50%", background: sourceColor(j.source), flexShrink: 0 }}
+                          />
+                        )}
+                        <span style={{ fontSize: 10.5, color: "rgba(0,49,53,0.35)", fontWeight: 600, whiteSpace: "nowrap" }}>{timeAgo(j.discovered_at)}</span>
+                      </div>
                     </div>
 
                     {/* Title + company */}
-                    <p style={{ margin: "0 0 3px", fontSize: 15, fontWeight: 700, lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
+                    <p style={{ margin: "0 0 3px", fontSize: 15.5, fontWeight: 700, lineHeight: 1.32, letterSpacing: "-0.01em", overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
                       {j.title ?? "Untitled"}
                     </p>
-                    <p style={{ margin: "0 0 14px", fontSize: 13, color: "rgba(0,49,53,0.5)", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    <p style={{ margin: "0 0 16px", fontSize: 13, color: "rgba(0,49,53,0.48)", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                       {co}
                     </p>
 
-                    {/* Meta chips */}
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 16, flex: 1 }}>
+                    {/* Meta tags */}
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 18, flex: 1, alignContent: "flex-start" }}>
                       {j.term && (
-                        <span style={{ fontSize: 11, fontWeight: 600, padding: "3px 9px", borderRadius: 10, background: "rgba(150,71,52,0.09)", color: "#964734" }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, padding: "4px 9px", borderRadius: 8, background: "rgba(150,71,52,0.09)", color: "#964734", letterSpacing: "0.01em" }}>
                           {j.term}
                         </span>
                       )}
                       {j.job_type && (
-                        <span style={{ fontSize: 11, fontWeight: 600, padding: "3px 9px", borderRadius: 10, background: "rgba(0,49,53,0.06)", color: "rgba(0,49,53,0.65)" }}>
+                        <span style={{ fontSize: 11, fontWeight: 600, padding: "4px 9px", borderRadius: 8, background: "rgba(2,49,53,0.045)", color: "rgba(0,49,53,0.62)" }}>
                           {j.job_type}
                         </span>
                       )}
                       {j.location && (
-                        <span style={{ fontSize: 11, fontWeight: 600, padding: "3px 9px", borderRadius: 10, background: "rgba(0,49,53,0.06)", color: "rgba(0,49,53,0.65)", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                        <span style={{ fontSize: 11, fontWeight: 600, padding: "4px 9px", borderRadius: 8, background: "rgba(2,49,53,0.045)", color: "rgba(0,49,53,0.62)", display: "inline-flex", alignItems: "center", gap: 4 }}>
                           <svg width="9" height="9" viewBox="0 0 24 24" fill="none"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/><circle cx="12" cy="9" r="2.5" stroke="currentColor" strokeWidth="1.8"/></svg>
                           {j.location}
                         </span>
                       )}
                     </div>
-
-                    {/* Posted time */}
-                    <p style={{ margin: "0 0 14px", fontSize: 11, color: "rgba(0,49,53,0.38)", fontWeight: 600 }}>{timeAgo(j.discovered_at)}</p>
 
                     {/* Pass + Quick apply */}
                     <div style={{ display: "flex", gap: 8 }}>
@@ -482,19 +488,19 @@ export default function BrowseJobsPage() {
                         onClick={e => passOn(j.id, e)}
                         title="Pass on this job"
                         style={{
-                          width: 40, flexShrink: 0, border: "1.5px solid rgba(0,49,53,0.12)", borderRadius: 14,
-                          background: "transparent", cursor: "pointer",
+                          width: 40, flexShrink: 0, border: "1px solid rgba(2,49,53,0.1)", borderRadius: 15,
+                          background: "rgba(2,49,53,0.02)", cursor: "pointer",
                           display: "flex", alignItems: "center", justifyContent: "center",
                         }}
                       >
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="#003135" strokeWidth="2.2" strokeLinecap="round"/></svg>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="#003135" strokeWidth="2.1" strokeLinecap="round"/></svg>
                       </button>
                       <button
                         className="bj-quickapply"
                         disabled={applied}
                         onClick={e => applyTo(j.id, e)}
                         style={{
-                          flex: 1, border: "none", borderRadius: 14, padding: "10px 0",
+                          flex: 1, border: "none", borderRadius: 15, padding: "10px 0",
                           fontFamily: "inherit", fontSize: 12.5, fontWeight: 700,
                           cursor: applied ? "default" : "pointer",
                           background: applied ? "rgba(15,164,175,0.12)" : "#964734",
@@ -535,7 +541,9 @@ export default function BrowseJobsPage() {
             <>
               {/* Logo + title */}
               <div style={{ display: "flex", gap: 14, alignItems: "flex-start", marginBottom: 16 }}>
-                <CompanyLogo name={selected.company ?? "Unknown"} size={52} />
+                <div style={{ padding: 6, borderRadius: 18, background: "rgba(2,49,53,0.025)", border: "1px solid rgba(2,49,53,0.04)", flexShrink: 0 }}>
+                  <CompanyLogo name={selected.company ?? "Unknown"} size={48} />
+                </div>
                 <div style={{ minWidth: 0 }}>
                   <h2 style={{ margin: "0 0 4px", fontSize: 18, fontWeight: 700, lineHeight: 1.25 }}>{selected.title ?? "Untitled"}</h2>
                   <p style={{ margin: 0, fontSize: 13, color: "rgba(0,49,53,0.5)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{selected.company}</p>

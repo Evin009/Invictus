@@ -31,11 +31,15 @@ export function CompanyLogo({ name, size = 40 }: { name: string; size?: number }
         <span style={{
           width: size, height: size, borderRadius: size * 0.25, flexShrink: 0,
           display: "inline-flex", alignItems: "center", justifyContent: "center",
-          background: "rgba(2,73,80,0.1)", color: "#024950",
-          fontSize: size * 0.42, fontWeight: 800, fontFamily: "'Space Grotesk', sans-serif",
-          textTransform: "uppercase", userSelect: "none",
+          background: "rgba(2,73,80,0.07)", border: "1px solid rgba(0,49,53,0.08)",
+          boxSizing: "border-box",
         }}>
-          {name.trim().charAt(0) || "?"}
+          <svg width={size * 0.52} height={size * 0.52} viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="12" r="9" stroke="#5B7A7E" strokeWidth="1.6" />
+            <ellipse cx="12" cy="12" rx="4" ry="9" stroke="#5B7A7E" strokeWidth="1.6" />
+            <line x1="3" y1="12" x2="21" y2="12" stroke="#5B7A7E" strokeWidth="1.6" />
+            <path d="M4.5 7.5h15M4.5 16.5h15" stroke="#5B7A7E" strokeWidth="1.6" />
+          </svg>
         </span>
       ) : (
         <img
