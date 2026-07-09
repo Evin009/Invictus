@@ -236,6 +236,36 @@ export default function ProfilePage() {
     })
   }
 
+  function persistWatchlist(list: Company[]) {
+    return fetch("/api/settings", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        watchlist: list.map(c => ({ company_name: c.name, careers_url: c.url })),
+      }),
+    })
+  }
+
+  async function addCompanyAndPersist() {
+    const name = companyName.trim()
+    if (!name) return
+    const next = [...companies, { name, url: companyUrl }]
+    setCompanies(next)
+    setCompanyName(""); setCompanyUrl("")
+    const res = await persistWatchlist(next).catch(() => null)
+    if (!res?.ok) {
+      setParseToast("Couldn't save — try Save all")
+      if (toastTimer.current) clearTimeout(toastTimer.current)
+      toastTimer.current = setTimeout(() => setParseToast(null), 3000)
+    }
+  }
+
+  async function removeCompanyAndPersist(i: number) {
+    const next = companies.filter((_, idx) => idx !== i)
+    setCompanies(next)
+    await persistWatchlist(next).catch(() => null)
+  }
+
   async function save() {
     setSaving(true)
     try {
@@ -691,7 +721,7 @@ export default function ProfilePage() {
               <div key={i} style={{ position: "relative" }}>
                 <CompanyLogo name={co.name} size={46} />
                 {editing.watchlist && (
-                  <span onClick={() => setCompanies(p => p.filter((_, idx) => idx !== i))}
+                  <span onClick={() => removeCompanyAndPersist(i)}
                     style={{ position: "absolute", top: -6, right: -6, width: 17, height: 17, borderRadius: "50%", background: "#003135", color: "#fff", fontSize: 11, lineHeight: "17px", textAlign: "center", cursor: "pointer", userSelect: "none" }}>×</span>
                 )}
               </div>
@@ -708,10 +738,10 @@ export default function ProfilePage() {
                 {companyName.trim() && <CompanyLogo name={companyName.trim()} size={42} />}
                 <input className="pf-input" type="text" placeholder="Company name" value={companyName}
                   onChange={e => setCompanyName(e.target.value)}
-                  onKeyDown={e => { if (e.key === "Enter" && companyName.trim()) { e.preventDefault(); setCompanies(p => [...p, { name: companyName.trim(), url: companyUrl }]); setCompanyName(""); setCompanyUrl("") } }}
+                  onKeyDown={e => { if (e.key === "Enter" && companyName.trim()) { e.preventDefault(); addCompanyAndPersist() } }}
                   style={{ ...INPUT, flex: 1 }} />
               </div>
-              <button onClick={() => { if (!companyName.trim()) return; setCompanies(p => [...p, { name: companyName.trim(), url: companyUrl }]); setCompanyName(""); setCompanyUrl("") }}
+              <button onClick={addCompanyAndPersist}
                 style={{ marginTop: 14, padding: "11px 20px", borderRadius: 20, border: "none", background: "rgba(15,164,175,0.14)", color: "#024950", fontFamily: "inherit", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
                 + Add company
               </button>
