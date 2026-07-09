@@ -3,23 +3,20 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { useEffect, useState } from "react"
-import { companyLogoUrls } from "@/lib/company-logo"
 
 /**
- * Renders a company's brand logo, trying each logo source in turn
- * (Google favicon service → DuckDuckGo icon cache). Falls back to a
- * branded letter tile when every source fails. Hovering either shows
- * the company name in a small tooltip.
+ * Renders a company's brand logo via /api/company-logo, which resolves
+ * Google's favicon service and DuckDuckGo's icon cache server-side and
+ * filters out their placeholder images (undetectable client-side — see
+ * that route for why). Falls back to a wireframe globe icon when neither
+ * source has a real logo. Hovering shows the company name in a tooltip.
  */
 export function CompanyLogo({ name, size = 40 }: { name: string; size?: number }) {
-  const [srcIdx, setSrcIdx] = useState(0)
+  const [failed, setFailed] = useState(false)
   const [hovered, setHovered] = useState(false)
-  const sources = companyLogoUrls(name)
 
-  // New name → restart the source chain
-  useEffect(() => { setSrcIdx(0) }, [name])
-
-  const failed = sources.length === 0 || srcIdx >= sources.length
+  // New name → give the proxy another chance
+  useEffect(() => { setFailed(false) }, [name])
 
   return (
     <span
@@ -27,7 +24,7 @@ export function CompanyLogo({ name, size = 40 }: { name: string; size?: number }
       onMouseLeave={() => setHovered(false)}
       style={{ position: "relative", display: "inline-flex", flexShrink: 0 }}
     >
-      {failed ? (
+      {failed || !name.trim() ? (
         <span style={{
           width: size, height: size, borderRadius: size * 0.25, flexShrink: 0,
           display: "inline-flex", alignItems: "center", justifyContent: "center",
@@ -44,11 +41,11 @@ export function CompanyLogo({ name, size = 40 }: { name: string; size?: number }
         </span>
       ) : (
         <img
-          src={sources[srcIdx]}
+          src={`/api/company-logo?name=${encodeURIComponent(name.trim())}`}
           alt={name}
           width={size}
           height={size}
-          onError={() => setSrcIdx(i => i + 1)}
+          onError={() => setFailed(true)}
           style={{
             width: size, height: size, borderRadius: size * 0.25, flexShrink: 0,
             objectFit: "contain", background: "#fff", padding: 4,
