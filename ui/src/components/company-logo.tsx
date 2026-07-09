@@ -3,20 +3,21 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { useEffect, useState } from "react"
-import { companyLogoUrl } from "@/lib/company-logo"
+import { companyLogoUrls } from "@/lib/company-logo"
 
 /**
- * Renders a company's brand logo (via its website domain). Falls back to a
- * branded letter tile when no logo can be resolved.
+ * Renders a company's brand logo, trying each logo source in turn
+ * (Google favicon service → DuckDuckGo icon cache). Falls back to a
+ * branded letter tile when every source fails.
  */
 export function CompanyLogo({ name, size = 40 }: { name: string; size?: number }) {
-  const [failed, setFailed] = useState(false)
-  const url = companyLogoUrl(name)
+  const [srcIdx, setSrcIdx] = useState(0)
+  const sources = companyLogoUrls(name)
 
-  // New name → give the image another chance
-  useEffect(() => { setFailed(false) }, [name])
+  // New name → restart the source chain
+  useEffect(() => { setSrcIdx(0) }, [name])
 
-  if (!url || failed) {
+  if (sources.length === 0 || srcIdx >= sources.length) {
     return (
       <span title={name} style={{
         width: size, height: size, borderRadius: size * 0.25, flexShrink: 0,
@@ -32,16 +33,17 @@ export function CompanyLogo({ name, size = 40 }: { name: string; size?: number }
 
   return (
     <img
-      src={url}
+      src={sources[srcIdx]}
       alt={name}
       title={name}
       width={size}
       height={size}
-      onError={() => setFailed(true)}
+      onError={() => setSrcIdx(i => i + 1)}
       style={{
         width: size, height: size, borderRadius: size * 0.25, flexShrink: 0,
-        objectFit: "contain", background: "#fff",
+        objectFit: "contain", background: "#fff", padding: 4,
         border: "1px solid rgba(0,49,53,0.08)",
+        boxSizing: "border-box",
       }}
     />
   )

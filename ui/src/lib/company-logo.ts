@@ -63,7 +63,14 @@ export function companyDomain(name: string): string | null {
   return `${stripped}.com`
 }
 
-export function companyLogoUrl(name: string): string | null {
+// Ordered logo sources for a company — try each in turn, fall back to a
+// letter tile when all fail. (Clearbit's free logo API was sunset, so we
+// use Google's favicon service first, then DuckDuckGo's icon cache.)
+export function companyLogoUrls(name: string): string[] {
   const domain = companyDomain(name)
-  return domain ? `https://logo.clearbit.com/${domain}` : null
+  if (!domain) return []
+  return [
+    `https://www.google.com/s2/favicons?domain=${domain}&sz=128`,
+    `https://icons.duckduckgo.com/ip3/${domain}.ico`,
+  ]
 }
