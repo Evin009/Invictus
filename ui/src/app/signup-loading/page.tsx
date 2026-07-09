@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import gsap from "gsap"
+import { OnboardedGuard } from "@/components/onboarded-guard"
 
 /* ─── brand tokens ─── */
 const BG      = "#EFF3F1"
@@ -149,6 +150,7 @@ export default function SignupLoadingPage() {
 
   return (
     <>
+      <OnboardedGuard />
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
 
       {/* ── OUTER WRAPPER — unclipped, holds the racing stripes ── */}
