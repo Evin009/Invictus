@@ -37,11 +37,11 @@ export async function PATCH(req: NextRequest) {
     const { data: existing } = await db.from("user_profile").select("id").limit(1)
     const id = existing?.[0]?.id
 
-    if (id) {
-      await db.from("user_profile").update(allowed).eq("id", id)
-    } else {
-      await db.from("user_profile").insert(allowed)
-    }
+    const { error } = id
+      ? await db.from("user_profile").update(allowed).eq("id", id)
+      : await db.from("user_profile").insert(allowed)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
     return NextResponse.json({ ok: true })
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 500 })

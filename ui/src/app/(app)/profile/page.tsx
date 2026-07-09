@@ -254,10 +254,14 @@ export default function ProfilePage() {
           }),
         }),
       ])
-      if (!profileRes.ok || !settingsRes.ok) throw new Error("save failed")
+      if (!profileRes.ok || !settingsRes.ok) {
+        const badRes = !profileRes.ok ? profileRes : settingsRes
+        const body = await badRes.json().catch(() => null)
+        throw new Error(body?.error ?? "save failed")
+      }
       setSaveMsg("Saved")
-    } catch {
-      setSaveMsg("Error saving")
+    } catch (err) {
+      setSaveMsg(err instanceof Error ? err.message : "Error saving")
     } finally {
       setSaving(false)
       setTimeout(() => setSaveMsg(null), 2500)

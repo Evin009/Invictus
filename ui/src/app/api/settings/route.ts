@@ -28,17 +28,21 @@ export async function PATCH(req: NextRequest) {
     if (body.preferences) {
       const { data: existing } = await db.from("preferences").select("id").limit(1)
       const id = existing?.[0]?.id
-      if (id) {
-        await db.from("preferences").update(body.preferences).eq("id", id)
-      } else {
-        await db.from("preferences").insert(body.preferences)
-      }
+      const { error } = id
+        ? await db.from("preferences").update(body.preferences).eq("id", id)
+        : await db.from("preferences").insert(body.preferences)
+      if (error) return NextResponse.json({ error: `preferences: ${error.message}` }, { status: 500 })
     }
 
     if (body.watchlist) {
-      await db.from("watchlist").delete().gte("created_at", "1970-01-01T00:00:00Z")
+      // "id" always exists (primary key) — this filter matches every row, unlike a
+      // nonexistent-column filter, which PostgREST would reject with a 400.
+      const { error: delError } = await db.from("watchlist").delete().neq("id", "00000000-0000-0000-0000-000000000000")
+      if (delError) return NextResponse.json({ error: `watchlist delete: ${delError.message}` }, { status: 500 })
+
       if (body.watchlist.length > 0) {
-        await db.from("watchlist").insert(body.watchlist)
+        const { error: insError } = await db.from("watchlist").insert(body.watchlist)
+        if (insError) return NextResponse.json({ error: `watchlist insert: ${insError.message}` }, { status: 500 })
       }
     }
 
