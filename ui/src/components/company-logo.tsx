@@ -34,11 +34,12 @@ export function CompanyLogo({ name, size = 40 }: { name: string; size?: number }
           background: "rgba(2,73,80,0.07)", border: "1px solid rgba(0,49,53,0.08)",
           boxSizing: "border-box",
         }}>
-          <svg width={size * 0.5} height={size * 0.5} viewBox="0 0 24 24" fill="none">
-            <rect x="4" y="3" width="12" height="18" rx="1" stroke="#5B7A7E" strokeWidth="1.6" strokeLinejoin="round" />
-            <path d="M16 9h4v12h-8" stroke="#5B7A7E" strokeWidth="1.6" strokeLinejoin="round" />
-            <path d="M7.5 7h1.5M11 7h1.5M7.5 10.5h1.5M11 10.5h1.5M7.5 14h1.5M11 14h1.5" stroke="#5B7A7E" strokeWidth="1.6" strokeLinecap="round" />
-            <path d="M9 21v-3.5h2V21" stroke="#5B7A7E" strokeWidth="1.6" strokeLinejoin="round" />
+          <svg width={size * 0.54} height={size * 0.54} viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="12" r="9" stroke="#5B7A7E" strokeWidth="1.3" />
+            <ellipse cx="12" cy="12" rx="3.4" ry="9" stroke="#5B7A7E" strokeWidth="1.1" />
+            <ellipse cx="12" cy="12" rx="9" ry="3.4" stroke="#5B7A7E" strokeWidth="1.1" />
+            <path d="M4 8.3c2.2 1.6 5 2.5 8 2.5s5.8-.9 8-2.5" stroke="#5B7A7E" strokeWidth="1.1" />
+            <path d="M4 15.7c2.2-1.6 5-2.5 8-2.5s5.8.9 8 2.5" stroke="#5B7A7E" strokeWidth="1.1" />
           </svg>
         </span>
       ) : (
