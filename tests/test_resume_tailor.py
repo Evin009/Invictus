@@ -164,19 +164,24 @@ def test_get_page_count_single_page():
 def test_tailor_resume_returns_required_keys(tmp_path):
     tex_path = tmp_path / "resume.tex"
     tex_path.write_text(SAMPLE_TEX)
+    pdf_path = tmp_path / "resume_Acme_swe-1.pdf"
+    pdf_path.write_bytes(b"%PDF-1.4")
 
     mock_client = MagicMock()
     mock_client.messages.create.return_value.content = [MagicMock(text=json.dumps(REWRITTEN_PAIRS))]
 
     with patch("src.agents.resume_tailor.retrieve_bullets", return_value=["Built a web scraper using Python"]):
         with patch("src.agents.resume_tailor.anthropic.Anthropic", return_value=mock_client):
-            with patch("src.agents.resume_tailor._compile_tex", return_value=str(tmp_path / "resume_Acme_swe-1.pdf")):
+            with patch("src.agents.resume_tailor._compile_tex", return_value=str(pdf_path)):
                 with patch("src.agents.resume_tailor._get_page_count", return_value=1):
-                    result = tailor_resume(_job(), str(tex_path), str(tmp_path))
+                    with patch("src.agents.resume_tailor.upload_file", return_value="Acme_swe-1.pdf") as mock_upload:
+                        result = tailor_resume(_job(), str(tex_path), str(tmp_path))
 
     assert "resume_pdf_path" in result
     assert "resume_version" in result
     assert "tailored_bullets" in result
+    mock_upload.assert_called_once_with("resumes", "Acme_swe-1.pdf", str(pdf_path))
+    assert result["resume_pdf_path"] == "Acme_swe-1.pdf"
 
 
 def test_tailor_resume_alerts_and_raises_on_page_overflow(tmp_path):
@@ -224,7 +229,8 @@ def test_tailor_resume_version_sanitizes_special_chars(tmp_path):
         with patch("src.agents.resume_tailor.anthropic.Anthropic", return_value=mock_client):
             with patch("src.agents.resume_tailor._compile_tex", return_value=str(tmp_path / "resume.pdf")):
                 with patch("src.agents.resume_tailor._get_page_count", return_value=1):
-                    result = tailor_resume(job, str(tex_path), str(tmp_path))
+                    with patch("src.agents.resume_tailor.upload_file", return_value="storage.pdf"):
+                        result = tailor_resume(job, str(tex_path), str(tmp_path))
 
     assert " " not in result["resume_version"]
     assert "." not in result["resume_version"]

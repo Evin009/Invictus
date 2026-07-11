@@ -6,18 +6,22 @@ from pathlib import Path
 import anthropic
 
 from src.config import settings
+from src.db.storage import upload_file
 from src.notifications.slack import post_error
 from src.rag.embedder import clean_tex
 from src.rag.retriever import retrieve_bullets
 from src.state import JobItem
 from src.utils import make_version_slug
 
+RESUME_BUCKET = "resumes"
+
 
 def tailor_resume(job: JobItem, tex_path: str, output_dir: str = "output/resumes") -> dict:
     """
-    Retrieve matching bullets, rewrite with Claude, compile to PDF.
+    Retrieve matching bullets, rewrite with Claude, compile to PDF, upload to Storage.
     Raises (after Slack alert) on compile failure or >2 pages.
     Returns {"resume_pdf_path": str, "resume_version": str, "tailored_bullets": list[str]}
+    resume_pdf_path is the Supabase Storage object path (bucket "resumes").
     """
     try:
         top_bullets = retrieve_bullets(job["description"], top_k=5)
@@ -36,8 +40,10 @@ def tailor_resume(job: JobItem, tex_path: str, output_dir: str = "output/resumes
         if pages > 2:
             raise RuntimeError(f"Resume is {pages} pages (max 2) for {job['job_url']}")
 
+        storage_path = upload_file(RESUME_BUCKET, f"{version}.pdf", pdf_path)
+
         return {
-            "resume_pdf_path": pdf_path,
+            "resume_pdf_path": storage_path,
             "resume_version": version,
             "tailored_bullets": list(rewritten.values()),
         }

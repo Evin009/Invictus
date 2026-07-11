@@ -82,10 +82,14 @@ def test_generate_cover_letter_returns_required_keys(tmp_path):
 
     with patch("src.agents.cover_letter.get_client", return_value=mock_db):
         with patch("src.agents.cover_letter.anthropic.Anthropic", return_value=mock_client):
-            result = generate_cover_letter(_job(), output_dir=str(tmp_path))
+            with patch("src.agents.cover_letter.upload_file", return_value="storage.txt") as mock_upload:
+                result = generate_cover_letter(_job(), output_dir=str(tmp_path))
 
     assert "cover_letter_path" in result
     assert "word_count" in result
+    assert result["cover_letter_path"] == "storage.txt"
+    mock_upload.assert_called_once()
+    assert mock_upload.call_args[0][0] == "cover-letters"
 
 
 def test_generate_cover_letter_saves_file(tmp_path):
@@ -95,12 +99,19 @@ def test_generate_cover_letter_saves_file(tmp_path):
     mock_client = MagicMock()
     mock_client.messages.create.return_value.content = [MagicMock(text=SAMPLE_LETTER)]
 
+    captured = {}
+
+    def _fake_upload(bucket, dest_path, local_path):
+        captured["local_path"] = local_path
+        return dest_path
+
     with patch("src.agents.cover_letter.get_client", return_value=mock_db):
         with patch("src.agents.cover_letter.anthropic.Anthropic", return_value=mock_client):
-            result = generate_cover_letter(_job(), output_dir=str(tmp_path))
+            with patch("src.agents.cover_letter.upload_file", side_effect=_fake_upload):
+                generate_cover_letter(_job(), output_dir=str(tmp_path))
 
     import os
-    assert os.path.exists(result["cover_letter_path"])
+    assert os.path.exists(captured["local_path"])
 
 
 def test_generate_cover_letter_raises_on_empty_letter(tmp_path):
@@ -146,7 +157,8 @@ def test_generate_cover_letter_passes_job_and_tone_to_claude(tmp_path):
 
     with patch("src.agents.cover_letter.get_client", return_value=mock_db):
         with patch("src.agents.cover_letter.anthropic.Anthropic", return_value=mock_client):
-            generate_cover_letter(_job(), output_dir=str(tmp_path))
+            with patch("src.agents.cover_letter.upload_file", return_value="storage.txt"):
+                generate_cover_letter(_job(), output_dir=str(tmp_path))
 
     prompt = mock_client.messages.create.call_args[1]["messages"][0]["content"]
     assert "Acme" in prompt
@@ -163,7 +175,8 @@ def test_generate_cover_letter_word_count_in_result(tmp_path):
 
     with patch("src.agents.cover_letter.get_client", return_value=mock_db):
         with patch("src.agents.cover_letter.anthropic.Anthropic", return_value=mock_client):
-            result = generate_cover_letter(_job(), output_dir=str(tmp_path))
+            with patch("src.agents.cover_letter.upload_file", return_value="storage.txt"):
+                result = generate_cover_letter(_job(), output_dir=str(tmp_path))
 
     assert result["word_count"] == len(SAMPLE_LETTER.split())
     assert result["word_count"] <= 350

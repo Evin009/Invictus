@@ -6,18 +6,21 @@ import anthropic
 
 from src.config import settings
 from src.db.client import get_client
+from src.db.storage import upload_file
 from src.notifications.slack import post_error
 from src.state import JobItem
 from src.utils import make_version_slug
 
 _WORD_LIMIT = 350
+COVER_LETTER_BUCKET = "cover-letters"
 
 
 def generate_cover_letter(job: JobItem, output_dir: str = "output/cover_letters") -> dict:
     """
-    Generate a job-specific cover letter via Claude, seeded with tone example.
+    Generate a job-specific cover letter via Claude, seeded with tone example, upload to Storage.
     Raises (after Slack alert) if output exceeds 350 words or is empty.
     Returns {"cover_letter_path": str, "word_count": int}
+    cover_letter_path is the Supabase Storage object path (bucket "cover-letters").
     """
     try:
         tone_seed = _fetch_tone_seed()
@@ -35,7 +38,9 @@ def generate_cover_letter(job: JobItem, output_dir: str = "output/cover_letters"
         path = str(Path(output_dir) / f"cover_{version}.txt")
         Path(path).write_text(letter, encoding="utf-8")
 
-        return {"cover_letter_path": path, "word_count": word_count}
+        storage_path = upload_file(COVER_LETTER_BUCKET, f"{version}.txt", path)
+
+        return {"cover_letter_path": storage_path, "word_count": word_count}
     except Exception as e:
         post_error("cover_letter", str(e), {"job_url": job.get("job_url", "")})
         raise
