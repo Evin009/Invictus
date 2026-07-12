@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from playwright.sync_api import sync_playwright
 
 from src.db.client import get_client
@@ -26,6 +28,24 @@ _REQUIRED_FILL_FIELDS = {"email", "first_name", "last_name"}
 
 class ManualFallbackRequired(Exception):
     pass
+
+
+def fetch_agent_settings() -> dict:
+    """Return {"paused": bool, "daily_cap": int | None} from the Settings page's
+    Automation card. Defaults to running, uncapped, if no row exists yet."""
+    db = get_client()
+    rows = db.table("agent_settings").select("paused,daily_cap").limit(1).execute().data or []
+    if not rows:
+        return {"paused": False, "daily_cap": None}
+    return {"paused": bool(rows[0].get("paused")), "daily_cap": rows[0].get("daily_cap")}
+
+
+def count_applications_today() -> int:
+    """Count applications submitted since midnight UTC, for daily_cap enforcement."""
+    db = get_client()
+    since = datetime.now(tz=timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+    rows = db.table("applications").select("id").gte("submitted_at", since).execute().data or []
+    return len(rows)
 
 
 def _detect_ats_platform(job_url: str) -> str:

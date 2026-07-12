@@ -9,6 +9,8 @@ from src.agents.apply import (
     _has_login_wall,
     _save_application,
     apply_to_job,
+    count_applications_today,
+    fetch_agent_settings,
 )
 from src.state import JobItem
 
@@ -308,3 +310,41 @@ def test_apply_to_job_manual_fallback_db_error_does_not_crash():
             with patch("src.agents.apply.post_error"):
                 result = apply_to_job(job, "/tmp/resume.pdf", "/tmp/cover.txt")
     assert result["submission_type"] == "manual"
+
+
+# --- fetch_agent_settings ---
+
+def test_fetch_agent_settings_returns_row():
+    mock_db = MagicMock()
+    mock_db.table.return_value.select.return_value.limit.return_value.execute.return_value.data = [
+        {"paused": True, "daily_cap": 10}
+    ]
+    with patch("src.agents.apply.get_client", return_value=mock_db):
+        result = fetch_agent_settings()
+    assert result == {"paused": True, "daily_cap": 10}
+
+
+def test_fetch_agent_settings_defaults_when_no_row():
+    mock_db = MagicMock()
+    mock_db.table.return_value.select.return_value.limit.return_value.execute.return_value.data = []
+    with patch("src.agents.apply.get_client", return_value=mock_db):
+        result = fetch_agent_settings()
+    assert result == {"paused": False, "daily_cap": None}
+
+
+# --- count_applications_today ---
+
+def test_count_applications_today_counts_rows():
+    mock_db = MagicMock()
+    mock_db.table.return_value.select.return_value.gte.return_value.execute.return_value.data = [{}] * 3
+    with patch("src.agents.apply.get_client", return_value=mock_db):
+        result = count_applications_today()
+    assert result == 3
+
+
+def test_count_applications_today_zero_when_none():
+    mock_db = MagicMock()
+    mock_db.table.return_value.select.return_value.gte.return_value.execute.return_value.data = []
+    with patch("src.agents.apply.get_client", return_value=mock_db):
+        result = count_applications_today()
+    assert result == 0

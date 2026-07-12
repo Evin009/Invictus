@@ -1,6 +1,6 @@
 from langgraph.graph import StateGraph, END
 
-from src.agents.apply import apply_to_job
+from src.agents.apply import apply_to_job, count_applications_today, fetch_agent_settings
 from src.agents.cover_letter import generate_cover_letter
 from src.agents.crawler import crawler_agent
 from src.agents.outreach import run_outreach
@@ -51,8 +51,22 @@ def tailor_node(state: GraphState) -> dict:
 
 
 def apply_node(state: GraphState) -> dict:
+    try:
+        agent_settings = fetch_agent_settings()
+    except Exception as e:
+        post_error("apply_node", str(e), {"step": "fetch_agent_settings"})
+        agent_settings = {"paused": False, "daily_cap": None}
+
+    if agent_settings.get("paused"):
+        return {"jobs_applied": []}
+
+    daily_cap = agent_settings.get("daily_cap")
+    applied_today = count_applications_today() if daily_cap else 0
+
     applied = []
     for item in state.get("jobs_tailored", []):
+        if daily_cap and applied_today >= daily_cap:
+            break
         try:
             receipt = apply_to_job(
                 item,
@@ -65,6 +79,7 @@ def apply_node(state: GraphState) -> dict:
             if item.get("cover_letter_path") and not receipt.get("cover_letter_path"):
                 merged["cover_letter_path"] = item["cover_letter_path"]
             applied.append(merged)
+            applied_today += 1
         except Exception as e:
             post_error("apply_node", str(e), {"job_url": item.get("job_url", "")})
             continue

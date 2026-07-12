@@ -12,7 +12,6 @@ const CSS = `
   @keyframes set-shimmer { 0%{background-position:100% 0} 100%{background-position:0 0} }
   .st-input:focus { border-color: #0FA4AF !important; background: #fff !important; box-shadow: 0 0 0 3px rgba(15,164,175,0.15) !important; }
   .toggle-track:hover { box-shadow: 0 0 0 5px rgba(0,49,53,0.06); }
-  input[type=range] { accent-color: #964734; }
   input::placeholder { color: rgba(0,49,53,0.4); }
 `
 
@@ -62,26 +61,6 @@ function Toggle({ checked, onToggle }: { checked: boolean; onToggle: () => void 
   )
 }
 
-interface AutomationState {
-  autoApply: boolean
-  threshold: number
-  dailyCap: string
-  paused: boolean
-}
-interface NotifState {
-  emailUpdates: boolean
-  applicationSubmitted: boolean
-  interviewScheduled: boolean
-  weeklySummary: boolean
-}
-
-const NOTIF_DEFS = [
-  { key: "emailUpdates" as const, label: "Email updates", desc: "General product announcements and tips" },
-  { key: "applicationSubmitted" as const, label: "Application submitted", desc: "When the agent successfully submits an application" },
-  { key: "interviewScheduled" as const, label: "Interview scheduled", desc: "When a company responds with next steps" },
-  { key: "weeklySummary" as const, label: "Weekly summary", desc: "A digest of activity every Monday morning" },
-]
-
 export default function SettingsPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -92,13 +71,13 @@ export default function SettingsPage() {
   const [fullName, setFullName] = useState("")
   const [email, setEmail] = useState("")
   const [baselineEmail, setBaselineEmail] = useState("")
-  const [automation, setAutomation] = useState<AutomationState>({
-    autoApply: true, threshold: 82, dailyCap: "15", paused: false,
-  })
-  const [baselineCap, setBaselineCap] = useState("15")
-  const [notifs, setNotifs] = useState<NotifState>({
-    emailUpdates: true, applicationSubmitted: true, interviewScheduled: true, weeklySummary: false,
-  })
+
+  const [paused, setPaused] = useState(false)
+  const [dailyCap, setDailyCap] = useState("")
+  const [agentLoading, setAgentLoading] = useState(true)
+  const [agentSaving, setAgentSaving] = useState(false)
+  const [agentToast, setAgentToast] = useState<string | null>(null)
+  const agentToastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const [slackConnection, setSlackConnection] = useState<SlackConnection | null>(null)
   const [slackLoading, setSlackLoading] = useState(true)
@@ -135,7 +114,6 @@ export default function SettingsPage() {
   }, [])
 
   useEffect(() => {
-    // No dedicated automation/notification table yet; just load email from profile
     fetch("/api/profile")
       .then(r => r.json())
       .then(d => {
@@ -146,9 +124,49 @@ export default function SettingsPage() {
       })
       .catch(() => {})
       .finally(() => setLoading(false))
+
+    fetch("/api/agent-settings")
+      .then(r => r.json())
+      .then(d => {
+        setPaused(!!d?.paused)
+        setDailyCap(d?.daily_cap != null ? String(d.daily_cap) : "")
+      })
+      .catch(() => {})
+      .finally(() => setAgentLoading(false))
   }, [])
 
-  const isDirty = email !== baselineEmail || automation.dailyCap !== baselineCap
+  function flashAgentToast(msg: string) {
+    setAgentToast(msg)
+    if (agentToastTimer.current) clearTimeout(agentToastTimer.current)
+    agentToastTimer.current = setTimeout(() => setAgentToast(null), 3000)
+  }
+
+  async function saveAgentSettings(next: { paused: boolean; dailyCap: string }) {
+    setAgentSaving(true)
+    try {
+      const res = await fetch("/api/agent-settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          paused: next.paused,
+          daily_cap: next.dailyCap.trim() ? parseInt(next.dailyCap.replace(/\D/g, ""), 10) : null,
+        }),
+      })
+      if (!res.ok) throw new Error()
+    } catch {
+      flashAgentToast("Couldn't save — try again")
+    } finally {
+      setAgentSaving(false)
+    }
+  }
+
+  function togglePaused() {
+    const next = !paused
+    setPaused(next)
+    saveAgentSettings({ paused: next, dailyCap })
+  }
+
+  const isDirty = email !== baselineEmail
 
   function save() {
     if (saveTimer.current) clearTimeout(saveTimer.current)
@@ -158,21 +176,19 @@ export default function SettingsPage() {
       setSaving(false)
       setShowToast(true)
       setBaselineEmail(email)
-      setBaselineCap(automation.dailyCap)
       toastTimer.current = setTimeout(() => setShowToast(false), 2600)
     }, 700)
   }
 
   function discard() {
     setEmail(baselineEmail)
-    setAutomation(p => ({ ...p, dailyCap: baselineCap }))
   }
 
   if (loading) return (
     <>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
       <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 16 }}>
-        {[2, 3, 4, 3].map((rows, i) => (
+        {[2, 3, 2].map((rows, i) => (
           <div key={i} style={CARD}>
             <div style={{ ...SHIMMER, height: 16, width: 140, marginBottom: 10 }} />
             <div style={{ ...SHIMMER, height: 11, width: 220, marginBottom: 20 }} />
@@ -257,52 +273,49 @@ export default function SettingsPage() {
         {/* Automation */}
         <div style={CARD}>
           <h2 style={{ fontSize: 17, fontWeight: 700, margin: "0 0 4px" }}>Automation</h2>
-          <p style={{ fontSize: 13, color: "rgba(0,49,53,0.5)", margin: "0 0 4px" }}>Controls how aggressively the agent applies on your behalf</p>
+          <p style={{ fontSize: 13, color: "rgba(0,49,53,0.5)", margin: "0 0 4px" }}>Controls when the agent submits applications</p>
 
-          <div style={ROW}>
-            <div>
-              <p style={{ margin: "0 0 3px", fontSize: 14, fontWeight: 700 }}>Auto-apply to strong matches</p>
-              <p style={{ margin: 0, fontSize: 12, color: "rgba(0,49,53,0.45)" }}>Skip manual approval for jobs scoring above your threshold</p>
-            </div>
-            <Toggle checked={automation.autoApply} onToggle={() => setAutomation(p => ({ ...p, autoApply: !p.autoApply }))} />
-          </div>
-
-          {automation.autoApply && (
-            <div style={ROW}>
-              <div style={{ flex: 1 }}>
-                <p style={{ margin: "0 0 3px", fontSize: 14, fontWeight: 700 }}>Match threshold</p>
-                <p style={{ margin: 0, fontSize: 12, color: "rgba(0,49,53,0.45)" }}>Only auto-apply above {automation.threshold}% match</p>
-                <input
-                  type="range" min={50} max={99}
-                  value={automation.threshold}
-                  onChange={e => setAutomation(p => ({ ...p, threshold: parseInt(e.target.value, 10) }))}
-                  style={{ width: "100%", marginTop: 10 }}
-                />
-              </div>
-            </div>
+          {agentToast && (
+            <p style={{ fontSize: 12, color: "#964734", margin: "8px 0 0" }}>{agentToast}</p>
           )}
 
-          <div style={ROW}>
-            <div>
-              <p style={{ margin: "0 0 3px", fontSize: 14, fontWeight: 700 }}>Daily application cap</p>
-              <p style={{ margin: 0, fontSize: 12, color: "rgba(0,49,53,0.45)" }}>Maximum applications the agent submits per day</p>
-            </div>
-            <input
-              className="st-input"
-              type="text"
-              value={automation.dailyCap}
-              onChange={e => setAutomation(p => ({ ...p, dailyCap: e.target.value }))}
-              style={{ width: 70, padding: "10px 12px", fontSize: 14, fontFamily: "inherit", borderRadius: 8, border: "1px solid rgba(0,49,53,0.14)", outline: "none", background: "#F5F8F7", color: "#003135", textAlign: "center" }}
-            />
-          </div>
+          {agentLoading ? (
+            <div style={{ ...SHIMMER, height: 90, marginTop: 14 }} />
+          ) : (
+            <>
+              <div style={ROW}>
+                <div>
+                  <p style={{ margin: "0 0 3px", fontSize: 14, fontWeight: 700 }}>Pause agent</p>
+                  <p style={{ margin: 0, fontSize: 12, color: "rgba(0,49,53,0.45)" }}>Stop all new applications until you resume</p>
+                </div>
+                <Toggle checked={paused} onToggle={togglePaused} />
+              </div>
 
-          <div style={ROW}>
-            <div>
-              <p style={{ margin: "0 0 3px", fontSize: 14, fontWeight: 700 }}>Pause agent</p>
-              <p style={{ margin: 0, fontSize: 12, color: "rgba(0,49,53,0.45)" }}>Stop all new applications until you resume</p>
-            </div>
-            <Toggle checked={automation.paused} onToggle={() => setAutomation(p => ({ ...p, paused: !p.paused }))} />
-          </div>
+              <div style={ROW}>
+                <div>
+                  <p style={{ margin: "0 0 3px", fontSize: 14, fontWeight: 700 }}>Daily application cap</p>
+                  <p style={{ margin: 0, fontSize: 12, color: "rgba(0,49,53,0.45)" }}>Maximum applications the agent submits per day — blank means no limit</p>
+                </div>
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <input
+                    className="st-input"
+                    type="text"
+                    value={dailyCap}
+                    onChange={e => setDailyCap(e.target.value)}
+                    placeholder="No limit"
+                    style={{ width: 90, padding: "10px 12px", fontSize: 14, fontFamily: "inherit", borderRadius: 8, border: "1px solid rgba(0,49,53,0.14)", outline: "none", background: "#F5F8F7", color: "#003135", textAlign: "center" }}
+                  />
+                  <button
+                    onClick={() => saveAgentSettings({ paused, dailyCap })}
+                    disabled={agentSaving}
+                    style={{ background: "rgba(15,164,175,0.14)", color: "#024950", border: "none", borderRadius: 8, padding: "10px 16px", fontFamily: "inherit", fontSize: 13, fontWeight: 700, cursor: agentSaving ? "default" : "pointer", opacity: agentSaving ? 0.6 : 1 }}
+                  >
+                    {agentSaving ? "Saving…" : "Save"}
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Slack */}
@@ -351,21 +364,6 @@ export default function SettingsPage() {
               Add to Slack
             </a>
           )}
-        </div>
-
-        {/* Notifications */}
-        <div style={CARD}>
-          <h2 style={{ fontSize: 17, fontWeight: 700, margin: "0 0 4px" }}>Notifications</h2>
-          <p style={{ fontSize: 13, color: "rgba(0,49,53,0.5)", margin: "0 0 4px" }}>What you hear about, and how</p>
-          {NOTIF_DEFS.map((def, i) => (
-            <div key={def.key} style={{ ...ROW, borderTop: i === 0 ? "none" : "1px solid rgba(0,49,53,0.06)", paddingTop: i === 0 ? 16 : undefined }}>
-              <div>
-                <p style={{ margin: "0 0 3px", fontSize: 14, fontWeight: 700 }}>{def.label}</p>
-                <p style={{ margin: 0, fontSize: 12, color: "rgba(0,49,53,0.45)" }}>{def.desc}</p>
-              </div>
-              <Toggle checked={notifs[def.key]} onToggle={() => setNotifs(p => ({ ...p, [def.key]: !p[def.key] }))} />
-            </div>
-          ))}
         </div>
 
         {/* Danger zone */}

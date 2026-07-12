@@ -112,8 +112,9 @@ def test_tailor_node_returns_empty_when_base_resume_missing():
 def test_apply_node_returns_applied_jobs():
     state = {"jobs_tailored": [{**_JOB, "resume_pdf_path": "/tmp/r.pdf", "cover_letter_path": "/tmp/c.pdf"}]}
     receipt = {**_JOB, "status": "applied", "submission_type": "auto"}
-    with patch("src.graph.apply_to_job", return_value=receipt):
-        result = apply_node(state)
+    with patch("src.graph.fetch_agent_settings", return_value={"paused": False, "daily_cap": None}):
+        with patch("src.graph.apply_to_job", return_value=receipt):
+            result = apply_node(state)
     assert len(result["jobs_applied"]) == 1
     assert result["jobs_applied"][0]["status"] == "applied"
 
@@ -128,10 +129,50 @@ def test_apply_node_per_job_error_continues():
             raise RuntimeError("playwright crash")
         return {**job, "status": "applied"}
 
-    with patch("src.graph.apply_to_job", side_effect=apply_side):
-        with patch("src.graph.post_error"):
-            result = apply_node(state)
+    with patch("src.graph.fetch_agent_settings", return_value={"paused": False, "daily_cap": None}):
+        with patch("src.graph.apply_to_job", side_effect=apply_side):
+            with patch("src.graph.post_error"):
+                result = apply_node(state)
     assert len(result["jobs_applied"]) == 1
+
+
+def test_apply_node_paused_skips_all_applications():
+    state = {"jobs_tailored": [_JOB, _JOB]}
+    with patch("src.graph.fetch_agent_settings", return_value={"paused": True, "daily_cap": None}):
+        with patch("src.graph.apply_to_job") as mock_apply:
+            result = apply_node(state)
+    assert result["jobs_applied"] == []
+    mock_apply.assert_not_called()
+
+
+def test_apply_node_stops_at_daily_cap():
+    state = {"jobs_tailored": [_JOB, _JOB, _JOB]}
+    with patch("src.graph.fetch_agent_settings", return_value={"paused": False, "daily_cap": 2}):
+        with patch("src.graph.count_applications_today", return_value=0):
+            with patch("src.graph.apply_to_job", return_value={**_JOB, "status": "applied"}) as mock_apply:
+                result = apply_node(state)
+    assert len(result["jobs_applied"]) == 2
+    assert mock_apply.call_count == 2
+
+
+def test_apply_node_daily_cap_already_reached_skips_all():
+    state = {"jobs_tailored": [_JOB]}
+    with patch("src.graph.fetch_agent_settings", return_value={"paused": False, "daily_cap": 5}):
+        with patch("src.graph.count_applications_today", return_value=5):
+            with patch("src.graph.apply_to_job") as mock_apply:
+                result = apply_node(state)
+    assert result["jobs_applied"] == []
+    mock_apply.assert_not_called()
+
+
+def test_apply_node_settings_fetch_error_defaults_to_running():
+    state = {"jobs_tailored": [_JOB]}
+    with patch("src.graph.fetch_agent_settings", side_effect=RuntimeError("db down")):
+        with patch("src.graph.post_error") as mock_err:
+            with patch("src.graph.apply_to_job", return_value={**_JOB, "status": "applied"}):
+                result = apply_node(state)
+    assert len(result["jobs_applied"]) == 1
+    mock_err.assert_called_once()
 
 
 # --- outreach_node ---
