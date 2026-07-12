@@ -13,7 +13,7 @@ export async function GET() {
   ])
   return NextResponse.json({
     preferences: prefsRes.data?.[0] ?? {},
-    watchlist: (watchlistRes.data ?? []).map((r: Record<string, string>) => ({ name: r.company_name, url: r.careers_url ?? r.url ?? "" })),
+    watchlist: watchlistRes.data ?? [],
   })
 }
 

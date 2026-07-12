@@ -1,6 +1,8 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import { SettingsForm } from "@/components/settings-form"
+import type { Preferences, WatchlistEntry, Seed } from "@/lib/types"
 
 const CSS = `
   @keyframes set-shimmer { 0%{background-position:100% 0} 100%{background-position:0 0} }
@@ -94,6 +96,11 @@ export default function SettingsPage() {
     emailUpdates: true, applicationSubmitted: true, interviewScheduled: true, weeklySummary: false,
   })
 
+  const [preferences, setPreferences] = useState<Preferences | null>(null)
+  const [watchlist, setWatchlist] = useState<WatchlistEntry[]>([])
+  const [coverLetterSeeds, setCoverLetterSeeds] = useState<Seed[]>([])
+  const [outreachSeeds, setOutreachSeeds] = useState<Seed[]>([])
+
   useEffect(() => {
     // No dedicated automation/notification table yet; just load email from profile
     fetch("/api/profile")
@@ -106,6 +113,24 @@ export default function SettingsPage() {
       })
       .catch(() => {})
       .finally(() => setLoading(false))
+
+    fetch("/api/settings")
+      .then(r => r.json())
+      .then(d => {
+        setPreferences(d?.preferences ?? null)
+        setWatchlist(d?.watchlist ?? [])
+      })
+      .catch(() => {})
+
+    fetch("/api/seeds?table=cover_letter_seeds")
+      .then(r => r.json())
+      .then(d => setCoverLetterSeeds(Array.isArray(d) ? d : []))
+      .catch(() => {})
+
+    fetch("/api/seeds?table=outreach_seeds")
+      .then(r => r.json())
+      .then(d => setOutreachSeeds(Array.isArray(d) ? d : []))
+      .catch(() => {})
   }, [])
 
   const isDirty = email !== baselineEmail || automation.dailyCap !== baselineCap
@@ -264,6 +289,14 @@ export default function SettingsPage() {
             <Toggle checked={automation.paused} onToggle={() => setAutomation(p => ({ ...p, paused: !p.paused }))} />
           </div>
         </div>
+
+        {/* Job search preferences, watchlist, cover letter / outreach samples */}
+        <SettingsForm
+          preferences={preferences}
+          watchlist={watchlist}
+          coverLetterSeeds={coverLetterSeeds}
+          outreachSeeds={outreachSeeds}
+        />
 
         {/* Notifications */}
         <div style={CARD}>
