@@ -72,6 +72,7 @@ export interface Seed {
   id: string
   content: string | null
   label: string | null
+  mode?: "reuse" | "tone_only" | null
 }
 
 export interface DiscoveredJob {

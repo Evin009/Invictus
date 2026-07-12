@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import MagicMock, patch
 
-from src.agents.cover_letter import generate_cover_letter, _fetch_tone_seed, _fetch_user_profile
+from src.agents.cover_letter import generate_cover_letter, _fetch_cover_letter_seed, _fetch_user_profile
 from src.state import JobItem
 
 
@@ -31,24 +31,34 @@ SAMPLE_SEED = "Dear Hiring Manager, I am excited to apply..."
 SAMPLE_LETTER = "Dear Hiring Manager,\n\nI am a Python engineer with experience building scalable systems.\n\nSincerely,\nEvin Bento"
 
 
-# --- _fetch_tone_seed ---
+# --- _fetch_cover_letter_seed ---
 
-def test_fetch_tone_seed_returns_content():
+def test_fetch_cover_letter_seed_returns_content_and_mode():
+    mock_db = MagicMock()
+    mock_db.table.return_value.select.return_value.limit.return_value.execute.return_value.data = [
+        {"content": SAMPLE_SEED, "mode": "reuse"}
+    ]
+    with patch("src.agents.cover_letter.get_client", return_value=mock_db):
+        result = _fetch_cover_letter_seed()
+    assert result == {"content": SAMPLE_SEED, "mode": "reuse"}
+
+
+def test_fetch_cover_letter_seed_defaults_to_tone_only_when_mode_missing():
     mock_db = MagicMock()
     mock_db.table.return_value.select.return_value.limit.return_value.execute.return_value.data = [
         {"content": SAMPLE_SEED}
     ]
     with patch("src.agents.cover_letter.get_client", return_value=mock_db):
-        result = _fetch_tone_seed()
-    assert result == SAMPLE_SEED
+        result = _fetch_cover_letter_seed()
+    assert result == {"content": SAMPLE_SEED, "mode": "tone_only"}
 
 
-def test_fetch_tone_seed_returns_empty_string_when_no_seeds():
+def test_fetch_cover_letter_seed_returns_empty_when_no_seeds():
     mock_db = MagicMock()
     mock_db.table.return_value.select.return_value.limit.return_value.execute.return_value.data = []
     with patch("src.agents.cover_letter.get_client", return_value=mock_db):
-        result = _fetch_tone_seed()
-    assert result == ""
+        result = _fetch_cover_letter_seed()
+    assert result == {"content": "", "mode": "tone_only"}
 
 
 # --- _fetch_user_profile ---
@@ -164,6 +174,44 @@ def test_generate_cover_letter_passes_job_and_tone_to_claude(tmp_path):
     assert "Acme" in prompt
     assert "Software Engineer" in prompt
     assert SAMPLE_SEED in prompt
+
+
+def test_generate_cover_letter_reuse_mode_edits_base_letter(tmp_path):
+    mock_db = MagicMock()
+    mock_db.table.return_value.select.return_value.limit.return_value.execute.return_value.data = [
+        {"content": SAMPLE_SEED, "mode": "reuse"}
+    ]
+
+    mock_client = MagicMock()
+    mock_client.messages.create.return_value.content = [MagicMock(text=SAMPLE_LETTER)]
+
+    with patch("src.agents.cover_letter.get_client", return_value=mock_db):
+        with patch("src.agents.cover_letter.anthropic.Anthropic", return_value=mock_client):
+            with patch("src.agents.cover_letter.upload_file", return_value="storage.txt"):
+                generate_cover_letter(_job(), output_dir=str(tmp_path))
+
+    prompt = mock_client.messages.create.call_args[1]["messages"][0]["content"]
+    assert "Edit it for a new job" in prompt
+    assert SAMPLE_SEED in prompt
+
+
+def test_generate_cover_letter_tone_only_mode_writes_fresh_letter(tmp_path):
+    mock_db = MagicMock()
+    mock_db.table.return_value.select.return_value.limit.return_value.execute.return_value.data = [
+        {"content": SAMPLE_SEED, "mode": "tone_only"}
+    ]
+
+    mock_client = MagicMock()
+    mock_client.messages.create.return_value.content = [MagicMock(text=SAMPLE_LETTER)]
+
+    with patch("src.agents.cover_letter.get_client", return_value=mock_db):
+        with patch("src.agents.cover_letter.anthropic.Anthropic", return_value=mock_client):
+            with patch("src.agents.cover_letter.upload_file", return_value="storage.txt"):
+                generate_cover_letter(_job(), output_dir=str(tmp_path))
+
+    prompt = mock_client.messages.create.call_args[1]["messages"][0]["content"]
+    assert "Edit it for a new job" not in prompt
+    assert "Tone example" in prompt
 
 
 def test_generate_cover_letter_word_count_in_result(tmp_path):

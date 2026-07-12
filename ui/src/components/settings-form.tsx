@@ -78,6 +78,7 @@ export function SettingsForm({ preferences, watchlist: initial, coverLetterSeeds
   const [outreachSeeds, setOutreachSeeds] = useState<Seed[]>(initialOutreach)
   const [newClLabel, setNewClLabel] = useState("")
   const [newClContent, setNewClContent] = useState("")
+  const [newClMode, setNewClMode] = useState<"reuse" | "tone_only">("tone_only")
   const [newOrLabel, setNewOrLabel] = useState("")
   const [newOrContent, setNewOrContent] = useState("")
   const [addingSeed, setAddingSeed] = useState<string | null>(null)
@@ -144,20 +145,20 @@ export function SettingsForm({ preferences, watchlist: initial, coverLetterSeeds
 
   const canAdd = newCompany.trim().length > 0 && newUrl.trim().length > 0 && !adding
 
-  async function addSeed(table: "cover_letter_seeds" | "outreach_seeds", label: string, content: string) {
+  async function addSeed(table: "cover_letter_seeds" | "outreach_seeds", label: string, content: string, mode?: "reuse" | "tone_only") {
     if (!label.trim() || !content.trim()) return
     setAddingSeed(table)
     try {
       const res = await fetch("/api/seeds", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ table, label: label.trim(), content: content.trim() }),
+        body: JSON.stringify({ table, label: label.trim(), content: content.trim(), ...(mode ? { mode } : {}) }),
       })
       if (res.ok) {
         const entry = await res.json() as Seed
         if (table === "cover_letter_seeds") {
           setClSeeds((p) => [...p, entry])
-          setNewClLabel(""); setNewClContent("")
+          setNewClLabel(""); setNewClContent(""); setNewClMode("tone_only")
         } else {
           setOutreachSeeds((p) => [...p, entry])
           setNewOrLabel(""); setNewOrContent("")
@@ -368,11 +369,13 @@ export function SettingsForm({ preferences, watchlist: initial, coverLetterSeeds
         newContent={newClContent}
         onLabelChange={setNewClLabel}
         onContentChange={setNewClContent}
-        onAdd={() => addSeed("cover_letter_seeds", newClLabel, newClContent)}
+        onAdd={() => addSeed("cover_letter_seeds", newClLabel, newClContent, newClMode)}
         onRemove={(id) => removeSeed("cover_letter_seeds", id)}
         adding={addingSeed === "cover_letter_seeds"}
         removing={removingSeed}
         placeholder="Dear Hiring Manager, I'm excited to apply for..."
+        mode={newClMode}
+        onModeChange={setNewClMode}
       />
 
       {/* Outreach Seeds */}
@@ -398,7 +401,7 @@ export function SettingsForm({ preferences, watchlist: initial, coverLetterSeeds
 function SeedSection({
   title, description, seeds, newLabel, newContent,
   onLabelChange, onContentChange, onAdd, onRemove,
-  adding, removing, placeholder,
+  adding, removing, placeholder, mode, onModeChange,
 }: {
   title: string
   description: string
@@ -413,6 +416,8 @@ function SeedSection({
   adding: boolean
   removing: string | null
   placeholder: string
+  mode?: "reuse" | "tone_only"
+  onModeChange?: (v: "reuse" | "tone_only") => void
 }) {
   return (
     <section
@@ -439,9 +444,19 @@ function SeedSection({
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
-                  <p className="text-[12px] font-semibold mb-1" style={{ color: "var(--foreground)" }}>
-                    {seed.label ?? "Untitled"}
-                  </p>
+                  <div className="flex items-center gap-2 mb-1">
+                    <p className="text-[12px] font-semibold" style={{ color: "var(--foreground)" }}>
+                      {seed.label ?? "Untitled"}
+                    </p>
+                    {seed.mode && (
+                      <span
+                        className="text-[10px] font-medium px-1.5 py-0.5 rounded"
+                        style={{ backgroundColor: "var(--muted)", color: "var(--muted-foreground)" }}
+                      >
+                        {seed.mode === "reuse" ? "Use as-is" : "Tone only"}
+                      </span>
+                    )}
+                  </div>
                   <p className="text-[11px] leading-relaxed line-clamp-2"
                     style={{ color: "var(--muted-foreground)" }}>
                     {seed.content ?? ""}
@@ -484,6 +499,31 @@ function SeedSection({
 
       <div className="space-y-2">
         <StyledInput value={newLabel} onChange={onLabelChange} placeholder='Label, e.g. "Startup tone"' />
+        {mode && onModeChange && (
+          <div className="flex gap-4 py-1">
+            {([
+              { value: "tone_only" as const, label: "Tone only", desc: "Write a new letter matching this style" },
+              { value: "reuse" as const, label: "Use as-is", desc: "Tailor this exact letter per job" },
+            ]).map((opt) => (
+              <label key={opt.value} className="flex items-start gap-1.5 cursor-pointer">
+                <input
+                  type="radio"
+                  checked={mode === opt.value}
+                  onChange={() => onModeChange(opt.value)}
+                  className="mt-0.5"
+                />
+                <span>
+                  <span className="text-[12px] font-medium block" style={{ color: "var(--foreground)" }}>
+                    {opt.label}
+                  </span>
+                  <span className="text-[11px] block" style={{ color: "var(--muted-foreground)" }}>
+                    {opt.desc}
+                  </span>
+                </span>
+              </label>
+            ))}
+          </div>
+        )}
         <div className="flex gap-2 items-start">
           <textarea
             value={newContent}
