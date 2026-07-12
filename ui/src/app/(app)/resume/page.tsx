@@ -6,7 +6,7 @@ const CARD: React.CSSProperties = {
   background: "#fff", borderRadius: 18, boxShadow: "0 1px 3px rgba(0,49,53,0.05)", padding: 26,
 }
 const TEXTAREA: React.CSSProperties = {
-  width: "100%", minHeight: 480, padding: "16px 18px", fontSize: 13, lineHeight: 1.6,
+  width: "100%", minHeight: 420, padding: "16px 18px", fontSize: 13, lineHeight: 1.6,
   fontFamily: "var(--font-mono, ui-monospace, monospace)",
   borderRadius: 10, border: "1px solid rgba(0,49,53,0.14)", outline: "none",
   background: "#F5F8F7", color: "#003135", resize: "vertical",
@@ -23,11 +23,29 @@ interface ResumeDoc {
   updated_at: string | null
 }
 
+interface RecentSubmission {
+  title: string | null
+  company: string | null
+  submittedAt: string | null
+  url: string | null
+}
+
+function timeAgo(iso: string | null) {
+  if (!iso) return ""
+  const diff = Date.now() - new Date(iso).getTime()
+  const h = Math.floor(diff / 3600000)
+  if (h < 1) return "just now"
+  if (h < 24) return `${h}h ago`
+  return `${Math.floor(h / 24)}d ago`
+}
+
 export default function ResumePage() {
   const [loading, setLoading] = useState(true)
   const [texContent, setTexContent] = useState("")
   const [sourceUrl, setSourceUrl] = useState<string | null>(null)
+  const [recentSubmissions, setRecentSubmissions] = useState<RecentSubmission[]>([])
   const [hasDoc, setHasDoc] = useState(false)
+  const [showSource, setShowSource] = useState(false)
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -40,6 +58,7 @@ export default function ResumePage() {
         setTexContent(resume?.tex_content ?? "")
         setHasDoc(!!resume)
         setSourceUrl(d?.sourceUrl ?? null)
+        setRecentSubmissions(Array.isArray(d?.recentSubmissions) ? d.recentSubmissions : [])
       })
       .catch(() => {})
       .finally(() => setLoading(false))
@@ -84,57 +103,125 @@ export default function ResumePage() {
         </div>
       )}
 
+      {/* Your uploaded resume */}
       <div style={CARD}>
         <h1 style={{ fontSize: 19, fontWeight: 700, margin: "0 0 4px" }}>Resume</h1>
         <p style={{ fontSize: 13, color: "rgba(0,49,53,0.5)", margin: "0 0 20px" }}>
-          This is the exact LaTeX the agent tailors and compiles for every application.
-          Generated once from the resume you uploaded during onboarding — edit it directly if the
-          conversion missed something.
+          This is the resume you uploaded during onboarding.
         </p>
 
-        {sourceUrl && (
-          <a
-            href={sourceUrl} target="_blank" rel="noreferrer"
-            style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 700, color: "#024950", textDecoration: "none", marginBottom: 20 }}
-          >
-            ↓ View originally uploaded file
-          </a>
+        {loading ? (
+          <div style={{ ...SHIMMER, height: 600 }} />
+        ) : sourceUrl ? (
+          <iframe
+            src={sourceUrl}
+            title="Uploaded resume"
+            style={{ width: "100%", height: 600, border: "1px solid rgba(0,49,53,0.12)", borderRadius: 10 }}
+          />
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: "32px 20px", border: "1.5px dashed rgba(0,49,53,0.12)", borderRadius: 10 }}>
+            <p style={{ margin: "0 0 4px", fontSize: 13, fontWeight: 700 }}>No resume uploaded yet</p>
+            <p style={{ margin: 0, fontSize: 12, color: "rgba(0,49,53,0.45)", maxWidth: 320 }}>
+              Upload a resume during onboarding — it&apos;ll show up here.
+            </p>
+          </div>
         )}
+      </div>
+
+      {/* How it gets submitted */}
+      <div style={CARD}>
+        <h2 style={{ fontSize: 17, fontWeight: 700, margin: "0 0 4px" }}>How it gets submitted</h2>
+        <p style={{ fontSize: 13, color: "rgba(0,49,53,0.5)", margin: "0 0 20px" }}>
+          The agent tailors your resume per job before applying — these are the actual compiled PDFs it sent.
+        </p>
 
         {loading ? (
-          <div style={{ ...SHIMMER, height: 480 }} />
-        ) : (
-          <>
-            {!hasDoc && (
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: "32px 20px", border: "1.5px dashed rgba(0,49,53,0.12)", borderRadius: 10, marginBottom: 16 }}>
-                <p style={{ margin: "0 0 4px", fontSize: 13, fontWeight: 700 }}>No resume yet</p>
-                <p style={{ margin: 0, fontSize: 12, color: "rgba(0,49,53,0.45)", maxWidth: 320 }}>
-                  Upload a resume during onboarding to generate one, or paste your own .tex below.
-                </p>
-              </div>
-            )}
-            <textarea
-              value={texContent}
-              onChange={e => setTexContent(e.target.value)}
-              style={TEXTAREA}
-              spellCheck={false}
-              placeholder="\documentclass{article}..."
-            />
-            <div style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 16 }}>
-              <button
-                onClick={save}
-                disabled={saving || !texContent.trim()}
+          <div style={{ ...SHIMMER, height: 80 }} />
+        ) : recentSubmissions.length > 0 ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {recentSubmissions.map((s, i) => (
+              <a
+                key={i}
+                href={s.url ?? undefined}
+                target="_blank"
+                rel="noreferrer"
                 style={{
-                  background: "#024950", color: "#fff", border: "none", borderRadius: 20, padding: "12px 24px",
-                  fontFamily: "inherit", fontSize: 13, fontWeight: 700,
-                  cursor: (saving || !texContent.trim()) ? "default" : "pointer",
-                  opacity: (saving || !texContent.trim()) ? 0.6 : 1,
+                  display: "flex", alignItems: "center", justifyContent: "space-between",
+                  padding: "12px 16px", background: "#F5F8F7", borderRadius: 10,
+                  textDecoration: "none", color: "#003135",
                 }}
               >
-                {saving ? "Saving…" : "Save resume"}
-              </button>
-            </div>
-          </>
+                <div>
+                  <p style={{ margin: "0 0 2px", fontSize: 13, fontWeight: 700 }}>{s.title ?? "—"}</p>
+                  <p style={{ margin: 0, fontSize: 12, color: "rgba(0,49,53,0.5)" }}>{s.company ?? "—"}</p>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ fontSize: 11, color: "rgba(0,49,53,0.4)" }}>{timeAgo(s.submittedAt)}</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: "#024950" }}>View →</span>
+                </div>
+              </a>
+            ))}
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: "28px 20px", border: "1.5px dashed rgba(0,49,53,0.12)", borderRadius: 10 }}>
+            <p style={{ margin: "0 0 4px", fontSize: 13, fontWeight: 700 }}>No applications submitted yet</p>
+            <p style={{ margin: 0, fontSize: 12, color: "rgba(0,49,53,0.45)", maxWidth: 320 }}>
+              Once the agent applies to a job, the tailored resume it sent will show up here.
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Advanced: edit the underlying LaTeX source */}
+      <div style={CARD}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div>
+            <h2 style={{ fontSize: 15, fontWeight: 700, margin: "0 0 4px" }}>Edit source (advanced)</h2>
+            <p style={{ fontSize: 12, color: "rgba(0,49,53,0.5)", margin: 0 }}>
+              The LaTeX converted from your upload — the agent tailors this per job. Only edit if the conversion missed something.
+            </p>
+          </div>
+          <span onClick={() => setShowSource(p => !p)} style={{ fontSize: 13, fontWeight: 700, color: "#964734", cursor: "pointer", flexShrink: 0 }}>
+            {showSource ? "Hide" : "Show"}
+          </span>
+        </div>
+
+        {showSource && (
+          loading ? (
+            <div style={{ ...SHIMMER, height: 420, marginTop: 16 }} />
+          ) : (
+            <>
+              {!hasDoc && (
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: "32px 20px", border: "1.5px dashed rgba(0,49,53,0.12)", borderRadius: 10, marginTop: 16 }}>
+                  <p style={{ margin: "0 0 4px", fontSize: 13, fontWeight: 700 }}>No source generated yet</p>
+                  <p style={{ margin: 0, fontSize: 12, color: "rgba(0,49,53,0.45)", maxWidth: 320 }}>
+                    Upload a resume during onboarding to generate one, or paste your own .tex below.
+                  </p>
+                </div>
+              )}
+              <textarea
+                value={texContent}
+                onChange={e => setTexContent(e.target.value)}
+                style={{ ...TEXTAREA, marginTop: 16 }}
+                spellCheck={false}
+                placeholder="\documentclass{article}..."
+              />
+              <div style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 16 }}>
+                <button
+                  onClick={save}
+                  disabled={saving || !texContent.trim()}
+                  style={{
+                    background: "#024950", color: "#fff", border: "none", borderRadius: 20, padding: "12px 24px",
+                    fontFamily: "inherit", fontSize: 13, fontWeight: 700,
+                    cursor: (saving || !texContent.trim()) ? "default" : "pointer",
+                    opacity: (saving || !texContent.trim()) ? 0.6 : 1,
+                  }}
+                >
+                  {saving ? "Saving…" : "Save resume"}
+                </button>
+              </div>
+            </>
+          )
         )}
       </div>
     </div>

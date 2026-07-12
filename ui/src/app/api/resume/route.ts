@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase"
 import { requireAuth } from "@/lib/require-auth"
 
 const SOURCE_BUCKET = "resumes-source"
+const TAILORED_BUCKET = "resumes"
 
 export async function GET() {
   const auth = await requireAuth()
@@ -24,7 +25,30 @@ export async function GET() {
     sourceUrl = signed?.signedUrl ?? null
   }
 
-  return NextResponse.json({ resume: row, sourceUrl })
+  // Real tailored PDFs the agent has already compiled and submitted per job —
+  // "how it gets submitted" is these, not the raw LaTeX source.
+  const { data: recentApps } = await db
+    .from("applications")
+    .select("title,company,submitted_at,resume_pdf_path")
+    .not("resume_pdf_path", "is", null)
+    .order("submitted_at", { ascending: false })
+    .limit(5)
+
+  const recentSubmissions = await Promise.all(
+    (recentApps ?? []).map(async (app) => {
+      const { data: signed } = await db.storage
+        .from(TAILORED_BUCKET)
+        .createSignedUrl(app.resume_pdf_path as string, 60 * 10)
+      return {
+        title: app.title,
+        company: app.company,
+        submittedAt: app.submitted_at,
+        url: signed?.signedUrl ?? null,
+      }
+    })
+  )
+
+  return NextResponse.json({ resume: row, sourceUrl, recentSubmissions: recentSubmissions.filter(s => s.url) })
 }
 
 export async function PATCH(req: NextRequest) {
