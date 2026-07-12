@@ -2,7 +2,9 @@
 
 import { useEffect, useRef, useState } from "react"
 import { SettingsForm } from "@/components/settings-form"
-import type { Preferences, WatchlistEntry, Seed } from "@/lib/types"
+import { JobPreferencesCard } from "@/components/job-preferences-card"
+import { CompanyWatchlistCard } from "@/components/company-watchlist-card"
+import type { Seed } from "@/lib/types"
 
 interface SlackConnection {
   team_name: string | null
@@ -102,8 +104,6 @@ export default function SettingsPage() {
     emailUpdates: true, applicationSubmitted: true, interviewScheduled: true, weeklySummary: false,
   })
 
-  const [preferences, setPreferences] = useState<Preferences | null>(null)
-  const [watchlist, setWatchlist] = useState<WatchlistEntry[]>([])
   const [coverLetterSeeds, setCoverLetterSeeds] = useState<Seed[]>([])
   const [outreachSeeds, setOutreachSeeds] = useState<Seed[]>([])
 
@@ -153,14 +153,6 @@ export default function SettingsPage() {
       })
       .catch(() => {})
       .finally(() => setLoading(false))
-
-    fetch("/api/settings")
-      .then(r => r.json())
-      .then(d => {
-        setPreferences(d?.preferences ?? null)
-        setWatchlist(d?.watchlist ?? [])
-      })
-      .catch(() => {})
 
     fetch("/api/seeds?table=cover_letter_seeds")
       .then(r => r.json())
@@ -330,10 +322,12 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* Job search preferences, watchlist, cover letter / outreach samples */}
+        {/* Job preferences and company watchlist — same design as Profile */}
+        <JobPreferencesCard />
+        <CompanyWatchlistCard />
+
+        {/* Cover letter / outreach tone samples */}
         <SettingsForm
-          preferences={preferences}
-          watchlist={watchlist}
           coverLetterSeeds={coverLetterSeeds}
           outreachSeeds={outreachSeeds}
         />

@@ -1,8 +1,9 @@
 "use client"
 
 import { useEffect, useRef, useState, useCallback } from "react"
-import { CompanyLogo } from "@/components/company-logo"
 import { CITY_STATE_OPTIONS, DEGREE_OPTIONS, MAJOR_OPTIONS, SCHOOL_OPTIONS, MONTH_OPTIONS, gradYearOptions } from "@/lib/location-data"
+import { JobPreferencesCard } from "@/components/job-preferences-card"
+import { CompanyWatchlistCard } from "@/components/company-watchlist-card"
 
 const CSS = `
   @keyframes prof-shimmer { 0%{background-position:100% 0} 100%{background-position:0 0} }
@@ -53,18 +54,15 @@ const GENDERS = ["Woman", "Man", "Non-binary", "Prefer not to say"]
 const RACES = ["American Indian / Alaska Native", "Asian", "Black / African American", "Hispanic / Latino", "Native Hawaiian / Pacific Islander", "White", "Two or more races", "Prefer not to say"]
 const VETERANS = ["Yes", "No", "Prefer not to say"]
 const DISABILITIES = ["Yes", "No", "Prefer not to say"]
-const SENIORITY_OPTS = ["Internship", "Entry Level", "Mid Level", "Senior", "Lead", "Staff"]
 
 interface WorkEntry { employer: string; title: string; startDate: string; endDate: string; description: string }
 interface ToneSample { label: string; text: string }
-interface Company { name: string; url: string }
 
 interface Form {
   fullName: string; email: string; phone: string; currentLocation: string
   linkedin: string; github: string; portfolio: string
   school: string; major: string; degree: string; gpa: string; gradMonth: string; gradYear: string
   workAuth: string; sponsorship: string; relocate: string; workMode: string; startDate: string
-  minSalary: string; desiredSalary: string
   gender: string; race: string; veteran: string; disability: string; pronouns: string
 }
 
@@ -139,20 +137,11 @@ export default function ProfilePage() {
     linkedin: "", github: "", portfolio: "",
     school: "", major: "", degree: "", gpa: "", gradMonth: "", gradYear: "",
     workAuth: "Yes", sponsorship: "No", relocate: "Yes", workMode: "Remote", startDate: "",
-    minSalary: "", desiredSalary: "",
     gender: "Prefer not to say", race: "Prefer not to say",
     veteran: "Prefer not to say", disability: "Prefer not to say", pronouns: "",
   })
   const [skills, setSkills] = useState<string[]>([])
   const [skillInput, setSkillInput] = useState("")
-  const [locations, setLocations] = useState<string[]>([])
-  const [locationInput, setLocationInput] = useState("")
-  const [seniority, setSeniority] = useState<string[]>([])
-  const [keywords, setKeywords] = useState<string[]>([])
-  const [keywordInput, setKeywordInput] = useState("")
-  const [companies, setCompanies] = useState<Company[]>([])
-  const [companyName, setCompanyName] = useState("")
-  const [companyUrl, setCompanyUrl] = useState("")
   const [workHistory, setWorkHistory] = useState<WorkEntry[]>([])
   const [toneSamples, setToneSamples] = useState<ToneSample[]>([])
   const [resumeFileName, setResumeFileName] = useState("Upload resume")
@@ -161,13 +150,10 @@ export default function ProfilePage() {
   useEffect(() => {
     Promise.all([
       fetch("/api/profile").then(r => r.json()).catch(() => ({})),
-      fetch("/api/settings").then(r => r.json()).catch(() => ({})),
-      fetch("/api/watchlist").then(r => r.json()).catch(() => ({ watchlist: [] })),
       fetch("/api/seeds?table=cover_letter_seeds").then(r => r.json()).catch(() => []),
       fetch("/api/seeds?table=outreach_seeds").then(r => r.json()).catch(() => []),
-    ]).then(([profileData, settingsData, watchlistData, coverSeeds, outreachSeeds]) => {
+    ]).then(([profileData, coverSeeds, outreachSeeds]) => {
       const p = profileData ?? {}
-      const prefs = settingsData?.preferences ?? {}
       setForm(prev => ({
         ...prev,
         fullName: p.full_name ?? "",
@@ -190,8 +176,6 @@ export default function ProfilePage() {
         relocate: p.relocate ?? "Yes",
         workMode: p.work_mode ?? "Remote",
         startDate: p.start_date ?? "",
-        minSalary: prefs.salary_floor ? String(prefs.salary_floor) : "",
-        desiredSalary: prefs.desired_salary ? String(prefs.desired_salary) : "",
         gender: p.gender ?? "Prefer not to say",
         race: p.race ?? "Prefer not to say",
         veteran: p.veteran ?? "Prefer not to say",
@@ -199,11 +183,7 @@ export default function ProfilePage() {
         pronouns: p.pronouns ?? "",
       }))
       setSkills(Array.isArray(p.skills) ? p.skills : [])
-      setLocations(Array.isArray(prefs.locations) ? prefs.locations : [])
-      setSeniority(Array.isArray(prefs.seniority) ? prefs.seniority : [])
-      setKeywords(Array.isArray(prefs.role_keywords) ? prefs.role_keywords : [])
       if (Array.isArray(p.work_history)) setWorkHistory(p.work_history as WorkEntry[])
-      if (Array.isArray(watchlistData?.watchlist)) setCompanies(watchlistData.watchlist)
       const allSeeds = [...(Array.isArray(coverSeeds) ? coverSeeds : []), ...(Array.isArray(outreachSeeds) ? outreachSeeds : [])]
       setToneSamples(allSeeds.map((s: Record<string, string>) => ({ label: s.label ?? "Sample", text: s.content ?? "" })))
     }).finally(() => setLoading(false))
@@ -237,57 +217,12 @@ export default function ProfilePage() {
     })
   }
 
-  function persistWatchlist(list: Company[]) {
-    return fetch("/api/settings", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        watchlist: list.map(c => ({ company_name: c.name, careers_url: c.url })),
-      }),
-    })
-  }
-
-  async function addCompanyAndPersist() {
-    const name = companyName.trim()
-    if (!name) return
-    const next = [...companies, { name, url: companyUrl }]
-    setCompanies(next)
-    setCompanyName(""); setCompanyUrl("")
-    const res = await persistWatchlist(next).catch(() => null)
-    if (!res?.ok) {
-      setParseToast("Couldn't save — try Save all")
-      if (toastTimer.current) clearTimeout(toastTimer.current)
-      toastTimer.current = setTimeout(() => setParseToast(null), 3000)
-    }
-  }
-
-  async function removeCompanyAndPersist(i: number) {
-    const next = companies.filter((_, idx) => idx !== i)
-    setCompanies(next)
-    await persistWatchlist(next).catch(() => null)
-  }
-
   async function save() {
     setSaving(true)
     try {
-      const [profileRes, settingsRes] = await Promise.all([
-        persistProfile(form, skills, workHistory),
-        fetch("/api/settings", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            preferences: {
-              locations, seniority, role_keywords: keywords,
-              salary_floor: form.minSalary ? parseInt(form.minSalary.replace(/\D/g, ""), 10) : null,
-              desired_salary: form.desiredSalary ? parseInt(form.desiredSalary.replace(/\D/g, ""), 10) : null,
-            },
-            watchlist: companies.map(c => ({ company_name: c.name, careers_url: c.url })),
-          }),
-        }),
-      ])
-      if (!profileRes.ok || !settingsRes.ok) {
-        const badRes = !profileRes.ok ? profileRes : settingsRes
-        const body = await badRes.json().catch(() => null)
+      const profileRes = await persistProfile(form, skills, workHistory)
+      if (!profileRes.ok) {
+        const body = await profileRes.json().catch(() => null)
         throw new Error(body?.error ?? "save failed")
       }
       setSaveMsg("Saved")
@@ -685,113 +620,10 @@ export default function ProfilePage() {
         </div>
 
         {/* Job preferences */}
-        <div style={CARD}>
-          <SectionHeader title="Job preferences" editing={!!editing.prefs} onToggle={() => toggleSection("prefs")} />
-          {!editing.prefs ? (
-            <>
-              <div style={{ marginBottom: 14 }}>
-                <p style={SUMMARY_LABEL}>Target locations</p>
-                {locations.length > 0
-                  ? <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 6 }}>{locations.map((l, i) => <span key={i} style={CHIP}>{l}</span>)}</div>
-                  : <p style={{ margin: "6px 0 0", fontSize: 13, color: "rgba(0,49,53,0.4)" }}>No target locations — agent considers any location.</p>}
-              </div>
-              <div style={{ marginBottom: 14 }}>
-                <p style={SUMMARY_LABEL}>Seniority levels</p>
-                {seniority.length > 0
-                  ? <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 6 }}>{seniority.map((s, i) => <span key={i} style={CHIP}>{s}</span>)}</div>
-                  : <p style={{ margin: "6px 0 0", fontSize: 13, color: "rgba(0,49,53,0.4)" }}>No seniority levels selected.</p>}
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: "18px 24px", marginBottom: 14 }}>
-                <div><p style={SUMMARY_LABEL}>Minimum salary</p><p style={SUMMARY_VALUE}>{form.minSalary || "—"}</p></div>
-                <div><p style={SUMMARY_LABEL}>Desired salary</p><p style={SUMMARY_VALUE}>{form.desiredSalary || "—"}</p></div>
-              </div>
-              <div>
-                <p style={SUMMARY_LABEL}>Role keywords</p>
-                {keywords.length > 0
-                  ? <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 6 }}>{keywords.map((k, i) => <span key={i} style={CHIP}>{k}</span>)}</div>
-                  : <p style={{ margin: "6px 0 0", fontSize: 13, color: "rgba(0,49,53,0.4)" }}>No role keywords set.</p>}
-              </div>
-            </>
-          ) : (
-            <>
-              <div style={{ marginBottom: 24 }}>
-                <label style={LABEL}>Target locations</label>
-                <ChipList items={locations} onRemove={i => setLocations(p => p.filter((_, idx) => idx !== i))} />
-                <div style={{ marginTop: 10 }}>
-                  <TagInput value={locationInput} onChange={e => setLocationInput(e.target.value)}
-                    onKeyDown={e => { if (e.key === "Enter" && locationInput.trim()) { e.preventDefault(); setLocations(p => [...p, locationInput.trim()]); setLocationInput("") } }}
-                    onAdd={() => { if (locationInput.trim()) { setLocations(p => [...p, locationInput.trim()]); setLocationInput("") } }}
-                    placeholder="San Francisco, CA" />
-                </div>
-              </div>
-              <div style={{ marginBottom: 24 }}>
-                <label style={LABEL}>Seniority levels</label>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-                  {SENIORITY_OPTS.map(opt => (
-                    <PillBtn key={opt} label={opt} active={seniority.includes(opt)}
-                      onClick={() => setSeniority(p => p.includes(opt) ? p.filter(x => x !== opt) : [...p, opt])} />
-                  ))}
-                </div>
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 24 }}>
-                <div>
-                  <label style={LABEL}>Minimum salary</label>
-                  <input className="pf-input" type="text" value={form.minSalary} onChange={f("minSalary")} style={INPUT} placeholder="$80,000" />
-                </div>
-                <div>
-                  <label style={LABEL}>Desired salary</label>
-                  <input className="pf-input" type="text" value={form.desiredSalary} onChange={f("desiredSalary")} style={INPUT} placeholder="$110,000" />
-                </div>
-              </div>
-              <div>
-                <label style={LABEL}>Role keywords</label>
-                <ChipList items={keywords} onRemove={i => setKeywords(p => p.filter((_, idx) => idx !== i))} />
-                <div style={{ marginTop: 10 }}>
-                  <TagInput value={keywordInput} onChange={e => setKeywordInput(e.target.value)}
-                    onKeyDown={e => { if (e.key === "Enter" && keywordInput.trim()) { e.preventDefault(); setKeywords(p => [...p, keywordInput.trim()]); setKeywordInput("") } }}
-                    onAdd={() => { if (keywordInput.trim()) { setKeywords(p => [...p, keywordInput.trim()]); setKeywordInput("") } }}
-                    placeholder="Software Engineer" />
-                </div>
-              </div>
-            </>
-          )}
-        </div>
+        <JobPreferencesCard />
 
         {/* Company watchlist */}
-        <div style={CARD}>
-          <SectionHeader title="Company watchlist" editing={!!editing.watchlist} onToggle={() => toggleSection("watchlist")} />
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
-            {companies.length > 0 ? companies.map((co, i) => (
-              <div key={i} style={{ position: "relative" }}>
-                <CompanyLogo name={co.name} size={46} />
-                {editing.watchlist && (
-                  <span onClick={() => removeCompanyAndPersist(i)}
-                    style={{ position: "absolute", top: -6, right: -6, width: 17, height: 17, borderRadius: "50%", background: "#003135", color: "#fff", fontSize: 11, lineHeight: "17px", textAlign: "center", cursor: "pointer", userSelect: "none" }}>×</span>
-                )}
-              </div>
-            )) : (
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: "32px 20px", border: "1.5px dashed rgba(0,49,53,0.12)", borderRadius: 10 }}>
-                <p style={{ margin: "0 0 4px", fontSize: 13, fontWeight: 700 }}>No companies on your watchlist</p>
-                <p style={{ margin: 0, fontSize: 12, color: "rgba(0,49,53,0.45)", maxWidth: 280 }}>Add dream companies and the agent will check them more aggressively.</p>
-              </div>
-            )}
-          </div>
-          {editing.watchlist && (
-            <>
-              <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 16 }}>
-                {companyName.trim() && <CompanyLogo name={companyName.trim()} size={42} />}
-                <input className="pf-input" type="text" placeholder="Company name" value={companyName}
-                  onChange={e => setCompanyName(e.target.value)}
-                  onKeyDown={e => { if (e.key === "Enter" && companyName.trim()) { e.preventDefault(); addCompanyAndPersist() } }}
-                  style={{ ...INPUT, flex: 1 }} />
-              </div>
-              <button onClick={addCompanyAndPersist}
-                style={{ marginTop: 14, padding: "11px 20px", borderRadius: 20, border: "none", background: "rgba(15,164,175,0.14)", color: "#024950", fontFamily: "inherit", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
-                + Add company
-              </button>
-            </>
-          )}
-        </div>
+        <CompanyWatchlistCard />
 
         {/* Demographics */}
         <div style={CARD}>
