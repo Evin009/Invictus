@@ -1,11 +1,12 @@
 import re
-from pathlib import Path
 
 import openai
 
 from src.config import settings
 from src.db.client import get_client
 from src.notifications.slack import post_error
+
+_SOURCE_NAME = "resume_document"
 
 
 def parse_bullets(tex_content: str) -> list[dict]:
@@ -55,27 +56,34 @@ def embed_text(text: str) -> list[float]:
     return resp.data[0].embedding
 
 
-def embed_resumes(resumes_dir: str) -> int:
-    """Parse all .tex files, embed bullets, upsert to resume_bullets. Returns bullets processed (inserts + updates)."""
+def embed_resumes() -> int:
+    """Parse the base resume from resume_document, embed bullets, upsert to resume_bullets.
+
+    resume_document is written by onboarding's PDF-to-LaTeX conversion
+    (ui/src/app/api/generate-resume-tex). Returns bullets processed.
+    """
     db = get_client()
     total = 0
 
-    for tex_file in Path(resumes_dir).glob("*.tex"):
-        try:
-            bullets = parse_bullets(tex_file.read_text(encoding='utf-8'))
-            for bullet in bullets:
-                db.table("resume_bullets").upsert(
-                    {
-                        "source_file": tex_file.name,
-                        "section": bullet["section"],
-                        "bullet_text": bullet["bullet_text"],
-                        "embedding": embed_text(bullet["bullet_text"]),
-                    },
-                    on_conflict="source_file,section,bullet_text",
-                ).execute()
-                total += 1
-        except Exception as e:
-            post_error("embed_resumes", str(e), {"file": tex_file.name})
-            continue
+    rows = db.table("resume_document").select("tex_content").limit(1).execute().data or []
+    if not rows:
+        return 0
+
+    try:
+        bullets = parse_bullets(rows[0]["tex_content"])
+        for bullet in bullets:
+            db.table("resume_bullets").upsert(
+                {
+                    "source_file": _SOURCE_NAME,
+                    "section": bullet["section"],
+                    "bullet_text": bullet["bullet_text"],
+                    "embedding": embed_text(bullet["bullet_text"]),
+                },
+                on_conflict="source_file,section,bullet_text",
+            ).execute()
+            total += 1
+    except Exception as e:
+        post_error("embed_resumes", str(e), {"source": _SOURCE_NAME})
+        return 0
 
     return total

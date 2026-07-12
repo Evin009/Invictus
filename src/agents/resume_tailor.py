@@ -6,6 +6,7 @@ from pathlib import Path
 import anthropic
 
 from src.config import settings
+from src.db.client import get_client
 from src.db.storage import upload_file
 from src.notifications.slack import post_error
 from src.rag.embedder import clean_tex
@@ -16,7 +17,19 @@ from src.utils import make_version_slug
 RESUME_BUCKET = "resumes"
 
 
-def tailor_resume(job: JobItem, tex_path: str, output_dir: str = "output/resumes") -> dict:
+def fetch_base_resume_tex() -> str:
+    """Fetch the base .tex written by onboarding's PDF-to-LaTeX conversion.
+
+    Raises RuntimeError if no resume_document row exists yet.
+    """
+    db = get_client()
+    rows = db.table("resume_document").select("tex_content").limit(1).execute().data or []
+    if not rows:
+        raise RuntimeError("No resume_document found — complete onboarding's resume upload first")
+    return rows[0]["tex_content"]
+
+
+def tailor_resume(job: JobItem, base_tex_content: str, output_dir: str = "output/resumes") -> dict:
     """
     Retrieve matching bullets, rewrite with Claude, compile to PDF, upload to Storage.
     Raises (after Slack alert) on compile failure or >2 pages.
@@ -27,8 +40,7 @@ def tailor_resume(job: JobItem, tex_path: str, output_dir: str = "output/resumes
         top_bullets = retrieve_bullets(job["description"], top_k=5)
         rewritten = _rewrite_bullets(top_bullets, job["description"], job["title"])
 
-        tex_content = Path(tex_path).read_text(encoding="utf-8")
-        tailored_tex = _substitute_bullets(tex_content, rewritten)
+        tailored_tex = _substitute_bullets(base_tex_content, rewritten)
 
         Path(output_dir).mkdir(parents=True, exist_ok=True)
         version = make_version_slug(job)

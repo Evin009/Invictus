@@ -188,6 +188,7 @@ export function OnboardWizard() {
   const isFirstMount = useRef(true)
   const parseStartRef = useRef<number>(0)
   const pendingParseData = useRef<Record<string, unknown> | null>(null)
+  const resumeFileRef = useRef<File | null>(null)
 
   // Load persisted progress
   useEffect(() => {
@@ -261,6 +262,7 @@ export function OnboardWizard() {
 
     parseStartRef.current = Date.now()
     pendingParseData.current = null
+    resumeFileRef.current = file
     setParseStep(0)
     upd({ stage: "extracting", resumeFileName: file.name, uploadError: null, extractError: null })
 
@@ -399,6 +401,18 @@ export function OnboardWizard() {
           watchlist: s.companies.map(c => ({ company_name: c.name, careers_url: "" })),
         }),
       })
+
+      const texFd = new FormData()
+      if (resumeFileRef.current) texFd.append("file", resumeFileRef.current)
+      texFd.append("data", JSON.stringify({
+        fullName: s.form.fullName, email: s.form.email, phone: s.form.phone,
+        linkedin: s.form.linkedin, github: s.form.github, portfolio: s.form.portfolio,
+        currentLocation: s.form.currentLocation,
+        school: s.form.school, degree: s.form.degree, major: s.form.major,
+        gpa: s.form.gpa, gradMonth: s.form.gradMonth, gradYear: s.form.gradYear,
+        skills: s.skills, workHistory: s.workHistory,
+      }))
+      await fetch("/api/generate-resume-tex", { method: "POST", body: texFd })
 
       try { localStorage.removeItem(STORAGE_KEY) } catch {}
       upd({ showSuccess: true })

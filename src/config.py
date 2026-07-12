@@ -17,7 +17,6 @@ class Settings:
     greenhouse_api_key: str
     lever_api_key: str
     github_token: str
-    base_resume_tex: str
 
 
 settings = Settings(
@@ -31,5 +30,4 @@ settings = Settings(
     greenhouse_api_key=os.environ.get("GREENHOUSE_API_KEY", ""),
     lever_api_key=os.environ.get("LEVER_API_KEY", ""),
     github_token=os.environ.get("GITHUB_TOKEN", ""),
-    base_resume_tex=os.environ.get("BASE_RESUME_TEX", "resumes/resume.tex"),
 )

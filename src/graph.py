@@ -6,10 +6,9 @@ from src.agents.crawler import crawler_agent
 from src.agents.outreach import run_outreach
 from src.agents.reply_tracker import scan_replies
 from src.agents.reporter import generate_report
-from src.agents.resume_tailor import tailor_resume
+from src.agents.resume_tailor import fetch_base_resume_tex, tailor_resume
 from src.agents.search import search_agent
 from src.agents.watchlist import watchlist_agent
-from src.config import settings
 from src.filters.dedup import dedup_filter
 from src.filters.preference import preference_filter
 from src.notifications.slack import post_error
@@ -33,10 +32,16 @@ def filter_node(state: GraphState) -> dict:
 
 
 def tailor_node(state: GraphState) -> dict:
+    try:
+        base_tex_content = fetch_base_resume_tex()
+    except Exception as e:
+        post_error("tailor_node", str(e), {"step": "fetch_base_resume_tex"})
+        return {"jobs_tailored": []}
+
     tailored = []
     for job in state.get("jobs_filtered", []):
         try:
-            resume = tailor_resume(job, settings.base_resume_tex)
+            resume = tailor_resume(job, base_tex_content)
             cover = generate_cover_letter(job)
             tailored.append({**job, **resume, **cover})
         except Exception as e:

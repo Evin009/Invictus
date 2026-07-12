@@ -7,6 +7,7 @@ from src.agents.resume_tailor import (
     _get_page_count,
     _rewrite_bullets,
     _substitute_bullets,
+    fetch_base_resume_tex,
     tailor_resume,
 )
 from src.state import JobItem
@@ -159,11 +160,29 @@ def test_get_page_count_single_page():
         assert _get_page_count("/tmp/resume.pdf") == 1
 
 
+# --- fetch_base_resume_tex ---
+
+def test_fetch_base_resume_tex_returns_content():
+    mock_db = MagicMock()
+    mock_db.table.return_value.select.return_value.limit.return_value.execute.return_value.data = [
+        {"tex_content": SAMPLE_TEX}
+    ]
+    with patch("src.agents.resume_tailor.get_client", return_value=mock_db):
+        result = fetch_base_resume_tex()
+    assert result == SAMPLE_TEX
+
+
+def test_fetch_base_resume_tex_raises_when_missing():
+    mock_db = MagicMock()
+    mock_db.table.return_value.select.return_value.limit.return_value.execute.return_value.data = []
+    with patch("src.agents.resume_tailor.get_client", return_value=mock_db):
+        with pytest.raises(RuntimeError, match="resume_document"):
+            fetch_base_resume_tex()
+
+
 # --- tailor_resume (integration) ---
 
 def test_tailor_resume_returns_required_keys(tmp_path):
-    tex_path = tmp_path / "resume.tex"
-    tex_path.write_text(SAMPLE_TEX)
     pdf_path = tmp_path / "resume_Acme_swe-1.pdf"
     pdf_path.write_bytes(b"%PDF-1.4")
 
@@ -175,7 +194,7 @@ def test_tailor_resume_returns_required_keys(tmp_path):
             with patch("src.agents.resume_tailor._compile_tex", return_value=str(pdf_path)):
                 with patch("src.agents.resume_tailor._get_page_count", return_value=1):
                     with patch("src.agents.resume_tailor.upload_file", return_value="Acme_swe-1.pdf") as mock_upload:
-                        result = tailor_resume(_job(), str(tex_path), str(tmp_path))
+                        result = tailor_resume(_job(), SAMPLE_TEX, str(tmp_path))
 
     assert "resume_pdf_path" in result
     assert "resume_version" in result
@@ -185,9 +204,6 @@ def test_tailor_resume_returns_required_keys(tmp_path):
 
 
 def test_tailor_resume_alerts_and_raises_on_page_overflow(tmp_path):
-    tex_path = tmp_path / "resume.tex"
-    tex_path.write_text(SAMPLE_TEX)
-
     mock_client = MagicMock()
     mock_client.messages.create.return_value.content = [MagicMock(text="[]")]
 
@@ -197,14 +213,11 @@ def test_tailor_resume_alerts_and_raises_on_page_overflow(tmp_path):
                 with patch("src.agents.resume_tailor._get_page_count", return_value=3):
                     with patch("src.agents.resume_tailor.post_error") as mock_err:
                         with pytest.raises(RuntimeError, match="3 pages"):
-                            tailor_resume(_job(), str(tex_path), str(tmp_path))
+                            tailor_resume(_job(), SAMPLE_TEX, str(tmp_path))
                         mock_err.assert_called_once()
 
 
 def test_tailor_resume_alerts_and_raises_on_compile_failure(tmp_path):
-    tex_path = tmp_path / "resume.tex"
-    tex_path.write_text(SAMPLE_TEX)
-
     mock_client = MagicMock()
     mock_client.messages.create.return_value.content = [MagicMock(text="[]")]
 
@@ -213,14 +226,11 @@ def test_tailor_resume_alerts_and_raises_on_compile_failure(tmp_path):
             with patch("src.agents.resume_tailor._compile_tex", side_effect=RuntimeError("latexmk failed: error")):
                 with patch("src.agents.resume_tailor.post_error") as mock_err:
                     with pytest.raises(RuntimeError):
-                        tailor_resume(_job(), str(tex_path), str(tmp_path))
+                        tailor_resume(_job(), SAMPLE_TEX, str(tmp_path))
                     mock_err.assert_called_once()
 
 
 def test_tailor_resume_version_sanitizes_special_chars(tmp_path):
-    tex_path = tmp_path / "resume.tex"
-    tex_path.write_text(SAMPLE_TEX)
-
     mock_client = MagicMock()
     mock_client.messages.create.return_value.content = [MagicMock(text="[]")]
     job = _job(company="Acme Corp.", job_id="swe 1")
@@ -230,7 +240,7 @@ def test_tailor_resume_version_sanitizes_special_chars(tmp_path):
             with patch("src.agents.resume_tailor._compile_tex", return_value=str(tmp_path / "resume.pdf")):
                 with patch("src.agents.resume_tailor._get_page_count", return_value=1):
                     with patch("src.agents.resume_tailor.upload_file", return_value="storage.pdf"):
-                        result = tailor_resume(job, str(tex_path), str(tmp_path))
+                        result = tailor_resume(job, SAMPLE_TEX, str(tmp_path))
 
     assert " " not in result["resume_version"]
     assert "." not in result["resume_version"]

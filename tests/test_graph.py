@@ -72,9 +72,10 @@ def test_filter_node_empty_discovered_returns_empty():
 def test_tailor_node_returns_tailored_jobs():
     job_w_paths = {**_JOB, "resume_pdf_path": "/tmp/r.pdf", "cover_letter_path": "/tmp/c.pdf"}
     state = {"jobs_filtered": [_JOB]}
-    with patch("src.graph.tailor_resume", return_value={"resume_pdf_path": "/tmp/r.pdf"}):
-        with patch("src.graph.generate_cover_letter", return_value={"cover_letter_path": "/tmp/c.pdf"}):
-            result = tailor_node(state)
+    with patch("src.graph.fetch_base_resume_tex", return_value="base tex"):
+        with patch("src.graph.tailor_resume", return_value={"resume_pdf_path": "/tmp/r.pdf"}):
+            with patch("src.graph.generate_cover_letter", return_value={"cover_letter_path": "/tmp/c.pdf"}):
+                result = tailor_node(state)
     assert len(result["jobs_tailored"]) == 1
     assert result["jobs_tailored"][0]["resume_pdf_path"] == "/tmp/r.pdf"
 
@@ -83,17 +84,27 @@ def test_tailor_node_per_job_error_continues():
     state = {"jobs_filtered": [_JOB, _JOB]}
     call_count = {"n": 0}
 
-    def tailor_side(job, path):
+    def tailor_side(job, base_tex_content):
         call_count["n"] += 1
         if call_count["n"] == 1:
             raise RuntimeError("compile failed")
         return {"resume_pdf_path": "/tmp/r.pdf"}
 
-    with patch("src.graph.tailor_resume", side_effect=tailor_side):
-        with patch("src.graph.generate_cover_letter", return_value={"cover_letter_path": "/tmp/c.pdf"}):
-            with patch("src.graph.post_error"):
-                result = tailor_node(state)
+    with patch("src.graph.fetch_base_resume_tex", return_value="base tex"):
+        with patch("src.graph.tailor_resume", side_effect=tailor_side):
+            with patch("src.graph.generate_cover_letter", return_value={"cover_letter_path": "/tmp/c.pdf"}):
+                with patch("src.graph.post_error"):
+                    result = tailor_node(state)
     assert len(result["jobs_tailored"]) == 1
+
+
+def test_tailor_node_returns_empty_when_base_resume_missing():
+    state = {"jobs_filtered": [_JOB]}
+    with patch("src.graph.fetch_base_resume_tex", side_effect=RuntimeError("no resume_document")):
+        with patch("src.graph.post_error") as mock_err:
+            result = tailor_node(state)
+    assert result["jobs_tailored"] == []
+    mock_err.assert_called_once()
 
 
 # --- apply_node ---

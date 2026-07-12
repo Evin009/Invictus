@@ -1,5 +1,3 @@
-import os
-import tempfile
 from unittest.mock import MagicMock, patch
 
 from src.rag.embedder import _clean_tex, clean_tex, embed_resumes, embed_text, parse_bullets
@@ -106,6 +104,13 @@ def test_embed_text_returns_embedding_from_response():
 
 # --- embed_resumes ---
 
+def _mock_db_with_resume(tex_content: str | None) -> MagicMock:
+    mock_db = MagicMock()
+    data = [{"tex_content": tex_content}] if tex_content is not None else []
+    mock_db.table.return_value.select.return_value.limit.return_value.execute.return_value.data = data
+    return mock_db
+
+
 def test_embed_resumes_upserts_bullets():
     tex_content = r"""
 \section{Experience}
@@ -114,25 +119,20 @@ def test_embed_resumes_upserts_bullets():
   \item Led team of 5 engineers
 \end{itemize}
 """
-    with tempfile.TemporaryDirectory() as tmpdir:
-        with open(os.path.join(tmpdir, "resume.tex"), "w") as f:
-            f.write(tex_content)
-
-        mock_db = MagicMock()
-        with patch("src.rag.embedder.get_client", return_value=mock_db), \
-             patch("src.rag.embedder.embed_text", return_value=_FAKE_VEC):
-            count = embed_resumes(tmpdir)
+    mock_db = _mock_db_with_resume(tex_content)
+    with patch("src.rag.embedder.get_client", return_value=mock_db), \
+         patch("src.rag.embedder.embed_text", return_value=_FAKE_VEC):
+        count = embed_resumes()
 
     assert count == 2
     assert mock_db.table.return_value.upsert.call_count == 2
 
 
-def test_embed_resumes_empty_dir_returns_zero():
-    with tempfile.TemporaryDirectory() as tmpdir:
-        mock_db = MagicMock()
-        with patch("src.rag.embedder.get_client", return_value=mock_db), \
-             patch("src.rag.embedder.embed_text", return_value=_FAKE_VEC):
-            count = embed_resumes(tmpdir)
+def test_embed_resumes_no_document_returns_zero():
+    mock_db = _mock_db_with_resume(None)
+    with patch("src.rag.embedder.get_client", return_value=mock_db), \
+         patch("src.rag.embedder.embed_text", return_value=_FAKE_VEC):
+        count = embed_resumes()
     assert count == 0
 
 
@@ -143,20 +143,16 @@ def test_embed_resumes_logs_error_and_continues_on_db_failure():
   \item Bullet
 \end{itemize}
 """
-    with tempfile.TemporaryDirectory() as tmpdir:
-        with open(os.path.join(tmpdir, "resume.tex"), "w") as f:
-            f.write(tex_content)
+    mock_db = _mock_db_with_resume(tex_content)
+    mock_db.table.return_value.upsert.return_value.execute.side_effect = Exception("DB error")
 
-        mock_db = MagicMock()
-        mock_db.table.return_value.upsert.return_value.execute.side_effect = Exception("DB error")
+    with patch("src.rag.embedder.get_client", return_value=mock_db), \
+         patch("src.rag.embedder.embed_text", return_value=_FAKE_VEC), \
+         patch("src.rag.embedder.post_error") as mock_err:
+        count = embed_resumes()
 
-        with patch("src.rag.embedder.get_client", return_value=mock_db), \
-             patch("src.rag.embedder.embed_text", return_value=_FAKE_VEC), \
-             patch("src.rag.embedder.post_error") as mock_err:
-            count = embed_resumes(tmpdir)
-
-        mock_err.assert_called_once()
-        assert count == 0
+    mock_err.assert_called_once()
+    assert count == 0
 
 
 def test_embed_resumes_upsert_payload_shape():
@@ -166,14 +162,10 @@ def test_embed_resumes_upsert_payload_shape():
   \item Python, Go, Rust
 \end{itemize}
 """
-    with tempfile.TemporaryDirectory() as tmpdir:
-        with open(os.path.join(tmpdir, "resume.tex"), "w") as f:
-            f.write(tex_content)
-
-        mock_db = MagicMock()
-        with patch("src.rag.embedder.get_client", return_value=mock_db), \
-             patch("src.rag.embedder.embed_text", return_value=_FAKE_VEC):
-            embed_resumes(tmpdir)
+    mock_db = _mock_db_with_resume(tex_content)
+    with patch("src.rag.embedder.get_client", return_value=mock_db), \
+         patch("src.rag.embedder.embed_text", return_value=_FAKE_VEC):
+        embed_resumes()
 
     call_kwargs = mock_db.table.return_value.upsert.call_args
     payload = call_kwargs[0][0]
