@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock, patch, call
 
-from src.agents.reporter import generate_report, _fetch_stats
+from src.agents.reporter import generate_report, _fetch_stats, _save_run_log
 
 
 # --- _fetch_stats ---
@@ -99,6 +99,39 @@ def test_generate_report_db_error_alerts_and_returns_empty():
                 result = generate_report(since=_SINCE)
     mock_err.assert_called_once()
     assert result == {}
+
+
+# --- _save_run_log ---
+
+def test_save_run_log_inserts_stats():
+    mock_db = MagicMock()
+    stats = {
+        "jobs_discovered": 7, "applied": 3, "manual_pending": 1,
+        "interviews": 2, "rejections": 0, "replies": 1, "outreach_sent": 4,
+    }
+    with patch("src.agents.reporter.get_client", return_value=mock_db):
+        _save_run_log(stats)
+    mock_db.table.assert_called_once_with("run_log")
+    payload = mock_db.table.return_value.insert.call_args[0][0]
+    assert payload == stats
+
+
+def test_save_run_log_alerts_and_swallows_db_error():
+    mock_db = MagicMock()
+    mock_db.table.return_value.insert.return_value.execute.side_effect = Exception("DB error")
+    with patch("src.agents.reporter.get_client", return_value=mock_db):
+        with patch("src.agents.reporter.post_error") as mock_err:
+            _save_run_log({"jobs_discovered": 1})
+    mock_err.assert_called_once()
+
+
+def test_generate_report_saves_run_log():
+    mock_db = _mock_db_with_counts()
+    with patch("src.agents.reporter.get_client", return_value=mock_db):
+        with patch("src.agents.reporter.post_summary"):
+            with patch("src.agents.reporter._save_run_log") as mock_save:
+                generate_report(since=_SINCE)
+    mock_save.assert_called_once()
 
 
 def test_generate_report_defaults_to_last_24h():

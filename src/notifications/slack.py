@@ -1,14 +1,28 @@
 import json
 import urllib.request
-from src.config import settings
+
+
+def _fetch_webhook_url() -> str:
+    """Return the connected Slack webhook URL, or empty string if not connected.
+
+    Connected via OAuth from the Settings page (ui/src/app/api/integrations/slack) —
+    see slack_integration table. Import is local to avoid a circular import with
+    src.db.client at module load time.
+    """
+    from src.db.client import get_client
+
+    db = get_client()
+    rows = db.table("slack_integration").select("webhook_url").limit(1).execute().data or []
+    return rows[0]["webhook_url"] if rows else ""
 
 
 def post_message(text: str) -> None:
-    if not settings.slack_webhook_url:
+    webhook_url = _fetch_webhook_url()
+    if not webhook_url:
         return
     payload = json.dumps({"text": text}).encode()
     req = urllib.request.Request(
-        settings.slack_webhook_url,
+        webhook_url,
         data=payload,
         headers={"Content-Type": "application/json"},
     )

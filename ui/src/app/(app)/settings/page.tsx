@@ -4,6 +4,12 @@ import { useEffect, useRef, useState } from "react"
 import { SettingsForm } from "@/components/settings-form"
 import type { Preferences, WatchlistEntry, Seed } from "@/lib/types"
 
+interface SlackConnection {
+  team_name: string | null
+  channel_name: string | null
+  connected_at: string | null
+}
+
 const CSS = `
   @keyframes set-shimmer { 0%{background-position:100% 0} 100%{background-position:0 0} }
   .st-input:focus { border-color: #0FA4AF !important; background: #fff !important; box-shadow: 0 0 0 3px rgba(15,164,175,0.15) !important; }
@@ -100,6 +106,40 @@ export default function SettingsPage() {
   const [watchlist, setWatchlist] = useState<WatchlistEntry[]>([])
   const [coverLetterSeeds, setCoverLetterSeeds] = useState<Seed[]>([])
   const [outreachSeeds, setOutreachSeeds] = useState<Seed[]>([])
+
+  const [slackConnection, setSlackConnection] = useState<SlackConnection | null>(null)
+  const [slackLoading, setSlackLoading] = useState(true)
+  const [disconnectingSlack, setDisconnectingSlack] = useState(false)
+  const [slackNotice, setSlackNotice] = useState<"connected" | "error" | null>(null)
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get("slack_connected")) setSlackNotice("connected")
+    else if (params.get("slack_error")) setSlackNotice("error")
+  }, [])
+
+  function refreshSlackConnection() {
+    setSlackLoading(true)
+    fetch("/api/integrations/slack")
+      .then(r => r.json())
+      .then(d => setSlackConnection(d?.connection ?? null))
+      .catch(() => {})
+      .finally(() => setSlackLoading(false))
+  }
+
+  async function disconnectSlack() {
+    setDisconnectingSlack(true)
+    try {
+      await fetch("/api/integrations/slack", { method: "DELETE" })
+      setSlackConnection(null)
+    } finally {
+      setDisconnectingSlack(false)
+    }
+  }
+
+  useEffect(() => {
+    refreshSlackConnection()
+  }, [])
 
   useEffect(() => {
     // No dedicated automation/notification table yet; just load email from profile
@@ -297,6 +337,54 @@ export default function SettingsPage() {
           coverLetterSeeds={coverLetterSeeds}
           outreachSeeds={outreachSeeds}
         />
+
+        {/* Slack */}
+        <div style={CARD}>
+          <h2 style={{ fontSize: 17, fontWeight: 700, margin: "0 0 4px" }}>Slack</h2>
+          <p style={{ fontSize: 13, color: "rgba(0,49,53,0.5)", margin: "0 0 20px" }}>
+            Every hourly run summary posts here — same numbers you see on the dashboard.
+          </p>
+
+          {slackNotice === "error" && (
+            <p style={{ fontSize: 12, color: "#964734", margin: "0 0 14px" }}>
+              Couldn&apos;t connect Slack — try again.
+            </p>
+          )}
+          {slackNotice === "connected" && (
+            <p style={{ fontSize: 12, color: "#0FA4AF", margin: "0 0 14px" }}>
+              Slack connected.
+            </p>
+          )}
+
+          {slackLoading ? (
+            <div style={{ ...SHIMMER, height: 52, borderRadius: 12 }} />
+          ) : slackConnection ? (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#F5F8F7", borderRadius: 12, padding: "14px 16px" }}>
+              <div>
+                <p style={{ margin: "0 0 3px", fontSize: 14, fontWeight: 700, color: "#003135" }}>
+                  ✓ Connected to #{slackConnection.channel_name ?? "—"}
+                </p>
+                <p style={{ margin: 0, fontSize: 12, color: "rgba(0,49,53,0.5)" }}>
+                  {slackConnection.team_name ?? "Workspace"}
+                </p>
+              </div>
+              <button
+                onClick={disconnectSlack}
+                disabled={disconnectingSlack}
+                style={{ background: "transparent", border: "1px solid rgba(150,71,52,0.3)", borderRadius: 20, padding: "9px 18px", fontFamily: "inherit", fontSize: 13, fontWeight: 700, color: "#964734", cursor: disconnectingSlack ? "default" : "pointer", opacity: disconnectingSlack ? 0.6 : 1 }}
+              >
+                {disconnectingSlack ? "Disconnecting…" : "Disconnect"}
+              </button>
+            </div>
+          ) : (
+            <a
+              href="/api/integrations/slack/connect"
+              style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#024950", color: "#fff", border: "none", borderRadius: 20, padding: "12px 22px", fontFamily: "inherit", fontSize: 13, fontWeight: 700, textDecoration: "none" }}
+            >
+              Add to Slack
+            </a>
+          )}
+        </div>
 
         {/* Notifications */}
         <div style={CARD}>

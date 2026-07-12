@@ -2,6 +2,15 @@
 
 import { useEffect, useRef, useState } from "react"
 import type { Application, ApplicationStatus } from "@/lib/types"
+import { StatCard } from "@/components/stat-card"
+
+interface RunLog {
+  jobs_discovered: number
+  applied: number
+  outreach_sent: number
+  interviews: number
+  run_at: string
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type StatusTab = { label: string; filter: ApplicationStatus | "all" }
@@ -86,6 +95,14 @@ export default function DashboardPage() {
   const [openFilter, setOpenFilter] = useState<string | null>(null)
   const [filterValues, setFilterValues] = useState<Record<string, string>>({})
   const closeRef = useRef<HTMLDivElement>(null)
+  const [lastRun, setLastRun] = useState<RunLog | null>(null)
+
+  useEffect(() => {
+    fetch("/api/run-log")
+      .then(r => r.json())
+      .then(d => setLastRun(d?.lastRun ?? null))
+      .catch(() => {})
+  }, [])
 
   useEffect(() => {
     fetch("/api/applications")
@@ -121,6 +138,21 @@ export default function DashboardPage() {
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: SHIMMER_CSS }} />
+
+      {/* ── Last run ── */}
+      {lastRun && (
+        <div style={{ flexShrink: 0 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 12 }}>
+            <StatCard label="Jobs found" value={lastRun.jobs_discovered} index={0} />
+            <StatCard label="Applied" value={lastRun.applied} index={1} accent />
+            <StatCard label="Interviews" value={lastRun.interviews} index={2} />
+            <StatCard label="Outreach sent" value={lastRun.outreach_sent} index={3} />
+          </div>
+          <p style={{ fontSize: 11, color: "rgba(0,49,53,0.4)", margin: "8px 2px 0" }}>
+            Last run {timeAgo(lastRun.run_at)} — same numbers posted to Slack
+          </p>
+        </div>
+      )}
 
       {/* ── Toolbar card ── */}
       <div style={{ background: "#fff", borderRadius: 18, boxShadow: "0 1px 3px rgba(0,49,53,0.05)", padding: "18px 20px", flexShrink: 0 }}>

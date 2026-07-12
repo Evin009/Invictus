@@ -17,8 +17,27 @@ def generate_report(since: str | None = None) -> dict:
     except Exception as e:
         post_error("reporter", str(e), {})
         return {}
+    _save_run_log(stats)
     post_summary(stats)
     return stats
+
+
+def _save_run_log(stats: dict) -> None:
+    """Persist this run's stats so the dashboard's 'Last run' card and the
+    Slack summary always show the same numbers — one insert, two readers."""
+    try:
+        db = get_client()
+        db.table("run_log").insert({
+            "jobs_discovered": stats.get("jobs_discovered", 0),
+            "applied": stats.get("applied", 0),
+            "manual_pending": stats.get("manual_pending", 0),
+            "interviews": stats.get("interviews", 0),
+            "rejections": stats.get("rejections", 0),
+            "replies": stats.get("replies", 0),
+            "outreach_sent": stats.get("outreach_sent", 0),
+        }).execute()
+    except Exception as e:
+        post_error("reporter", str(e), {"step": "save_run_log"})
 
 
 def _fetch_stats(since: str) -> dict:
