@@ -4,6 +4,8 @@ import { useEffect, useRef, useState, useCallback } from "react"
 import { CITY_STATE_OPTIONS, DEGREE_OPTIONS, MAJOR_OPTIONS, SCHOOL_OPTIONS, MONTH_OPTIONS, gradYearOptions } from "@/lib/location-data"
 import { JobPreferencesCard } from "@/components/job-preferences-card"
 import { CompanyWatchlistCard } from "@/components/company-watchlist-card"
+import { SettingsForm } from "@/components/settings-form"
+import type { Seed } from "@/lib/types"
 
 const CSS = `
   @keyframes prof-shimmer { 0%{background-position:100% 0} 100%{background-position:0 0} }
@@ -56,7 +58,6 @@ const VETERANS = ["Yes", "No", "Prefer not to say"]
 const DISABILITIES = ["Yes", "No", "Prefer not to say"]
 
 interface WorkEntry { employer: string; title: string; startDate: string; endDate: string; description: string }
-interface ToneSample { label: string; text: string }
 
 interface Form {
   fullName: string; email: string; phone: string; currentLocation: string
@@ -143,7 +144,8 @@ export default function ProfilePage() {
   const [skills, setSkills] = useState<string[]>([])
   const [skillInput, setSkillInput] = useState("")
   const [workHistory, setWorkHistory] = useState<WorkEntry[]>([])
-  const [toneSamples, setToneSamples] = useState<ToneSample[]>([])
+  const [coverLetterSeeds, setCoverLetterSeeds] = useState<Seed[]>([])
+  const [outreachSeeds, setOutreachSeeds] = useState<Seed[]>([])
   const [resumeFileName, setResumeFileName] = useState("Upload resume")
   const [parsingResume, setParsingResume] = useState(false)
 
@@ -184,8 +186,8 @@ export default function ProfilePage() {
       }))
       setSkills(Array.isArray(p.skills) ? p.skills : [])
       if (Array.isArray(p.work_history)) setWorkHistory(p.work_history as WorkEntry[])
-      const allSeeds = [...(Array.isArray(coverSeeds) ? coverSeeds : []), ...(Array.isArray(outreachSeeds) ? outreachSeeds : [])]
-      setToneSamples(allSeeds.map((s: Record<string, string>) => ({ label: s.label ?? "Sample", text: s.content ?? "" })))
+      setCoverLetterSeeds(Array.isArray(coverSeeds) ? coverSeeds : [])
+      setOutreachSeeds(Array.isArray(outreachSeeds) ? outreachSeeds : [])
     }).finally(() => setLoading(false))
   }, [])
 
@@ -661,46 +663,8 @@ export default function ProfilePage() {
           )}
         </div>
 
-        {/* Tone samples */}
-        <div style={{ ...CARD, marginBottom: 20 }}>
-          <SectionHeader
-            title="Tone samples" editing={!!editing.tone} onToggle={() => toggleSection("tone")}
-            extra={editing.tone ? (
-              <span onClick={() => setToneSamples(p => [...p, { label: "", text: "" }])}
-                style={{ fontSize: 13, fontWeight: 700, color: "#964734", cursor: "pointer" }}>
-                + Add sample
-              </span>
-            ) : undefined}
-          />
-          {!editing.tone ? (
-            toneSamples.length > 0 ? (
-              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                {toneSamples.map((s, i) => (
-                  <div key={i} style={{ borderBottom: "1px solid rgba(0,49,53,0.06)", paddingBottom: 14 }}>
-                    <p style={{ margin: "0 0 4px", fontSize: 13, fontWeight: 700, color: "rgba(0,49,53,0.5)" }}>{s.label || "Sample"}</p>
-                    <p style={{ margin: 0, fontSize: 13, lineHeight: 1.6, color: "rgba(0,49,53,0.7)" }}>{s.text}</p>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: "32px 20px", border: "1.5px dashed rgba(0,49,53,0.12)", borderRadius: 10 }}>
-                <p style={{ margin: "0 0 4px", fontSize: 13, fontWeight: 700 }}>No tone samples yet</p>
-                <p style={{ margin: 0, fontSize: 12, color: "rgba(0,49,53,0.45)", maxWidth: 300 }}>Add a cover letter or message you&apos;ve written so the agent can match your voice.</p>
-              </div>
-            )
-          ) : (
-            toneSamples.map((s, i) => (
-              <div key={i} style={{ border: "1px solid rgba(0,49,53,0.12)", borderRadius: 10, padding: 16, marginBottom: 12 }}>
-                <input className="pf-input" type="text" placeholder="Label" value={s.label}
-                  onChange={e => setToneSamples(p => p.map((r, idx) => idx === i ? { ...r, label: e.target.value } : r))}
-                  style={{ ...INPUT, marginBottom: 10 }} />
-                <textarea className="pf-textarea" placeholder="Sample text…" value={s.text}
-                  onChange={e => setToneSamples(p => p.map((r, idx) => idx === i ? { ...r, text: e.target.value } : r))}
-                  style={{ ...INPUT, minHeight: 90 }} />
-              </div>
-            ))
-          )}
-        </div>
+        {/* Cover letter / outreach tone samples */}
+        <SettingsForm coverLetterSeeds={coverLetterSeeds} outreachSeeds={outreachSeeds} />
 
       </div>
     </>

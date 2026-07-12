@@ -1,10 +1,6 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { SettingsForm } from "@/components/settings-form"
-import { JobPreferencesCard } from "@/components/job-preferences-card"
-import { CompanyWatchlistCard } from "@/components/company-watchlist-card"
-import type { Seed } from "@/lib/types"
 
 interface SlackConnection {
   team_name: string | null
@@ -104,9 +100,6 @@ export default function SettingsPage() {
     emailUpdates: true, applicationSubmitted: true, interviewScheduled: true, weeklySummary: false,
   })
 
-  const [coverLetterSeeds, setCoverLetterSeeds] = useState<Seed[]>([])
-  const [outreachSeeds, setOutreachSeeds] = useState<Seed[]>([])
-
   const [slackConnection, setSlackConnection] = useState<SlackConnection | null>(null)
   const [slackLoading, setSlackLoading] = useState(true)
   const [disconnectingSlack, setDisconnectingSlack] = useState(false)
@@ -153,16 +146,6 @@ export default function SettingsPage() {
       })
       .catch(() => {})
       .finally(() => setLoading(false))
-
-    fetch("/api/seeds?table=cover_letter_seeds")
-      .then(r => r.json())
-      .then(d => setCoverLetterSeeds(Array.isArray(d) ? d : []))
-      .catch(() => {})
-
-    fetch("/api/seeds?table=outreach_seeds")
-      .then(r => r.json())
-      .then(d => setOutreachSeeds(Array.isArray(d) ? d : []))
-      .catch(() => {})
   }, [])
 
   const isDirty = email !== baselineEmail || automation.dailyCap !== baselineCap
@@ -322,16 +305,6 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* Job preferences and company watchlist — same design as Profile */}
-        <JobPreferencesCard />
-        <CompanyWatchlistCard />
-
-        {/* Cover letter / outreach tone samples */}
-        <SettingsForm
-          coverLetterSeeds={coverLetterSeeds}
-          outreachSeeds={outreachSeeds}
-        />
-
         {/* Slack */}
         <div style={CARD}>
           <h2 style={{ fontSize: 17, fontWeight: 700, margin: "0 0 4px" }}>Slack</h2>
@@ -393,27 +366,6 @@ export default function SettingsPage() {
               <Toggle checked={notifs[def.key]} onToggle={() => setNotifs(p => ({ ...p, [def.key]: !p[def.key] }))} />
             </div>
           ))}
-        </div>
-
-        {/* Billing */}
-        <div style={CARD}>
-          <h2 style={{ fontSize: 17, fontWeight: 700, margin: "0 0 4px" }}>Billing</h2>
-          <p style={{ fontSize: 13, color: "rgba(0,49,53,0.5)", margin: "0 0 20px" }}>Your plan and usage this cycle</p>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#003135", borderRadius: 14, padding: "20px 22px", color: "#fff", marginBottom: 16 }}>
-            <div>
-              <p style={{ margin: "0 0 4px", fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", color: "rgba(255,255,255,0.5)" }}>CURRENT PLAN</p>
-              <p style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Free plan</p>
-            </div>
-            <button style={{ background: "#964734", color: "#fff", border: "none", borderRadius: 20, padding: "11px 22px", fontFamily: "inherit", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>Upgrade plan →</button>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 18 }}>
-            {[["Applications used", "— / 20"], ["Renews", "—"], ["Payment method", "No card on file"]].map(([label, value]) => (
-              <div key={label}>
-                <p style={{ margin: "0 0 4px", fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", color: "rgba(0,49,53,0.4)" }}>{label}</p>
-                <p style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>{value}</p>
-              </div>
-            ))}
-          </div>
         </div>
 
         {/* Danger zone */}
