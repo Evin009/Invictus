@@ -144,7 +144,6 @@ export default function ProfilePage() {
   const [skills, setSkills] = useState<string[]>([])
   const [skillInput, setSkillInput] = useState("")
   const [workHistory, setWorkHistory] = useState<WorkEntry[]>([])
-  const [coverLetterSeeds, setCoverLetterSeeds] = useState<Seed[]>([])
   const [outreachSeeds, setOutreachSeeds] = useState<Seed[]>([])
   const [resumeFileName, setResumeFileName] = useState("Upload resume")
   const [parsingResume, setParsingResume] = useState(false)
@@ -152,9 +151,8 @@ export default function ProfilePage() {
   useEffect(() => {
     Promise.all([
       fetch("/api/profile").then(r => r.json()).catch(() => ({})),
-      fetch("/api/seeds?table=cover_letter_seeds").then(r => r.json()).catch(() => []),
       fetch("/api/seeds?table=outreach_seeds").then(r => r.json()).catch(() => []),
-    ]).then(([profileData, coverSeeds, outreachSeeds]) => {
+    ]).then(([profileData, outreachSeeds]) => {
       const p = profileData ?? {}
       setForm(prev => ({
         ...prev,
@@ -186,7 +184,6 @@ export default function ProfilePage() {
       }))
       setSkills(Array.isArray(p.skills) ? p.skills : [])
       if (Array.isArray(p.work_history)) setWorkHistory(p.work_history as WorkEntry[])
-      setCoverLetterSeeds(Array.isArray(coverSeeds) ? coverSeeds : [])
       setOutreachSeeds(Array.isArray(outreachSeeds) ? outreachSeeds : [])
     }).finally(() => setLoading(false))
   }, [])
@@ -663,8 +660,8 @@ export default function ProfilePage() {
           )}
         </div>
 
-        {/* Cover letter / outreach tone samples */}
-        <SettingsForm coverLetterSeeds={coverLetterSeeds} outreachSeeds={outreachSeeds} />
+        {/* Outreach tone samples — cover letter now lives on its own /cover-letter page */}
+        <SettingsForm coverLetterSeeds={[]} outreachSeeds={outreachSeeds} showCoverLetter={false} />
 
       </div>
     </>

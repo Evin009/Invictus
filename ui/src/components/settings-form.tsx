@@ -7,6 +7,7 @@ import type { Seed } from "@/lib/types"
 interface SeedSettingsFormProps {
   coverLetterSeeds: Seed[]
   outreachSeeds: Seed[]
+  showCoverLetter?: boolean
 }
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
@@ -53,7 +54,7 @@ function StyledInput({
 // Cover letter / outreach tone samples. Job preferences and the company
 // watchlist live on the Profile page (JobPreferencesCard / CompanyWatchlistCard)
 // — not duplicated here.
-export function SettingsForm({ coverLetterSeeds: initialCL, outreachSeeds: initialOutreach }: SeedSettingsFormProps) {
+export function SettingsForm({ coverLetterSeeds: initialCL, outreachSeeds: initialOutreach, showCoverLetter = true }: SeedSettingsFormProps) {
   const [clSeeds, setClSeeds] = useState<Seed[]>(initialCL)
   const [outreachSeeds, setOutreachSeeds] = useState<Seed[]>(initialOutreach)
   const [newClLabel, setNewClLabel] = useState("")
@@ -101,24 +102,26 @@ export function SettingsForm({ coverLetterSeeds: initialCL, outreachSeeds: initi
   return (
     <div className="space-y-8 animate-fade-up">
 
-      {/* Cover Letter Seeds */}
-      <SeedSection
-        title="Cover Letter Samples"
-        description="Sample cover letters the agent uses for tone matching. Add 2–3 examples."
-        seeds={clSeeds}
-        table="cover_letter_seeds"
-        newLabel={newClLabel}
-        newContent={newClContent}
-        onLabelChange={setNewClLabel}
-        onContentChange={setNewClContent}
-        onAdd={() => addSeed("cover_letter_seeds", newClLabel, newClContent, newClMode)}
-        onRemove={(id) => removeSeed("cover_letter_seeds", id)}
-        adding={addingSeed === "cover_letter_seeds"}
-        removing={removingSeed}
-        placeholder="Dear Hiring Manager, I'm excited to apply for..."
-        mode={newClMode}
-        onModeChange={setNewClMode}
-      />
+      {/* Cover Letter Seeds — dedicated /cover-letter page owns this now */}
+      {showCoverLetter && (
+        <SeedSection
+          title="Cover Letter Samples"
+          description="Sample cover letters the agent uses for tone matching. Add 2–3 examples."
+          seeds={clSeeds}
+          table="cover_letter_seeds"
+          newLabel={newClLabel}
+          newContent={newClContent}
+          onLabelChange={setNewClLabel}
+          onContentChange={setNewClContent}
+          onAdd={() => addSeed("cover_letter_seeds", newClLabel, newClContent, newClMode)}
+          onRemove={(id) => removeSeed("cover_letter_seeds", id)}
+          adding={addingSeed === "cover_letter_seeds"}
+          removing={removingSeed}
+          placeholder="Dear Hiring Manager, I'm excited to apply for..."
+          mode={newClMode}
+          onModeChange={setNewClMode}
+        />
+      )}
 
       {/* Outreach Seeds */}
       <SeedSection
