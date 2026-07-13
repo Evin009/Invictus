@@ -389,7 +389,13 @@ function parseProjects(text: string): WorkEntry[] {
       if (looksLikeTitle && (!current || current.description.length > 0)) {
         if (current) entries.push(current)
         const title = hasPipe ? line.split("|")[0].trim() : line
-        current = { employer: "", title, startDate: "", endDate: "", description: "" }
+        // Tech-stack list after the pipe (e.g. "TypeScript, Next.js, MongoDB")
+        // — strip a trailing link caption that text-extraction pulls inline
+        // from a right-aligned "GitHub"/"PyPI" link on the same visual row.
+        const stack = hasPipe
+          ? line.split("|").slice(1).join("|").replace(/\s+(GitHub|PyPI|NPM|Demo|Live|Website|Docs)\s*$/i, "").trim()
+          : ""
+        current = { employer: stack, title, startDate: "", endDate: "", description: "" }
       } else if (current) {
         const isHeader = /^[A-Z\s]{5,}$/.test(line)
         if (!isHeader && line.length > 3) {

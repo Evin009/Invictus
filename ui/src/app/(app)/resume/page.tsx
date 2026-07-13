@@ -43,6 +43,42 @@ function displayFileName(sourcePdfPath: string | null): string {
   return sourcePdfPath.replace(/^\d+-/, "")
 }
 
+// Slow, calm loader — sits where the resume itself will land once the
+// upload finishes, rather than a generic shimmer bar.
+function ResumeUploadingLoader({ fileName }: { fileName: string }) {
+  return (
+    <div style={{
+      height: 660, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+      border: "1px solid rgba(0,49,53,0.08)", borderRadius: 14, background: "#FBFDFC",
+    }}>
+      <div style={{ position: "relative", width: 64, height: 64, marginBottom: 22 }}>
+        <div style={{
+          position: "absolute", inset: -16, borderRadius: "50%",
+          background: "radial-gradient(ellipse at center, rgba(15,164,175,0.12) 0%, transparent 72%)",
+          animation: "res-glow-breathe 2.6s ease-in-out infinite",
+        }} />
+        <svg viewBox="0 0 100 100" width={64} height={64} style={{ position: "relative" }}>
+          <path d="M50 6 L94 50 L50 94 L6 50 Z" fill="none" stroke="rgba(0,49,53,0.08)" strokeWidth="6" strokeLinejoin="round" />
+          <path
+            d="M50 6 L94 50 L50 94 L6 50 Z"
+            fill="none" stroke="#0FA4AF" strokeWidth="6" strokeLinejoin="round" strokeLinecap="round"
+            style={{ strokeDasharray: "62 187", animation: "res-logo-arc 2.2s linear infinite" }}
+          />
+          <path
+            d="M50 26 L74 50 L50 74 L26 50 Z"
+            fill="none" stroke="rgba(15,164,175,0.35)" strokeWidth="5" strokeLinejoin="round"
+            style={{ animation: "res-inner-pulse 2.6s ease-in-out infinite" }}
+          />
+          <rect x="42" y="42" width="16" height="16" rx="5" fill="#964734" transform="rotate(45 50 50)"
+            style={{ animation: "res-inner-pulse 2.6s ease-in-out infinite" }} />
+        </svg>
+      </div>
+      <p style={{ margin: "0 0 4px", fontSize: 13, fontWeight: 700, color: "#003135" }}>Tailoring your resume…</p>
+      <p style={{ margin: 0, fontSize: 12, color: "rgba(0,49,53,0.4)" }}>{fileName}</p>
+    </div>
+  )
+}
+
 // The exact file the user uploaded, unmodified — just enclosed in Invictus's
 // own document-viewer chrome (masthead bar) instead of a bare generic embed.
 function InvictusDocumentFrame({ sourceUrl, fileName }: { sourceUrl: string; fileName: string }) {
@@ -81,6 +117,7 @@ export default function ResumePage() {
   const [showSource, setShowSource] = useState(false)
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const [uploadingFileName, setUploadingFileName] = useState("")
   const [toast, setToast] = useState<string | null>(null)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -110,6 +147,7 @@ export default function ResumePage() {
 
   async function handleUpload(file: File) {
     setUploading(true)
+    setUploadingFileName(file.name)
     try {
       // Parse the freshly uploaded file directly — falling back to the
       // already-saved profile means a re-upload with new/different content
@@ -175,7 +213,12 @@ export default function ResumePage() {
 
   return (
     <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 16, paddingRight: 4, paddingBottom: 40 }}>
-      <style dangerouslySetInnerHTML={{ __html: "@keyframes res-shimmer { 0%{background-position:100% 0} 100%{background-position:0 0} }" }} />
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes res-shimmer { 0%{background-position:100% 0} 100%{background-position:0 0} }
+        @keyframes res-logo-arc { 0%{stroke-dashoffset:0} 100%{stroke-dashoffset:-249} }
+        @keyframes res-inner-pulse { 0%,100%{opacity:0.4} 50%{opacity:0.9} }
+        @keyframes res-glow-breathe { 0%,100%{opacity:0.6} 50%{opacity:1} }
+      ` }} />
 
       {toast && (
         <div style={{
@@ -210,7 +253,9 @@ export default function ResumePage() {
           </label>
         </div>
 
-        {loading || uploading ? (
+        {uploading ? (
+          <ResumeUploadingLoader fileName={uploadingFileName} />
+        ) : loading ? (
           <div style={{ ...SHIMMER, height: 660 }} />
         ) : sourceUrl ? (
           <InvictusDocumentFrame sourceUrl={sourceUrl} fileName={displayFileName(sourcePdfPath)} />

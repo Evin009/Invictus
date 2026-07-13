@@ -69,14 +69,15 @@ function buildSkillsLine(skills: string[]): string {
 // formatting/escaping left for the model to get wrong.
 function buildEntriesTex(entries: StructuredEntry[]): string {
   return entries.map(e => {
-    const header = [e.title, e.employer].filter(Boolean).join(", ")
+    const header = [e.title, e.employer].filter(Boolean).join(" -- ")
     const dates = [e.startDate, e.endDate].filter(Boolean).join(" -- ")
+    const dateSuffix = dates ? ` (${escapeTex(dates)})` : ""
     const bulletLines = (e.bullets ?? [])
       .filter(Boolean)
       .map(b => `      \\item ${escapeTex(b)}`)
       .join("\n")
     return (
-      `  \\item \\textbf{${escapeTex(header)}} (${escapeTex(dates)})\n` +
+      `  \\item \\textbf{${escapeTex(header)}}${dateSuffix}\n` +
       `    \\begin{itemize}\n${bulletLines}\n    \\end{itemize}`
     )
   }).join("\n")
