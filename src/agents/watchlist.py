@@ -73,7 +73,7 @@ def _parse_jobs(text: str, company: str, careers_url: str, keywords: list[str], 
         f"Page text:\n{truncated}"
     )
     response = client.messages.create(
-        model="claude-sonnet-4-6",
+        model="claude-haiku-4-5-20251001",
         max_tokens=1000,
         messages=[{"role": "user", "content": prompt}],
     )

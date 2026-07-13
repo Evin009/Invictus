@@ -117,7 +117,7 @@ def _classify_reply(subject: str, body: str) -> str:
         "Reply with only the label, nothing else."
     )
     response = client.messages.create(
-        model="claude-sonnet-4-6",
+        model="claude-haiku-4-5-20251001",
         max_tokens=20,
         messages=[{"role": "user", "content": prompt}],
     )
