@@ -47,11 +47,12 @@ export default function ResumePage() {
   const [hasDoc, setHasDoc] = useState(false)
   const [showSource, setShowSource] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [uploading, setUploading] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  useEffect(() => {
-    fetch("/api/resume")
+  function loadResume() {
+    return fetch("/api/resume")
       .then(r => r.json())
       .then(d => {
         const resume: ResumeDoc | null = d?.resume ?? null
@@ -61,13 +62,53 @@ export default function ResumePage() {
         setRecentSubmissions(Array.isArray(d?.recentSubmissions) ? d.recentSubmissions : [])
       })
       .catch(() => {})
-      .finally(() => setLoading(false))
+  }
+
+  useEffect(() => {
+    loadResume().finally(() => setLoading(false))
   }, [])
 
   function flash(msg: string) {
     setToast(msg)
     if (toastTimer.current) clearTimeout(toastTimer.current)
     toastTimer.current = setTimeout(() => setToast(null), 3000)
+  }
+
+  async function handleUpload(file: File) {
+    setUploading(true)
+    try {
+      const profile = await fetch("/api/profile").then(r => r.json()).catch(() => ({}))
+      const education = Array.isArray(profile?.education) ? profile.education[0] : null
+
+      const fd = new FormData()
+      fd.append("file", file)
+      fd.append("data", JSON.stringify({
+        fullName: profile?.full_name ?? "",
+        email: profile?.email ?? "",
+        phone: profile?.phone ?? "",
+        linkedin: profile?.linkedin_url ?? "",
+        github: profile?.github_url ?? "",
+        portfolio: profile?.portfolio ?? "",
+        currentLocation: profile?.current_location ?? "",
+        school: education?.institution ?? education?.school ?? "",
+        degree: education?.degree ?? "",
+        major: profile?.major ?? education?.field ?? "",
+        gpa: profile?.gpa ?? "",
+        gradMonth: profile?.grad_month ?? "",
+        gradYear: profile?.grad_year ?? "",
+        skills: Array.isArray(profile?.skills) ? profile.skills : [],
+        workHistory: Array.isArray(profile?.work_history) ? profile.work_history : [],
+      }))
+
+      const res = await fetch("/api/generate-resume-tex", { method: "POST", body: fd })
+      if (!res.ok) throw new Error()
+      await loadResume()
+      flash(`Uploaded ${file.name}`)
+    } catch {
+      flash("Couldn't process that file — try again")
+    } finally {
+      setUploading(false)
+    }
   }
 
   async function save() {
@@ -105,12 +146,27 @@ export default function ResumePage() {
 
       {/* Your uploaded resume */}
       <div style={CARD}>
-        <h1 style={{ fontSize: 19, fontWeight: 700, margin: "0 0 4px" }}>Resume</h1>
-        <p style={{ fontSize: 13, color: "rgba(0,49,53,0.5)", margin: "0 0 20px" }}>
-          This is the resume you uploaded during onboarding.
-        </p>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 20 }}>
+          <div>
+            <h1 style={{ fontSize: 19, fontWeight: 700, margin: "0 0 4px" }}>Resume</h1>
+            <p style={{ fontSize: 13, color: "rgba(0,49,53,0.5)", margin: 0 }}>
+              The resume you uploaded — the agent tailors this per job.
+            </p>
+          </div>
+          <label style={{
+            flexShrink: 0, background: "#024950", color: "#fff", borderRadius: 20, padding: "11px 20px",
+            fontSize: 13, fontWeight: 700, cursor: uploading ? "default" : "pointer", opacity: uploading ? 0.6 : 1,
+          }}>
+            {uploading ? "Processing…" : sourceUrl ? "Replace resume" : "Upload resume"}
+            <input
+              type="file" accept=".pdf,.doc,.docx" style={{ display: "none" }}
+              disabled={uploading}
+              onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.target.value = "" }}
+            />
+          </label>
+        </div>
 
-        {loading ? (
+        {loading || uploading ? (
           <div style={{ ...SHIMMER, height: 600 }} />
         ) : sourceUrl ? (
           <iframe
@@ -122,7 +178,7 @@ export default function ResumePage() {
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: "32px 20px", border: "1.5px dashed rgba(0,49,53,0.12)", borderRadius: 10 }}>
             <p style={{ margin: "0 0 4px", fontSize: 13, fontWeight: 700 }}>No resume uploaded yet</p>
             <p style={{ margin: 0, fontSize: 12, color: "rgba(0,49,53,0.45)", maxWidth: 320 }}>
-              Upload a resume during onboarding — it&apos;ll show up here.
+              Upload one above to generate the version the agent tailors and submits.
             </p>
           </div>
         )}
@@ -195,7 +251,7 @@ export default function ResumePage() {
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: "32px 20px", border: "1.5px dashed rgba(0,49,53,0.12)", borderRadius: 10, marginTop: 16 }}>
                   <p style={{ margin: "0 0 4px", fontSize: 13, fontWeight: 700 }}>No source generated yet</p>
                   <p style={{ margin: 0, fontSize: 12, color: "rgba(0,49,53,0.45)", maxWidth: 320 }}>
-                    Upload a resume during onboarding to generate one, or paste your own .tex below.
+                    Upload a resume above to generate one, or paste your own .tex below.
                   </p>
                 </div>
               )}
