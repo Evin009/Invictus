@@ -32,6 +32,7 @@ export const RESUME_TEMPLATE = String.raw`\documentclass[10pt,letterpaper]{artic
 {{EXPERIENCE_ITEMS}}
 \end{itemize}
 
+{{PROJECTS_SECTION}}
 \section*{Skills}
 {{SKILLS_LINE}}
 

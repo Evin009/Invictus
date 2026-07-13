@@ -39,6 +39,7 @@ interface RequestBody {
   gradYear: string
   skills: string[]
   workHistory: WorkEntry[]
+  projects: WorkEntry[]
 }
 
 const SOURCE_BUCKET = "resumes-source"
@@ -66,7 +67,7 @@ function buildSkillsLine(skills: string[]): string {
 // ever returns condensed plain-text bullets, never LaTeX. This is what fixes
 // conversions silently dropping or garbling entries: there's no LaTeX
 // formatting/escaping left for the model to get wrong.
-function buildExperienceItemsTex(entries: StructuredEntry[]): string {
+function buildEntriesTex(entries: StructuredEntry[]): string {
   return entries.map(e => {
     const header = [e.title, e.employer].filter(Boolean).join(", ")
     const dates = [e.startDate, e.endDate].filter(Boolean).join(" -- ")
@@ -79,6 +80,11 @@ function buildExperienceItemsTex(entries: StructuredEntry[]): string {
       `    \\begin{itemize}\n${bulletLines}\n    \\end{itemize}`
     )
   }).join("\n")
+}
+
+function buildProjectsSection(entries: StructuredEntry[]): string {
+  if (entries.length === 0) return ""
+  return `\\section*{Projects}\n\\begin{itemize}\n${buildEntriesTex(entries)}\n\\end{itemize}\n`
 }
 
 async function condenseEntries(entries: WorkEntry[], client: Anthropic): Promise<StructuredEntry[]> {
@@ -144,7 +150,10 @@ export async function POST(req: NextRequest) {
       sourcePdfPath = destPath
     }
 
-    const experience = await condenseEntries(body.workHistory ?? [], client)
+    const [experience, projects] = await Promise.all([
+      condenseEntries(body.workHistory ?? [], client),
+      condenseEntries(body.projects ?? [], client),
+    ])
 
     const contactParts = [body.email, body.phone, body.linkedin, body.github, body.portfolio, body.currentLocation]
       .filter(Boolean)
@@ -155,7 +164,8 @@ export async function POST(req: NextRequest) {
       .replace("{{FULL_NAME}}", escapeTex(body.fullName || ""))
       .replace("{{CONTACT_LINE}}", contactLine)
       .replace("{{EDUCATION_ITEMS}}", buildEducationItems(body))
-      .replace("{{EXPERIENCE_ITEMS}}", buildExperienceItemsTex(experience))
+      .replace("{{EXPERIENCE_ITEMS}}", buildEntriesTex(experience))
+      .replace("{{PROJECTS_SECTION}}", buildProjectsSection(projects))
       .replace("{{SKILLS_LINE}}", buildSkillsLine(body.skills ?? []))
 
     const structured = {
@@ -172,6 +182,7 @@ export async function POST(req: NextRequest) {
       },
       skills: body.skills ?? [],
       experience,
+      projects,
     }
 
     const { data: existing } = await db.from("resume_document").select("id").limit(1)
