@@ -15,10 +15,29 @@ const SHIMMER: React.CSSProperties = {
   background: "linear-gradient(90deg,#EDF2F0 25%,#F6F9F8 37%,#EDF2F0 63%)",
   backgroundSize: "400% 100%", animation: "res-shimmer 1.4s ease infinite", borderRadius: 8,
 }
+const CHIP: React.CSSProperties = {
+  display: "inline-flex", alignItems: "center", padding: "5px 12px",
+  background: "rgba(150,71,52,0.1)", color: "#964734", borderRadius: 20, fontSize: 12, fontWeight: 600,
+}
+
+interface StructuredEducation {
+  school: string; degree: string; major: string; gpa: string; gradMonth: string; gradYear: string
+}
+interface StructuredEntry {
+  employer: string; title: string; startDate: string; endDate: string; bullets: string[]
+}
+interface StructuredResume {
+  fullName: string; email: string; phone: string; linkedin: string; github: string
+  portfolio: string; currentLocation: string
+  education: StructuredEducation
+  skills: string[]
+  experience: StructuredEntry[]
+}
 
 interface ResumeDoc {
   id: string
   tex_content: string
+  structured: StructuredResume | null
   source_pdf_path: string | null
   updated_at: string | null
 }
@@ -39,9 +58,102 @@ function timeAgo(iso: string | null) {
   return `${Math.floor(h / 24)}d ago`
 }
 
+// Invictus-branded resume view, rendered from structured data (not the raw
+// uploaded file, not raw LaTeX) — a letterhead built to match the rest of
+// the app instead of embedding a generic PDF viewer.
+function InvictusResumeView({ resume }: { resume: StructuredResume }) {
+  const contactParts = [resume.email, resume.phone, resume.linkedin, resume.github, resume.portfolio, resume.currentLocation].filter(Boolean)
+  const edu = resume.education
+  const eduLine = [edu?.degree, edu?.major].filter(Boolean).join(" in ")
+  const eduDate = [edu?.gradMonth, edu?.gradYear].filter(Boolean).join(" ")
+
+  return (
+    <div style={{
+      background: "#fff", border: "1px solid rgba(0,49,53,0.1)", borderRadius: 14,
+      padding: "40px 44px", boxShadow: "0 1px 2px rgba(0,49,53,0.04)",
+    }}>
+      {/* Masthead */}
+      <div style={{ textAlign: "center", marginBottom: 28, paddingBottom: 24, borderBottom: "2px solid #003135" }}>
+        <p style={{ margin: "0 0 8px", fontSize: 10, fontWeight: 700, letterSpacing: "0.18em", color: "#0FA4AF", textTransform: "uppercase" }}>
+          Invictus
+        </p>
+        <h1 style={{ margin: "0 0 8px", fontSize: 26, fontWeight: 700, color: "#003135", letterSpacing: "-0.01em" }}>
+          {resume.fullName || "Your Name"}
+        </h1>
+        {contactParts.length > 0 && (
+          <p style={{ margin: 0, fontSize: 12.5, color: "rgba(0,49,53,0.55)" }}>
+            {contactParts.join("  ·  ")}
+          </p>
+        )}
+      </div>
+
+      {/* Education */}
+      {edu?.school && (
+        <div style={{ marginBottom: 26 }}>
+          <p style={{ margin: "0 0 10px", fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", color: "#964734", textTransform: "uppercase" }}>
+            Education
+          </p>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12 }}>
+            <div>
+              <p style={{ margin: "0 0 2px", fontSize: 14.5, fontWeight: 700, color: "#003135" }}>{edu.school}</p>
+              <p style={{ margin: 0, fontSize: 13, color: "rgba(0,49,53,0.6)" }}>
+                {eduLine}{edu.gpa ? ` · GPA ${edu.gpa}` : ""}
+              </p>
+            </div>
+            {eduDate && <p style={{ margin: 0, fontSize: 12.5, color: "rgba(0,49,53,0.45)", flexShrink: 0 }}>{eduDate}</p>}
+          </div>
+        </div>
+      )}
+
+      {/* Experience */}
+      {resume.experience?.length > 0 && (
+        <div style={{ marginBottom: 26 }}>
+          <p style={{ margin: "0 0 12px", fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", color: "#964734", textTransform: "uppercase" }}>
+            Experience
+          </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+            {resume.experience.map((e, i) => {
+              const header = [e.title, e.employer].filter(Boolean).join(", ")
+              const dates = [e.startDate, e.endDate].filter(Boolean).join(" – ")
+              return (
+                <div key={i}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, marginBottom: 6 }}>
+                    <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "#003135" }}>{header}</p>
+                    {dates && <p style={{ margin: 0, fontSize: 12.5, color: "rgba(0,49,53,0.45)", flexShrink: 0 }}>{dates}</p>}
+                  </div>
+                  {e.bullets?.length > 0 && (
+                    <ul style={{ margin: 0, paddingLeft: 18 }}>
+                      {e.bullets.map((b, j) => (
+                        <li key={j} style={{ fontSize: 13, color: "rgba(0,49,53,0.75)", lineHeight: 1.6, marginBottom: 3 }}>{b}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Skills */}
+      {resume.skills?.length > 0 && (
+        <div>
+          <p style={{ margin: "0 0 10px", fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", color: "#964734", textTransform: "uppercase" }}>
+            Skills
+          </p>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {resume.skills.map((s, i) => <span key={i} style={CHIP}>{s}</span>)}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function ResumePage() {
   const [loading, setLoading] = useState(true)
   const [texContent, setTexContent] = useState("")
+  const [structured, setStructured] = useState<StructuredResume | null>(null)
   const [sourceUrl, setSourceUrl] = useState<string | null>(null)
   const [recentSubmissions, setRecentSubmissions] = useState<RecentSubmission[]>([])
   const [hasDoc, setHasDoc] = useState(false)
@@ -57,6 +169,7 @@ export default function ResumePage() {
       .then(d => {
         const resume: ResumeDoc | null = d?.resume ?? null
         setTexContent(resume?.tex_content ?? "")
+        setStructured(resume?.structured ?? null)
         setHasDoc(!!resume)
         setSourceUrl(d?.sourceUrl ?? null)
         setRecentSubmissions(Array.isArray(d?.recentSubmissions) ? d.recentSubmissions : [])
@@ -121,7 +234,7 @@ export default function ResumePage() {
       })
       if (!res.ok) throw new Error()
       setHasDoc(true)
-      flash("Saved")
+      flash("Saved — note: this only changes what the agent submits, not the preview above")
     } catch {
       flash("Couldn't save — try again")
     } finally {
@@ -135,7 +248,7 @@ export default function ResumePage() {
 
       {toast && (
         <div style={{
-          position: "fixed", top: 24, right: 24, display: "flex", alignItems: "center", gap: 10,
+          position: "fixed", top: 24, right: 24, maxWidth: 320, display: "flex", alignItems: "center", gap: 10,
           background: "#fff", color: "#003135", borderRadius: 12, padding: "13px 18px",
           boxShadow: "0 12px 28px rgba(0,49,53,0.18)", border: "1px solid rgba(15,164,175,0.3)",
           fontSize: 13, fontWeight: 600, zIndex: 50,
@@ -144,20 +257,27 @@ export default function ResumePage() {
         </div>
       )}
 
-      {/* Your uploaded resume */}
+      {/* Your resume */}
       <div style={CARD}>
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 20 }}>
           <div>
             <h1 style={{ fontSize: 19, fontWeight: 700, margin: "0 0 4px" }}>Resume</h1>
             <p style={{ fontSize: 13, color: "rgba(0,49,53,0.5)", margin: 0 }}>
-              The resume you uploaded — the agent tailors this per job.
+              What the agent tailors and submits per job.
+              {sourceUrl && (
+                <>
+                  {" "}<a href={sourceUrl} target="_blank" rel="noreferrer" style={{ color: "#024950", fontWeight: 700, textDecoration: "none" }}>
+                    View original upload →
+                  </a>
+                </>
+              )}
             </p>
           </div>
           <label style={{
             flexShrink: 0, background: "#024950", color: "#fff", borderRadius: 20, padding: "11px 20px",
             fontSize: 13, fontWeight: 700, cursor: uploading ? "default" : "pointer", opacity: uploading ? 0.6 : 1,
           }}>
-            {uploading ? "Processing…" : sourceUrl ? "Replace resume" : "Upload resume"}
+            {uploading ? "Processing…" : structured ? "Replace resume" : "Upload resume"}
             <input
               type="file" accept=".pdf,.doc,.docx" style={{ display: "none" }}
               disabled={uploading}
@@ -168,12 +288,8 @@ export default function ResumePage() {
 
         {loading || uploading ? (
           <div style={{ ...SHIMMER, height: 600 }} />
-        ) : sourceUrl ? (
-          <iframe
-            src={sourceUrl}
-            title="Uploaded resume"
-            style={{ width: "100%", height: 600, border: "1px solid rgba(0,49,53,0.12)", borderRadius: 10 }}
-          />
+        ) : structured ? (
+          <InvictusResumeView resume={structured} />
         ) : (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: "32px 20px", border: "1.5px dashed rgba(0,49,53,0.12)", borderRadius: 10 }}>
             <p style={{ margin: "0 0 4px", fontSize: 13, fontWeight: 700 }}>No resume uploaded yet</p>
@@ -234,7 +350,8 @@ export default function ResumePage() {
           <div>
             <h2 style={{ fontSize: 15, fontWeight: 700, margin: "0 0 4px" }}>Edit source (advanced)</h2>
             <p style={{ fontSize: 12, color: "rgba(0,49,53,0.5)", margin: 0 }}>
-              The LaTeX converted from your upload — the agent tailors this per job. Only edit if the conversion missed something.
+              What the agent actually compiles per job. Editing this does <strong>not</strong> change the preview
+              above — that&apos;s rendered from your structured resume data, this is the raw LaTeX built from it.
             </p>
           </div>
           <span onClick={() => setShowSource(p => !p)} style={{ fontSize: 13, fontWeight: 700, color: "#964734", cursor: "pointer", flexShrink: 0 }}>

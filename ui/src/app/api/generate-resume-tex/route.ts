@@ -15,6 +15,14 @@ interface WorkEntry {
   description: string
 }
 
+interface StructuredEntry {
+  employer: string
+  title: string
+  startDate: string
+  endDate: string
+  bullets: string[]
+}
+
 interface RequestBody {
   fullName: string
   email: string
@@ -50,20 +58,38 @@ function buildEducationItems(body: RequestBody): string {
   return `  \\item \\textbf{${escapeTex(body.school)}} -- ${escapeTex(degreeLine)}${gpaLine} (${escapeTex(dateLine)})`
 }
 
-function buildSkillsLine(body: RequestBody): string {
-  return body.skills.map(escapeTex).join(", ")
+function buildSkillsLine(skills: string[]): string {
+  return skills.map(escapeTex).join(", ")
 }
 
-async function generateEntryBullets(entries: WorkEntry[], client: Anthropic): Promise<string> {
-  if (entries.length === 0) return ""
+// Builds the LaTeX ourselves from structured, validated data — Claude only
+// ever returns condensed plain-text bullets, never LaTeX. This is what fixes
+// conversions silently dropping or garbling entries: there's no LaTeX
+// formatting/escaping left for the model to get wrong.
+function buildExperienceItemsTex(entries: StructuredEntry[]): string {
+  return entries.map(e => {
+    const header = [e.title, e.employer].filter(Boolean).join(", ")
+    const dates = [e.startDate, e.endDate].filter(Boolean).join(" -- ")
+    const bulletLines = (e.bullets ?? [])
+      .filter(Boolean)
+      .map(b => `      \\item ${escapeTex(b)}`)
+      .join("\n")
+    return (
+      `  \\item \\textbf{${escapeTex(header)}} (${escapeTex(dates)})\n` +
+      `    \\begin{itemize}\n${bulletLines}\n    \\end{itemize}`
+    )
+  }).join("\n")
+}
+
+async function condenseEntries(entries: WorkEntry[], client: Anthropic): Promise<StructuredEntry[]> {
+  if (entries.length === 0) return []
 
   const prompt =
-    "You are formatting resume entries into LaTeX. For each entry below, produce exactly one " +
-    "top-level \\item containing a bold header line (title, employer, dates) followed by a nested " +
-    "itemize environment with one \\item per accomplishment bullet, condensed from the raw description. " +
-    "Do not add \\documentclass, \\usepackage, \\section, or any packages/layout — output ONLY the " +
-    "\\item blocks. Escape LaTeX special characters (%, &, #, _, $) in all text. Return only the raw " +
-    "LaTeX, no commentary, no code fences.\n\n" +
+    "Condense each work history entry below into 3-5 concise, accomplishment-focused resume bullet " +
+    "points written in plain text (no LaTeX, no markdown, no special formatting). Do not invent " +
+    "achievements not implied by the description.\n\n" +
+    "Return ONLY a JSON array, one object per entry in the same order, each with keys: " +
+    'employer, title, startDate, endDate, bullets (array of plain-text strings). Return nothing else.\n\n' +
     `Entries:\n${JSON.stringify(entries, null, 2)}`
 
   const response = await client.messages.create({
@@ -72,8 +98,21 @@ async function generateEntryBullets(entries: WorkEntry[], client: Anthropic): Pr
     messages: [{ role: "user", content: prompt }],
   })
   const block = response.content[0]
-  const text = block && block.type === "text" ? block.text.trim() : ""
-  return text.replace(/^```(?:latex|tex)?\s*|\s*```$/g, "").trim()
+  const text = block && block.type === "text" ? block.text.trim() : "[]"
+  const cleaned = text.replace(/^```(?:json)?\s*|\s*```$/g, "").trim()
+
+  try {
+    const parsed = JSON.parse(cleaned)
+    if (!Array.isArray(parsed)) throw new Error("not an array")
+    return parsed
+  } catch {
+    // Fall back to the raw entries with no condensed bullets rather than
+    // silently dropping them from the resume entirely.
+    return entries.map(e => ({
+      employer: e.employer, title: e.title, startDate: e.startDate, endDate: e.endDate,
+      bullets: e.description ? [e.description] : [],
+    }))
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -105,24 +144,41 @@ export async function POST(req: NextRequest) {
       sourcePdfPath = destPath
     }
 
+    const experience = await condenseEntries(body.workHistory ?? [], client)
+
     const contactParts = [body.email, body.phone, body.linkedin, body.github, body.portfolio, body.currentLocation]
       .filter(Boolean)
       .map(escapeTex)
     const contactLine = contactParts.join(" \\textbullet\\ ")
 
-    const experienceItems = await generateEntryBullets(body.workHistory ?? [], client)
-
     const texContent = RESUME_TEMPLATE
       .replace("{{FULL_NAME}}", escapeTex(body.fullName || ""))
       .replace("{{CONTACT_LINE}}", contactLine)
       .replace("{{EDUCATION_ITEMS}}", buildEducationItems(body))
-      .replace("{{EXPERIENCE_ITEMS}}", experienceItems)
-      .replace("{{SKILLS_LINE}}", buildSkillsLine(body))
+      .replace("{{EXPERIENCE_ITEMS}}", buildExperienceItemsTex(experience))
+      .replace("{{SKILLS_LINE}}", buildSkillsLine(body.skills ?? []))
+
+    const structured = {
+      fullName: body.fullName ?? "",
+      email: body.email ?? "",
+      phone: body.phone ?? "",
+      linkedin: body.linkedin ?? "",
+      github: body.github ?? "",
+      portfolio: body.portfolio ?? "",
+      currentLocation: body.currentLocation ?? "",
+      education: {
+        school: body.school ?? "", degree: body.degree ?? "", major: body.major ?? "",
+        gpa: body.gpa ?? "", gradMonth: body.gradMonth ?? "", gradYear: body.gradYear ?? "",
+      },
+      skills: body.skills ?? [],
+      experience,
+    }
 
     const { data: existing } = await db.from("resume_document").select("id").limit(1)
     const id = existing?.[0]?.id
     const row = {
       tex_content: texContent,
+      structured,
       source_pdf_path: sourcePdfPath,
       updated_at: new Date().toISOString(),
     }

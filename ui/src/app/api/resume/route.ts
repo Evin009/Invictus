@@ -12,7 +12,7 @@ export async function GET() {
   const db = createClient()
   const { data, error } = await db
     .from("resume_document")
-    .select("id,tex_content,source_pdf_path,updated_at")
+    .select("id,tex_content,structured,source_pdf_path,updated_at")
     .limit(1)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
