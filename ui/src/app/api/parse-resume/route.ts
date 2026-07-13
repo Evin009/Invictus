@@ -380,11 +380,16 @@ function parseProjects(text: string): WorkEntry[] {
       }
     } else {
       // No dates — check if this looks like a new project title
-      // (short, starts with capital, not a bullet description)
-      const looksLikeTitle = /^[A-Z]/.test(line) && line.length <= 80 && line.split(" ").length <= 8 && !/^[a-z]/.test(line)
+      // (starts with capital, not a bullet description). Common format is
+      // "Name | tech, stack, list Link" — a pipe is a strong title signal
+      // on its own, since a tech-stack list can easily blow past 8 words.
+      const hasPipe = line.includes("|")
+      const looksLikeTitle = /^[A-Z]/.test(line) && !/^[a-z]/.test(line) &&
+        (hasPipe ? line.length <= 150 : line.length <= 80 && line.split(" ").length <= 8)
       if (looksLikeTitle && (!current || current.description.length > 0)) {
         if (current) entries.push(current)
-        current = { employer: "", title: line, startDate: "", endDate: "", description: "" }
+        const title = hasPipe ? line.split("|")[0].trim() : line
+        current = { employer: "", title, startDate: "", endDate: "", description: "" }
       } else if (current) {
         const isHeader = /^[A-Z\s]{5,}$/.test(line)
         if (!isHeader && line.length > 3) {
