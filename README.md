@@ -36,6 +36,14 @@ Copy `.env.example` to `.env` and fill in every variable — `run.py` will not s
 
 Apply the database schema once by pasting `src/db/schema.sql` into the Supabase SQL editor.
 
+Authorize Gmail once for the reply tracker: download the OAuth client-secret JSON from Google Cloud Console as `credentials.json` in the repo root, then run:
+
+```bash
+python setup/gmail_auth.py
+```
+
+This opens a browser consent flow and writes the token to `gmail_token.json` (path set via `GMAIL_CREDENTIALS_PATH`). While the Google Cloud project's OAuth consent screen is in "Testing" status, refresh tokens expire after 7 days — rerun this weekly until the app is verified for production.
+
 Embed your resumes into pgvector once (re-run whenever resumes change):
 
 ```bash
