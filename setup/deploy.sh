@@ -10,6 +10,20 @@ VENV_DIR="$REPO_DIR/.venv"
 LOG_FILE="/var/log/invictus.log"
 LOGROTATE_CONF="/etc/logrotate.d/invictus"
 
+SWAP_FILE="/swapfile"
+SWAP_SIZE_MB=2048
+
+echo "==> Setting up swap (512MB droplets need this — Playwright + latexmk + Python easily exceed physical RAM)"
+if ! swapon --show | grep -q "$SWAP_FILE"; then
+    if [ ! -f "$SWAP_FILE" ]; then
+        fallocate -l "${SWAP_SIZE_MB}M" "$SWAP_FILE"
+        chmod 600 "$SWAP_FILE"
+        mkswap "$SWAP_FILE"
+    fi
+    swapon "$SWAP_FILE"
+fi
+grep -q "$SWAP_FILE" /etc/fstab || echo "$SWAP_FILE none swap sw 0 0" >> /etc/fstab
+
 echo "==> Updating system packages"
 apt-get update -y
 apt-get install -y python3.11 python3.11-venv python3-pip git curl logrotate \
@@ -33,6 +47,9 @@ sudo -u "$SERVICE_USER" "$VENV_DIR/bin/playwright" install chromium
 echo "==> Verifying LaTeX toolchain"
 command -v latexmk >/dev/null || { echo "ERROR: latexmk not found after install"; exit 1; }
 command -v pdfinfo >/dev/null || { echo "ERROR: pdfinfo not found after install"; exit 1; }
+
+echo "==> Verifying swap"
+swapon --show | grep -q "$SWAP_FILE" || { echo "ERROR: swap not active"; exit 1; }
 
 echo "==> Verifying .env exists"
 if [ ! -f "$REPO_DIR/.env" ]; then

@@ -3,7 +3,10 @@
 ## 1. Create a Droplet
 
 - **Image:** Ubuntu 22.04 LTS
-- **Size:** Basic / Regular — $6/mo (1 vCPU, 1 GB RAM) is sufficient
+- **Size:** 1 GB RAM ($6-7/mo) preferred. On the $4/mo 512MB tier, `deploy.sh`
+  provisions a 2GB swap file automatically — works, just slower under memory
+  pressure (swap is disk, not RAM) since Playwright + latexmk + Python can
+  exceed 512MB of physical RAM on their own.
 - **Region:** Any
 - **Authentication:** SSH key (recommended)
 
