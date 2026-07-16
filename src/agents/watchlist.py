@@ -50,8 +50,14 @@ def _scrape_career_page(url: str) -> str:
         browser = p.chromium.launch(headless=True)
         try:
             page = browser.new_page()
-            page.goto(url, timeout=30000)
-            page.wait_for_load_state("networkidle", timeout=15000)
+            page.goto(url, timeout=30000, wait_until="domcontentloaded")
+            # networkidle never fires on pages with persistent background
+            # activity (chat widgets, analytics, polling) — wait for it
+            # opportunistically but don't fail the whole scrape if it never comes.
+            try:
+                page.wait_for_load_state("networkidle", timeout=8000)
+            except Exception:
+                pass
             if page.query_selector("input[type='password']"):
                 raise RuntimeError("Login wall detected")
             return page.inner_text("body")
