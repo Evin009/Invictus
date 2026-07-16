@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock, patch, call
 
-from src.agents.watchlist import watchlist_agent, _scrape_career_page, _parse_jobs
+from src.agents.watchlist import watchlist_agent, _scrape_career_page, _parse_jobs, _try_search
 
 
 _WATCHLIST_ROW = {
@@ -54,6 +54,37 @@ def test_scrape_career_page_playwright_error_raises():
         except Exception:
             raised = True
     assert raised
+
+
+# --- _try_search ---
+
+def test_try_search_no_keywords_noops():
+    mock_page = MagicMock()
+    _try_search(mock_page, None)
+    mock_page.locator.assert_not_called()
+
+
+def test_try_search_no_search_box_found_noops():
+    mock_page = MagicMock()
+    mock_page.locator.return_value.first.count.return_value = 0
+    _try_search(mock_page, ["engineer"])
+    mock_page.locator.return_value.first.fill.assert_not_called()
+
+
+def test_try_search_fills_and_submits_first_matching_box():
+    mock_page = MagicMock()
+    mock_box = mock_page.locator.return_value.first
+    mock_box.count.return_value = 1
+    _try_search(mock_page, ["engineer", "data"])
+    mock_box.click.assert_called_once()
+    mock_box.fill.assert_called_once_with("engineer", timeout=3000)
+    mock_box.press.assert_called_once_with("Enter", timeout=3000)
+
+
+def test_try_search_swallows_interaction_errors():
+    mock_page = MagicMock()
+    mock_page.locator.side_effect = Exception("no such element")
+    _try_search(mock_page, ["engineer"])  # should not raise
 
 
 # --- _parse_jobs ---
@@ -168,7 +199,7 @@ def test_watchlist_agent_per_company_error_continues():
     mock_db.table.return_value.select.return_value.execute.return_value.data = rows
 
     call_count = {"n": 0}
-    def scrape_side(url):
+    def scrape_side(url, keywords=None):
         call_count["n"] += 1
         if call_count["n"] == 1:
             raise RuntimeError("Playwright timeout")

@@ -32,7 +32,7 @@ def watchlist_agent(state: GraphState) -> dict:
         if not url:
             continue
         try:
-            text = _scrape_career_page(url)
+            text = _scrape_career_page(url, keywords)
             jobs = _parse_jobs(text, company, url, keywords, source="watchlist")
             for job in jobs:
                 if job["job_url"] not in seen_urls:
@@ -45,7 +45,7 @@ def watchlist_agent(state: GraphState) -> dict:
     return {"jobs_discovered": existing + all_jobs}
 
 
-def _scrape_career_page(url: str) -> str:
+def _scrape_career_page(url: str, keywords: list[str] | None = None) -> str:
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         try:
@@ -60,9 +60,43 @@ def _scrape_career_page(url: str) -> str:
                 pass
             if page.query_selector("input[type='password']"):
                 raise RuntimeError("Login wall detected")
+            _try_search(page, keywords)
             return page.inner_text("body")
         finally:
             browser.close()
+
+
+def _try_search(page, keywords: list[str] | None) -> None:
+    """Large-company career portals (Google/Meta/Apple/Amazon/Microsoft-style)
+    render only marketing copy on landing; real listings appear after a search
+    is submitted. Best-effort: find a search box, submit the first configured
+    keyword, wait for results. Silently no-ops on any failure — the caller
+    falls back to whatever's already on the page."""
+    if not keywords:
+        return
+    query = keywords[0]
+    selectors = [
+        "input[type='search']",
+        "input[placeholder*='search' i]",
+        "input[placeholder*='job title' i]",
+        "input[placeholder*='keyword' i]",
+        "input[aria-label*='search' i]",
+    ]
+    for selector in selectors:
+        try:
+            box = page.locator(selector).first
+            if box.count() == 0:
+                continue
+            box.click(timeout=3000)
+            box.fill(query, timeout=3000)
+            box.press("Enter", timeout=3000)
+            try:
+                page.wait_for_load_state("networkidle", timeout=6000)
+            except Exception:
+                page.wait_for_timeout(2000)
+            return
+        except Exception:
+            continue
 
 
 def _parse_jobs(text: str, company: str, careers_url: str, keywords: list[str], source: str = "watchlist") -> list[JobItem]:
