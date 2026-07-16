@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import gsap from "gsap"
 import { CompanyLogo } from "@/components/company-logo"
+import { sourceCategory } from "@/lib/source-category"
 
 const CSS = `
   @keyframes bj-shimmer { 0%{background-position:100% 0} 100%{background-position:0 0} }
@@ -57,9 +58,10 @@ const SORT_OPTIONS = ["Best match", "Most recent"]
 const BATCH_SIZE_OPTIONS = [12, 24, 48, 96]
 
 function sourceColor(src: string | null) {
-  if (src === "search")    return "#0FA4AF"
-  if (src === "watchlist") return "#964734"
-  if (src === "crawler")   return "#024950"
+  const category = sourceCategory(src)
+  if (category === "Job board")   return "#0FA4AF"
+  if (category === "Career page") return "#964734"
+  if (category === "GitHub repo") return "#024950"
   return "#9CA3A0"
 }
 
@@ -456,7 +458,7 @@ export default function BrowseJobsPage() {
                       <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 5, marginTop: 2 }}>
                         {j.source && (
                           <span
-                            title={`via ${j.source}`}
+                            title={sourceCategory(j.source)}
                             style={{ width: 7, height: 7, borderRadius: "50%", background: sourceColor(j.source), flexShrink: 0 }}
                           />
                         )}
@@ -570,7 +572,7 @@ export default function BrowseJobsPage() {
                   fontSize: 11, fontWeight: 700, padding: "5px 11px", borderRadius: 12,
                 }}>
                   <span style={{ width: 5, height: 5, borderRadius: "50%", background: sourceColor(selected.source), display: "inline-block" }} />
-                  via {selected.source}
+                  via {sourceCategory(selected.source)}
                 </span>
               )}
 

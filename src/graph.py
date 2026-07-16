@@ -17,34 +17,47 @@ from src.filters.preference import preference_filter
 from src.notifications.slack import post_error
 from src.state import GraphState, JobItem
 
-BROAD_SCAN_INTERVAL_HOURS = 4
+SEARCH_SCAN_INTERVAL_HOURS = 2
+CRAWLER_SCAN_INTERVAL_HOURS = 4
 
 
-def _should_run_broad_scan() -> bool:
-    """search_agent/crawler_agent are lower-priority, broader discovery — gated
-    to roughly every 4 hours. watchlist_agent (top-priority companies) always
-    runs. Defaults to running when there's no record yet (first run)."""
+def _should_run_scan(column: str, interval_hours: float) -> bool:
+    """Generic gate for a lower-priority discovery tier tracked by its own
+    agent_settings timestamp column. Defaults to running when there's no
+    record yet (first run)."""
     from src.db.client import get_client
 
     db = get_client()
-    rows = db.table("agent_settings").select("last_broad_scan_at").limit(1).execute().data or []
-    if not rows or not rows[0].get("last_broad_scan_at"):
+    rows = db.table("agent_settings").select(column).limit(1).execute().data or []
+    if not rows or not rows[0].get(column):
         return True
-    last = datetime.fromisoformat(rows[0]["last_broad_scan_at"].replace("Z", "+00:00"))
+    last = datetime.fromisoformat(rows[0][column].replace("Z", "+00:00"))
     elapsed_hours = (datetime.now(timezone.utc) - last).total_seconds() / 3600
-    return elapsed_hours >= BROAD_SCAN_INTERVAL_HOURS
+    return elapsed_hours >= interval_hours
 
 
-def _mark_broad_scan_run() -> None:
+def _mark_scan_run(column: str) -> None:
     from src.db.client import get_client
 
     db = get_client()
     existing = db.table("agent_settings").select("id").limit(1).execute().data or []
     now = datetime.now(timezone.utc).isoformat()
     if existing:
-        db.table("agent_settings").update({"last_broad_scan_at": now}).eq("id", existing[0]["id"]).execute()
+        db.table("agent_settings").update({column: now}).eq("id", existing[0]["id"]).execute()
     else:
-        db.table("agent_settings").insert({"last_broad_scan_at": now}).execute()
+        db.table("agent_settings").insert({column: now}).execute()
+
+
+def _should_run_search_scan() -> bool:
+    """search_agent hits Greenhouse/Lever/GitHub structured APIs — cheap,
+    no Playwright — so it's gated to a shorter interval than crawler_agent."""
+    return _should_run_scan("last_search_scan_at", SEARCH_SCAN_INTERVAL_HOURS)
+
+
+def _should_run_crawler_scan() -> bool:
+    """crawler_agent does real Playwright page scrapes against crawler_urls —
+    more expensive, so it keeps the longer interval."""
+    return _should_run_scan("last_crawler_scan_at", CRAWLER_SCAN_INTERVAL_HOURS)
 
 
 def _dedupe_by_url(jobs: list[JobItem]) -> list[JobItem]:
@@ -60,9 +73,11 @@ def _dedupe_by_url(jobs: list[JobItem]) -> list[JobItem]:
 
 
 def discovery_node(state: GraphState) -> dict:
-    """Two-tier discovery: watchlist_agent (top-priority companies) runs every
-    invocation; search_agent + crawler_agent (broader, lower-priority) run in
-    parallel roughly every 4 hours instead of every run."""
+    """Three-tier discovery: watchlist_agent (top-priority companies) runs
+    every invocation; search_agent (Greenhouse/Lever/GitHub — cheap structured
+    APIs) is gated to roughly every 2 hours; crawler_agent (arbitrary page
+    scrapes) is gated separately to roughly every 4 hours. The two lower tiers
+    run in parallel when both happen to be due in the same cycle."""
     empty_state: GraphState = {**state, "jobs_discovered": []}
 
     watchlist_jobs: list[JobItem] = []
@@ -71,32 +86,42 @@ def discovery_node(state: GraphState) -> dict:
     except Exception as e:
         post_error("discovery_node", str(e), {"step": "watchlist_agent"})
 
-    broad_jobs: list[JobItem] = []
+    run_search = False
     try:
-        run_broad = _should_run_broad_scan()
+        run_search = _should_run_search_scan()
     except Exception as e:
-        post_error("discovery_node", str(e), {"step": "check_broad_scan_due"})
-        run_broad = False
+        post_error("discovery_node", str(e), {"step": "check_search_scan_due"})
 
-    if run_broad:
-        with ThreadPoolExecutor(max_workers=2) as pool:
-            search_future = pool.submit(search_agent, empty_state)
-            crawler_future = pool.submit(crawler_agent, empty_state)
+    run_crawler = False
+    try:
+        run_crawler = _should_run_crawler_scan()
+    except Exception as e:
+        post_error("discovery_node", str(e), {"step": "check_crawler_scan_due"})
 
+    broad_jobs: list[JobItem] = []
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        search_future = pool.submit(search_agent, empty_state) if run_search else None
+        crawler_future = pool.submit(crawler_agent, empty_state) if run_crawler else None
+
+        if search_future is not None:
             try:
                 broad_jobs += search_future.result().get("jobs_discovered", [])
             except Exception as e:
                 post_error("discovery_node", str(e), {"step": "search_agent"})
+            try:
+                _mark_scan_run("last_search_scan_at")
+            except Exception as e:
+                post_error("discovery_node", str(e), {"step": "mark_search_scan_run"})
 
+        if crawler_future is not None:
             try:
                 broad_jobs += crawler_future.result().get("jobs_discovered", [])
             except Exception as e:
                 post_error("discovery_node", str(e), {"step": "crawler_agent"})
-
-        try:
-            _mark_broad_scan_run()
-        except Exception as e:
-            post_error("discovery_node", str(e), {"step": "mark_broad_scan_run"})
+            try:
+                _mark_scan_run("last_crawler_scan_at")
+            except Exception as e:
+                post_error("discovery_node", str(e), {"step": "mark_crawler_scan_run"})
 
     return {"jobs_discovered": _dedupe_by_url(watchlist_jobs + broad_jobs)}
 

@@ -1,9 +1,10 @@
 import type { DiscoveredJob } from "@/lib/types"
+import { sourceCategory } from "@/lib/source-category"
 
 const SOURCE_STYLES: Record<string, { bg: string; badge: string; badgeFg: string }> = {
-  search:    { bg: "oklch(0.94 0.055 200)", badge: "oklch(0.820 0.100 200)", badgeFg: "oklch(0.290 0.100 200)" },
-  watchlist: { bg: "oklch(0.94 0.050 265)", badge: "oklch(0.820 0.090 265)", badgeFg: "oklch(0.290 0.090 265)" },
-  crawler:   { bg: "oklch(0.95 0.060 70)",  badge: "oklch(0.840 0.100 70)",  badgeFg: "oklch(0.300 0.100 70)"  },
+  "Job board":   { bg: "oklch(0.94 0.055 200)", badge: "oklch(0.820 0.100 200)", badgeFg: "oklch(0.290 0.100 200)" },
+  "Career page": { bg: "oklch(0.94 0.050 265)", badge: "oklch(0.820 0.090 265)", badgeFg: "oklch(0.290 0.090 265)" },
+  "GitHub repo": { bg: "oklch(0.95 0.060 70)",  badge: "oklch(0.840 0.100 70)",  badgeFg: "oklch(0.300 0.100 70)"  },
 }
 
 const FALLBACK = { bg: "oklch(0.940 0.005 220)", badge: "oklch(0.880 0.008 220)", badgeFg: "oklch(0.380 0.010 225)" }
@@ -14,8 +15,8 @@ interface Props {
 }
 
 export function DiscoveredJobCard({ job, index = 0 }: Props) {
-  const style = SOURCE_STYLES[job.source ?? ""] ?? FALLBACK
-  const sourceLabel = job.source ? job.source.charAt(0).toUpperCase() + job.source.slice(1) : "Discovery"
+  const sourceLabel = sourceCategory(job.source)
+  const style = SOURCE_STYLES[sourceLabel] ?? FALLBACK
 
   return (
     <a

@@ -29,60 +29,81 @@ _CRAWLER_JOB = {**_JOB, "job_url": "https://boards.greenhouse.io/acme/jobs/crawl
 def test_discovery_node_always_runs_watchlist():
     state = {"jobs_discovered": []}
     with patch("src.graph.watchlist_agent", return_value={"jobs_discovered": [_WATCHLIST_JOB]}) as mock_watch:
-        with patch("src.graph._should_run_broad_scan", return_value=False):
-            result = discovery_node(state)
+        with patch("src.graph._should_run_search_scan", return_value=False):
+            with patch("src.graph._should_run_crawler_scan", return_value=False):
+                result = discovery_node(state)
     mock_watch.assert_called_once()
     assert result["jobs_discovered"] == [_WATCHLIST_JOB]
 
 
-def test_discovery_node_skips_broad_scan_when_not_due():
+def test_discovery_node_skips_both_tiers_when_not_due():
     state = {"jobs_discovered": []}
     with patch("src.graph.watchlist_agent", return_value={"jobs_discovered": []}):
-        with patch("src.graph._should_run_broad_scan", return_value=False):
-            with patch("src.graph.search_agent") as mock_search:
-                with patch("src.graph.crawler_agent") as mock_crawler:
-                    with patch("src.graph._mark_broad_scan_run") as mock_mark:
-                        discovery_node(state)
+        with patch("src.graph._should_run_search_scan", return_value=False):
+            with patch("src.graph._should_run_crawler_scan", return_value=False):
+                with patch("src.graph.search_agent") as mock_search:
+                    with patch("src.graph.crawler_agent") as mock_crawler:
+                        with patch("src.graph._mark_scan_run") as mock_mark:
+                            discovery_node(state)
     mock_search.assert_not_called()
     mock_crawler.assert_not_called()
     mock_mark.assert_not_called()
 
 
-def test_discovery_node_runs_broad_scan_when_due():
+def test_discovery_node_runs_both_tiers_when_due():
     state = {"jobs_discovered": []}
     with patch("src.graph.watchlist_agent", return_value={"jobs_discovered": [_WATCHLIST_JOB]}):
-        with patch("src.graph._should_run_broad_scan", return_value=True):
-            with patch("src.graph.search_agent", return_value={"jobs_discovered": [_SEARCH_JOB]}) as mock_search:
-                with patch("src.graph.crawler_agent", return_value={"jobs_discovered": [_CRAWLER_JOB]}) as mock_crawler:
-                    with patch("src.graph._mark_broad_scan_run") as mock_mark:
-                        result = discovery_node(state)
+        with patch("src.graph._should_run_search_scan", return_value=True):
+            with patch("src.graph._should_run_crawler_scan", return_value=True):
+                with patch("src.graph.search_agent", return_value={"jobs_discovered": [_SEARCH_JOB]}) as mock_search:
+                    with patch("src.graph.crawler_agent", return_value={"jobs_discovered": [_CRAWLER_JOB]}) as mock_crawler:
+                        with patch("src.graph._mark_scan_run") as mock_mark:
+                            result = discovery_node(state)
     mock_search.assert_called_once()
     mock_crawler.assert_called_once()
-    mock_mark.assert_called_once()
+    mock_mark.assert_any_call("last_search_scan_at")
+    mock_mark.assert_any_call("last_crawler_scan_at")
     urls = {j["job_url"] for j in result["jobs_discovered"]}
     assert urls == {_WATCHLIST_JOB["job_url"], _SEARCH_JOB["job_url"], _CRAWLER_JOB["job_url"]}
+
+
+def test_discovery_node_runs_only_search_tier_when_only_it_is_due():
+    state = {"jobs_discovered": []}
+    with patch("src.graph.watchlist_agent", return_value={"jobs_discovered": []}):
+        with patch("src.graph._should_run_search_scan", return_value=True):
+            with patch("src.graph._should_run_crawler_scan", return_value=False):
+                with patch("src.graph.search_agent", return_value={"jobs_discovered": [_SEARCH_JOB]}) as mock_search:
+                    with patch("src.graph.crawler_agent") as mock_crawler:
+                        with patch("src.graph._mark_scan_run") as mock_mark:
+                            result = discovery_node(state)
+    mock_search.assert_called_once()
+    mock_crawler.assert_not_called()
+    mock_mark.assert_called_once_with("last_search_scan_at")
+    assert result["jobs_discovered"] == [_SEARCH_JOB]
 
 
 def test_discovery_node_dedupes_overlapping_urls():
     state = {"jobs_discovered": []}
     with patch("src.graph.watchlist_agent", return_value={"jobs_discovered": [_JOB]}):
-        with patch("src.graph._should_run_broad_scan", return_value=True):
-            with patch("src.graph.search_agent", return_value={"jobs_discovered": [_JOB]}):
-                with patch("src.graph.crawler_agent", return_value={"jobs_discovered": [_JOB]}):
-                    with patch("src.graph._mark_broad_scan_run"):
-                        result = discovery_node(state)
+        with patch("src.graph._should_run_search_scan", return_value=True):
+            with patch("src.graph._should_run_crawler_scan", return_value=True):
+                with patch("src.graph.search_agent", return_value={"jobs_discovered": [_JOB]}):
+                    with patch("src.graph.crawler_agent", return_value={"jobs_discovered": [_JOB]}):
+                        with patch("src.graph._mark_scan_run"):
+                            result = discovery_node(state)
     assert len(result["jobs_discovered"]) == 1
 
 
 def test_discovery_node_watchlist_error_continues_to_broad_scan():
     state = {"jobs_discovered": []}
     with patch("src.graph.watchlist_agent", side_effect=RuntimeError("scrape failed")):
-        with patch("src.graph._should_run_broad_scan", return_value=True):
-            with patch("src.graph.search_agent", return_value={"jobs_discovered": [_SEARCH_JOB]}):
-                with patch("src.graph.crawler_agent", return_value={"jobs_discovered": []}):
-                    with patch("src.graph._mark_broad_scan_run"):
-                        with patch("src.graph.post_error") as mock_err:
-                            result = discovery_node(state)
+        with patch("src.graph._should_run_search_scan", return_value=True):
+            with patch("src.graph._should_run_crawler_scan", return_value=True):
+                with patch("src.graph.search_agent", return_value={"jobs_discovered": [_SEARCH_JOB]}):
+                    with patch("src.graph.crawler_agent", return_value={"jobs_discovered": []}):
+                        with patch("src.graph._mark_scan_run"):
+                            with patch("src.graph.post_error") as mock_err:
+                                result = discovery_node(state)
     assert result["jobs_discovered"] == [_SEARCH_JOB]
     mock_err.assert_called_once()
 
@@ -90,23 +111,25 @@ def test_discovery_node_watchlist_error_continues_to_broad_scan():
 def test_discovery_node_search_agent_error_still_gets_crawler_results():
     state = {"jobs_discovered": []}
     with patch("src.graph.watchlist_agent", return_value={"jobs_discovered": []}):
-        with patch("src.graph._should_run_broad_scan", return_value=True):
-            with patch("src.graph.search_agent", side_effect=RuntimeError("api down")):
-                with patch("src.graph.crawler_agent", return_value={"jobs_discovered": [_CRAWLER_JOB]}):
-                    with patch("src.graph._mark_broad_scan_run"):
-                        with patch("src.graph.post_error") as mock_err:
-                            result = discovery_node(state)
+        with patch("src.graph._should_run_search_scan", return_value=True):
+            with patch("src.graph._should_run_crawler_scan", return_value=True):
+                with patch("src.graph.search_agent", side_effect=RuntimeError("api down")):
+                    with patch("src.graph.crawler_agent", return_value={"jobs_discovered": [_CRAWLER_JOB]}):
+                        with patch("src.graph._mark_scan_run"):
+                            with patch("src.graph.post_error") as mock_err:
+                                result = discovery_node(state)
     assert result["jobs_discovered"] == [_CRAWLER_JOB]
     mock_err.assert_called_once()
 
 
-def test_discovery_node_check_broad_scan_due_error_skips_broad_scan():
+def test_discovery_node_check_scan_due_error_skips_that_tier():
     state = {"jobs_discovered": []}
     with patch("src.graph.watchlist_agent", return_value={"jobs_discovered": [_WATCHLIST_JOB]}):
-        with patch("src.graph._should_run_broad_scan", side_effect=RuntimeError("db down")):
-            with patch("src.graph.search_agent") as mock_search:
-                with patch("src.graph.post_error") as mock_err:
-                    result = discovery_node(state)
+        with patch("src.graph._should_run_search_scan", side_effect=RuntimeError("db down")):
+            with patch("src.graph._should_run_crawler_scan", return_value=False):
+                with patch("src.graph.search_agent") as mock_search:
+                    with patch("src.graph.post_error") as mock_err:
+                        result = discovery_node(state)
     mock_search.assert_not_called()
     assert result["jobs_discovered"] == [_WATCHLIST_JOB]
     mock_err.assert_called_once()
@@ -329,56 +352,83 @@ def test_report_node_report_error_returns_empty_summary():
     assert result["summary"] == {}
 
 
-# --- _should_run_broad_scan ---
+# --- _should_run_scan / tier wrappers ---
 
-from src.graph import _should_run_broad_scan, _mark_broad_scan_run
+from src.graph import (
+    _should_run_scan,
+    _mark_scan_run,
+    _should_run_search_scan,
+    _should_run_crawler_scan,
+)
 
 
-def test_should_run_broad_scan_true_when_no_record():
+def test_should_run_scan_true_when_no_record():
     mock_db = MagicMock()
     mock_db.table.return_value.select.return_value.limit.return_value.execute.return_value.data = []
     with patch("src.db.client.get_client", return_value=mock_db):
-        assert _should_run_broad_scan() is True
+        assert _should_run_scan("last_search_scan_at", 2) is True
 
 
-def test_should_run_broad_scan_false_when_recent():
+def test_should_run_scan_false_when_recent():
     from datetime import datetime, timezone
     mock_db = MagicMock()
     recent = datetime.now(timezone.utc).isoformat()
     mock_db.table.return_value.select.return_value.limit.return_value.execute.return_value.data = [
-        {"last_broad_scan_at": recent}
+        {"last_search_scan_at": recent}
     ]
     with patch("src.db.client.get_client", return_value=mock_db):
-        assert _should_run_broad_scan() is False
+        assert _should_run_scan("last_search_scan_at", 2) is False
 
 
-def test_should_run_broad_scan_true_when_over_4h_elapsed():
+def test_should_run_scan_true_when_interval_elapsed():
     from datetime import datetime, timezone, timedelta
     mock_db = MagicMock()
     old = (datetime.now(timezone.utc) - timedelta(hours=5)).isoformat()
     mock_db.table.return_value.select.return_value.limit.return_value.execute.return_value.data = [
-        {"last_broad_scan_at": old}
+        {"last_crawler_scan_at": old}
     ]
     with patch("src.db.client.get_client", return_value=mock_db):
-        assert _should_run_broad_scan() is True
+        assert _should_run_scan("last_crawler_scan_at", 4) is True
 
 
-# --- _mark_broad_scan_run ---
+def test_should_run_search_scan_uses_2h_interval():
+    from datetime import datetime, timezone, timedelta
+    mock_db = MagicMock()
+    just_over_2h = (datetime.now(timezone.utc) - timedelta(hours=2, minutes=1)).isoformat()
+    mock_db.table.return_value.select.return_value.limit.return_value.execute.return_value.data = [
+        {"last_search_scan_at": just_over_2h}
+    ]
+    with patch("src.db.client.get_client", return_value=mock_db):
+        assert _should_run_search_scan() is True
 
-def test_mark_broad_scan_run_updates_existing_row():
+
+def test_should_run_crawler_scan_uses_4h_interval():
+    from datetime import datetime, timezone, timedelta
+    mock_db = MagicMock()
+    just_under_4h = (datetime.now(timezone.utc) - timedelta(hours=3, minutes=59)).isoformat()
+    mock_db.table.return_value.select.return_value.limit.return_value.execute.return_value.data = [
+        {"last_crawler_scan_at": just_under_4h}
+    ]
+    with patch("src.db.client.get_client", return_value=mock_db):
+        assert _should_run_crawler_scan() is False
+
+
+# --- _mark_scan_run ---
+
+def test_mark_scan_run_updates_existing_row():
     mock_db = MagicMock()
     mock_db.table.return_value.select.return_value.limit.return_value.execute.return_value.data = [{"id": "abc"}]
     with patch("src.db.client.get_client", return_value=mock_db):
-        _mark_broad_scan_run()
+        _mark_scan_run("last_search_scan_at")
     mock_db.table.return_value.update.assert_called_once()
-    assert mock_db.table.return_value.update.call_args[0][0]["last_broad_scan_at"]
+    assert mock_db.table.return_value.update.call_args[0][0]["last_search_scan_at"]
 
 
-def test_mark_broad_scan_run_inserts_when_no_row():
+def test_mark_scan_run_inserts_when_no_row():
     mock_db = MagicMock()
     mock_db.table.return_value.select.return_value.limit.return_value.execute.return_value.data = []
     with patch("src.db.client.get_client", return_value=mock_db):
-        _mark_broad_scan_run()
+        _mark_scan_run("last_crawler_scan_at")
     mock_db.table.return_value.insert.assert_called_once()
 
 
