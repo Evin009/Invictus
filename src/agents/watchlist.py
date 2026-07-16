@@ -1,5 +1,6 @@
 import hashlib
 import json
+import math
 import re
 from datetime import datetime, timedelta, timezone
 
@@ -12,6 +13,25 @@ from src.notifications.slack import post_error
 from src.state import GraphState, JobItem
 
 CACHE_TTL_HOURS = 1
+BATCH_SIZE = 50
+ROTATION_INTERVAL_HOURS = 5
+
+
+def _select_active_batch(rows: list[dict]) -> list[dict]:
+    """When the watchlist grows past BATCH_SIZE, only scrape one batch of 50
+    per hour, rotating to the next batch every ROTATION_INTERVAL_HOURS. Fully
+    stateless — the active batch is derived from wall-clock time, not stored
+    anywhere, so it's deterministic across runs without needing DB state.
+    Below BATCH_SIZE companies, every row is checked every run (no rotation
+    needed)."""
+    if len(rows) <= BATCH_SIZE:
+        return rows
+    ordered = sorted(rows, key=lambda r: r["id"])
+    total_batches = math.ceil(len(ordered) / BATCH_SIZE)
+    cycle_index = int(datetime.now(timezone.utc).timestamp() // (ROTATION_INTERVAL_HOURS * 3600))
+    active_batch = cycle_index % total_batches
+    start = active_batch * BATCH_SIZE
+    return ordered[start:start + BATCH_SIZE]
 
 
 def _keywords_hash(keywords: list[str]) -> str:
@@ -69,7 +89,7 @@ def watchlist_agent(state: GraphState) -> dict:
     seen_urls = {j["job_url"] for j in existing}
     all_jobs: list[JobItem] = []
 
-    for row in rows:
+    for row in _select_active_batch(rows):
         company = row.get("company_name", "")
         url = row.get("careers_url", "")
         keywords = row.get("role_keywords") or []

@@ -10,6 +10,8 @@ from src.agents.watchlist import (
     _get_cached_jobs,
     _set_cached_jobs,
     _keywords_hash,
+    _select_active_batch,
+    BATCH_SIZE,
 )
 
 
@@ -95,6 +97,46 @@ def test_try_search_swallows_interaction_errors():
     mock_page = MagicMock()
     mock_page.locator.side_effect = Exception("no such element")
     _try_search(mock_page, ["engineer"])  # should not raise
+
+
+# --- _select_active_batch ---
+
+def test_select_active_batch_returns_all_when_under_limit():
+    rows = [{"id": str(i)} for i in range(30)]
+    assert _select_active_batch(rows) == rows
+
+
+def test_select_active_batch_returns_all_when_exactly_at_limit():
+    rows = [{"id": str(i)} for i in range(BATCH_SIZE)]
+    assert _select_active_batch(rows) == rows
+
+
+def test_select_active_batch_returns_only_batch_size_when_over_limit():
+    rows = [{"id": f"{i:03d}"} for i in range(120)]
+    result = _select_active_batch(rows)
+    assert len(result) == BATCH_SIZE
+
+
+def test_select_active_batch_deterministic_for_same_moment():
+    rows = [{"id": f"{i:03d}"} for i in range(120)]
+    assert _select_active_batch(rows) == _select_active_batch(rows)
+
+
+def test_select_active_batch_covers_full_set_across_rotation_cycle():
+    rows = [{"id": f"{i:03d}"} for i in range(120)]
+    total_batches = 3  # ceil(120/50)
+    seen_ids = set()
+    from unittest.mock import patch as _patch
+    import datetime as _dt
+    base = _dt.datetime(2026, 1, 1, tzinfo=_dt.timezone.utc)
+    for cycle in range(total_batches):
+        fake_now = base + _dt.timedelta(hours=5 * cycle)
+        with _patch("src.agents.watchlist.datetime") as mock_dt:
+            mock_dt.now.return_value = fake_now
+            mock_dt.fromisoformat = _dt.datetime.fromisoformat
+            batch = _select_active_batch(rows)
+        seen_ids.update(r["id"] for r in batch)
+    assert seen_ids == {r["id"] for r in rows}
 
 
 # --- scrape cache ---
