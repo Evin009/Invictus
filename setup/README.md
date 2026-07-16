@@ -2,7 +2,7 @@
 
 ## 1. Create a Droplet
 
-- **Image:** Ubuntu 22.04 LTS
+- **Image:** Ubuntu 22.04 or 24.04 LTS
 - **Size:** 1 GB RAM ($6-7/mo) preferred. On the $4/mo 512MB tier, `deploy.sh`
   provisions a 2GB swap file automatically — works, just slower under memory
   pressure (swap is disk, not RAM) since Playwright + latexmk + Python can

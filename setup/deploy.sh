@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Provision a fresh Ubuntu 22.04 DigitalOcean Droplet for Invictus.
+# Provision a fresh Ubuntu 22.04 or 24.04 DigitalOcean Droplet for Invictus.
 # Run once as root on the droplet: bash deploy.sh
 # Assumes repo is cloned to /opt/invictus and .env is present there.
 set -euo pipefail
@@ -26,8 +26,13 @@ grep -q "$SWAP_FILE" /etc/fstab || echo "$SWAP_FILE none swap sw 0 0" >> /etc/fs
 
 echo "==> Updating system packages"
 apt-get update -y
-apt-get install -y python3.11 python3.11-venv python3-pip git curl logrotate \
+apt-get install -y software-properties-common curl git logrotate \
     texlive-latex-extra latexmk poppler-utils
+
+echo "==> Adding deadsnakes PPA (Ubuntu 22.04's default repos only ship python3.10)"
+add-apt-repository -y ppa:deadsnakes/ppa
+apt-get update -y
+apt-get install -y python3.11 python3.11-venv python3-pip
 
 echo "==> Creating service user ($SERVICE_USER)"
 id "$SERVICE_USER" &>/dev/null || useradd --system --no-create-home --shell /usr/sbin/nologin "$SERVICE_USER"
