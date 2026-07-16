@@ -56,9 +56,53 @@ def scan_replies() -> list[dict]:
     return processed
 
 
+_ATS_DOMAINS = ["greenhouse.io", "lever.co", "myworkdayjobs.com", "workday.com", "ashbyhq.com"]
+
+
+def _build_relevant_query() -> str | None:
+    """Scope the Gmail search to senders we actually care about — cold-outreach
+    contacts and known ATS platforms — instead of every unread email in the
+    inbox. Returns None when there's nothing job-related to search for yet
+    (no outreach sent, no non-manual applications), so scan_replies can skip
+    the Gmail call entirely rather than classifying random inbox noise.
+    """
+    db = get_client()
+    outreach_rows = db.table("outreach_log").select("contact_email").execute().data or []
+    contact_emails = {r["contact_email"] for r in outreach_rows if r.get("contact_email")}
+
+    app_rows = db.table("applications").select("ats_platform").execute().data or []
+    has_ats_applications = any(a.get("ats_platform") not in (None, "manual") for a in app_rows)
+
+    from_clauses = [f"from:{addr}" for addr in contact_emails]
+    if has_ats_applications:
+        from_clauses += [f"from:{domain}" for domain in _ATS_DOMAINS]
+
+    if not from_clauses:
+        return None
+    return "is:unread (" + " OR ".join(from_clauses) + ")"
+
+
+def _already_processed(message_id: str) -> bool:
+    db = get_client()
+    rows = (
+        db.table("reply_log")
+        .select("id")
+        .eq("message_id", message_id)
+        .eq("channel", "email")
+        .limit(1)
+        .execute()
+        .data or []
+    )
+    return len(rows) > 0
+
+
 def _fetch_unread_emails() -> list[dict]:
-    """Fetch unread messages from Gmail. Returns list of {sender, subject, body, message_id}."""
-    import base64
+    """Fetch unread messages from Gmail that look job-related. Returns list of
+    {sender, subject, body, message_id}."""
+    query = _build_relevant_query()
+    if query is None:
+        return []
+
     from google.oauth2.credentials import Credentials
     from googleapiclient.discovery import build
 
@@ -66,12 +110,14 @@ def _fetch_unread_emails() -> list[dict]:
     service = build("gmail", "v1", credentials=creds)
 
     result = service.users().messages().list(
-        userId="me", q="is:unread", maxResults=50
+        userId="me", q=query, maxResults=50
     ).execute()
     messages = result.get("messages") or []
 
     emails = []
     for msg in messages:
+        if _already_processed(msg["id"]):
+            continue
         full = service.users().messages().get(
             userId="me", id=msg["id"], format="full"
         ).execute()
@@ -84,12 +130,6 @@ def _fetch_unread_emails() -> list[dict]:
             "body": body,
             "message_id": msg["id"],
         })
-        try:
-            service.users().messages().modify(
-                userId="me", id=msg["id"], body={"removeLabelIds": ["UNREAD"]}
-            ).execute()
-        except Exception as e:
-            post_error("reply_tracker", f"mark_read failed: {e}", {"message_id": msg["id"]})
     return emails
 
 

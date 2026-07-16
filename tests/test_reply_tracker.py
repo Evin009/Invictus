@@ -7,6 +7,8 @@ from src.agents.reply_tracker import (
     _save_reply,
     _update_application_status,
     _alert_if_notable,
+    _build_relevant_query,
+    _already_processed,
     scan_replies,
 )
 
@@ -188,6 +190,74 @@ def test_alert_if_notable_silent_on_follow_up_needed():
     with patch("src.agents.reply_tracker.post_message") as mock_msg:
         _alert_if_notable("follow_up_needed", "hr@x.com", "Thanks for applying", None)
     mock_msg.assert_not_called()
+
+
+# --- _build_relevant_query ---
+
+def _mock_db_for_query(contact_emails=(), ats_platforms=()):
+    mock_db = MagicMock()
+
+    def table_side_effect(name):
+        m = MagicMock()
+        if name == "outreach_log":
+            m.select.return_value.execute.return_value.data = [
+                {"contact_email": e} for e in contact_emails
+            ]
+        elif name == "applications":
+            m.select.return_value.execute.return_value.data = [
+                {"ats_platform": p} for p in ats_platforms
+            ]
+        return m
+
+    mock_db.table.side_effect = table_side_effect
+    return mock_db
+
+
+def test_build_relevant_query_none_when_nothing_to_search():
+    mock_db = _mock_db_for_query()
+    with patch("src.agents.reply_tracker.get_client", return_value=mock_db):
+        result = _build_relevant_query()
+    assert result is None
+
+
+def test_build_relevant_query_includes_outreach_contacts():
+    mock_db = _mock_db_for_query(contact_emails=["recruiter@acme.com"])
+    with patch("src.agents.reply_tracker.get_client", return_value=mock_db):
+        result = _build_relevant_query()
+    assert result is not None
+    assert "from:recruiter@acme.com" in result
+    assert "is:unread" in result
+
+
+def test_build_relevant_query_includes_ats_domains_when_applied():
+    mock_db = _mock_db_for_query(ats_platforms=["greenhouse"])
+    with patch("src.agents.reply_tracker.get_client", return_value=mock_db):
+        result = _build_relevant_query()
+    assert result is not None
+    assert "from:greenhouse.io" in result
+
+
+def test_build_relevant_query_manual_only_applications_excluded():
+    mock_db = _mock_db_for_query(ats_platforms=["manual"])
+    with patch("src.agents.reply_tracker.get_client", return_value=mock_db):
+        result = _build_relevant_query()
+    assert result is None
+
+
+# --- _already_processed ---
+
+def test_already_processed_true_when_message_id_found():
+    mock_db = MagicMock()
+    mock_db.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value.data = [{"id": "1"}]
+    with patch("src.agents.reply_tracker.get_client", return_value=mock_db):
+        assert _already_processed("msg-1") is True
+
+
+def test_already_processed_false_when_not_found():
+    mock_db = MagicMock()
+    mock_db.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value.data = []
+    with patch("src.agents.reply_tracker.get_client", return_value=mock_db):
+        assert _already_processed("msg-1") is False
 
 
 # --- scan_replies ---
