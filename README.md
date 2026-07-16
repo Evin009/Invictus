@@ -1,8 +1,8 @@
 # Invictus
 
-Fully autonomous multi-agent AI job application system. Runs hourly on a cloud VM via cron. A single [LangGraph](https://github.com/langchain-ai/langgraph) state graph drives the entire pipeline: discover jobs, tailor resumes with RAG, submit applications, send cold outreach, track replies, and post a Slack summary. [Supabase](https://supabase.com) is the only persistent store — no local state survives between runs.
+Autonomous multi-agent AI job application system. Runs hourly via cron. One [LangGraph](https://github.com/langchain-ai/langgraph) pipeline: finds jobs, tailors resumes with RAG, applies, sends outreach, tracks replies, and posts a Slack summary. [Supabase](https://supabase.com) holds all state — nothing lives in memory between runs.
 
-A web dashboard (`ui/`) lets you monitor everything the system does and manage your settings without touching the database directly.
+A dashboard (`ui/`) lets you monitor and configure everything without touching the database.
 
 ## How it works
 
@@ -12,19 +12,19 @@ watchlist_agent ─┤─→ filter_node → tailor_node → apply_node → outr
 crawler_agent ─┘
 ```
 
-1. **Discover** — search agent (Greenhouse/Lever APIs + GitHub job lists), watchlist agent (VIP companies, deeper check), and crawler agent (broad career-page list) each find new postings and append them to shared state.
-2. **Filter** — preference checker (role, location, pay) and dedup check (already-seen jobs) gate the list down to new, relevant jobs only.
-3. **Tailor** — resume bullets retrieved by relevance (pgvector + OpenAI embeddings), rewritten by AI to match the job description, recompiled to PDF, capped at 2 pages. Matching cover letter generated and capped at 350 words.
-4. **Apply** — Playwright fills out the application on Greenhouse, Lever, Ashby, or Workday. Captchas, login walls, or unknown fields halt the attempt and trigger a manual fallback + Slack alert — never guessed or skipped.
-5. **Outreach** — finds contacts at the company, sends a personalized cold email automatically via Gmail, and drafts a LinkedIn message to Slack for manual sending (LinkedIn automation is never used — against their ToS).
-6. **Reply tracking** — scans the inbox, classifies replies (interview / rejection / follow-up / other) with AI, updates application status, and pings Slack immediately on interviews and rejections.
-7. **Report** — posts an hourly Slack summary: jobs discovered, applications submitted, manual pending, interviews, rejections, replies, outreach sent.
+1. **Discover** — search agent (Greenhouse/Lever APIs + GitHub lists), watchlist agent (VIP companies), crawler agent (broad career pages) all append new postings to shared state.
+2. **Filter** — drops jobs that don't match preferences or were already seen.
+3. **Tailor** — pulls the most relevant resume bullets (pgvector + OpenAI embeddings), rewrites them to match the JD, recompiles to a 2-page PDF, plus a 350-word cover letter.
+4. **Apply** — Playwright fills the form on Greenhouse, Lever, Ashby, or Workday. Any captcha, login wall, or unknown field halts the run and alerts Slack — never guessed or skipped.
+5. **Outreach** — finds contacts, auto-sends a cold email via Gmail, drafts a LinkedIn message to Slack for manual sending (never automated — against LinkedIn's ToS).
+6. **Reply tracking** — scans the inbox, classifies replies with AI, updates application status, pings Slack on interviews/rejections.
+7. **Report** — posts an hourly Slack summary of everything above.
 
-Every agent reads from and writes to Supabase — nothing is held in memory across runs, so a crash mid-cycle never loses progress.
+A crash mid-cycle never loses progress — every agent writes straight to Supabase.
 
 ## Setup
 
-### Backend (Python pipeline)
+### Backend
 
 ```bash
 python -m venv .venv && source .venv/bin/activate
@@ -32,25 +32,19 @@ pip install -e ".[dev]"
 playwright install chromium
 ```
 
-Copy `.env.example` to `.env` and fill in every variable — `run.py` will not start until all are set. Use `SUPABASE_SERVICE_ROLE_KEY` (not the anon key) — agents write to every table.
+1. Copy `.env.example` to `.env`, fill in every variable. `run.py` won't start otherwise. Use `SUPABASE_SERVICE_ROLE_KEY`, not the anon key.
+2. Paste `src/db/schema.sql` into the Supabase SQL editor.
+3. Authorize Gmail (for reply tracking): download the OAuth client-secret JSON from Google Cloud Console as `credentials.json`, then run:
+   ```bash
+   python setup/gmail_auth.py
+   ```
+   Opens a browser consent flow, writes the token to `gmail_token.json`. While the Google Cloud OAuth screen is in "Testing" status, refresh tokens expire after 7 days — rerun weekly until verified for production.
+4. Embed your resumes (re-run whenever resumes change):
+   ```bash
+   python -c "from src.rag.embedder import embed_resumes; embed_resumes('resumes/')"
+   ```
 
-Apply the database schema once by pasting `src/db/schema.sql` into the Supabase SQL editor.
-
-Authorize Gmail once for the reply tracker: download the OAuth client-secret JSON from Google Cloud Console as `credentials.json` in the repo root, then run:
-
-```bash
-python setup/gmail_auth.py
-```
-
-This opens a browser consent flow and writes the token to `gmail_token.json` (path set via `GMAIL_CREDENTIALS_PATH`). While the Google Cloud project's OAuth consent screen is in "Testing" status, refresh tokens expire after 7 days — rerun this weekly until the app is verified for production.
-
-Embed your resumes into pgvector once (re-run whenever resumes change):
-
-```bash
-python -c "from src.rag.embedder import embed_resumes; embed_resumes('resumes/')"
-```
-
-### Dashboard (Next.js UI)
+### Dashboard
 
 ```bash
 cd ui
@@ -59,54 +53,47 @@ cp .env.local.example .env.local   # fill in NEXT_PUBLIC_SUPABASE_URL + NEXT_PUB
 npm run dev
 ```
 
-The dashboard runs on `http://localhost:3000`. Sign up with your email on first launch — this creates the Supabase auth user and takes you through the onboarding wizard to configure your profile, preferences, and watchlist.
+Runs at `http://localhost:3000`. Sign up on first launch — sets up your Supabase auth user and walks you through onboarding.
 
 ## Running
 
 ```bash
-# One full hourly cycle (backend)
-python run.py
-
-# Full test suite
-pytest
-
-# Single test
-pytest tests/test_apply.py::test_detect_greenhouse
-
-# UI type check + lint
-cd ui && npm run typecheck && npm run lint
+python run.py                                        # one full hourly cycle
+pytest                                                # full test suite
+pytest tests/test_apply.py::test_detect_greenhouse    # single test
+cd ui && npm run typecheck && npm run lint            # UI checks
 ```
 
-In production, `setup/` contains a provisioning script that configures a fresh cloud VM end to end: installs dependencies, creates a dedicated non-root user, registers the hourly cron job, and configures log rotation (14-day retention).
+`setup/` also has a provisioning script for a fresh cloud VM — installs deps, creates a non-root user, registers the hourly cron job, sets up log rotation.
 
 ## Data stored
 
-Everything is persisted in Supabase as it happens.
+Everything below is written to Supabase as it happens.
 
 | Table | Role |
 |---|---|
-| `jobs_seen` | Dedup source of truth — every discovered job by URL |
-| `applications` | Full receipt per submission — fields filled, answers, resume/cover letter paths, confirmation, status |
-| `outreach_log` | Contacts messaged per job, used for the 30-day cooldown check |
+| `jobs_seen` | Every discovered job by URL — dedup source of truth |
+| `applications` | Full receipt per submission: fields, answers, resume/cover letter paths, confirmation, status |
+| `outreach_log` | Contacts messaged per job — 30-day cooldown check |
 | `reply_log` | Classified email/LinkedIn replies |
-| `resume_bullets` | pgvector embeddings of individual resume bullets |
+| `resume_bullets` | pgvector embeddings of resume bullets |
 | `user_profile` | Name, email, education, work history for ATS form-fill |
 | `preferences` | Locations, seniority, salary floor, role keywords |
-| `watchlist` | VIP companies for deeper, targeted checking |
+| `watchlist` | VIP companies for deeper checking |
 | `crawler_urls` | Career page URLs for the broad crawler |
 | `cover_letter_seeds` | Sample cover letters for tone matching |
 | `outreach_seeds` | Sample cold messages for tone matching |
 
-`applications.status` moves through `applied` → `interview` → `rejection` → `ghosted`, updated in real time by the reply tracker.
+`applications.status`: `applied` → `interview` → `rejection` → `ghosted`, updated live by the reply tracker.
 
 ## Hard constraints
 
-Enforced in code, intentionally never relaxed:
+Never relaxed:
 
-- Resume `.tex` files: no formatting/layout changes, no new sections, hard 2-page cap
-- Cover letters: 1-page max, 350 words
-- LinkedIn messages: drafted to Slack only, never sent automatically
-- Apply agent: on captcha, login wall, or unrecognized field — halt and alert, never guess or skip a required field
+- Resume `.tex`: no layout changes, no new sections, 2-page cap
+- Cover letters: 1 page, 350 words max
+- LinkedIn: drafted to Slack only, never auto-sent
+- Apply agent: captcha / login wall / unknown field → halt + alert, never guess or skip
 
 ## Project structure
 
@@ -133,4 +120,4 @@ supabase/          # local Supabase config + migrations
 tests/             # pytest suite, one file per agent/module
 ```
 
-See [`docs/build-log.md`](docs/build-log.md) for a plain-language history of what was built in each phase and why decisions were made.
+See [`docs/build-log.md`](docs/build-log.md) for the plain-language history of what got built and why.
