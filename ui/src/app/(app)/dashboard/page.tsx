@@ -4,12 +4,11 @@ import { useEffect, useRef, useState } from "react"
 import type { Application, ApplicationStatus } from "@/lib/types"
 import { StatCard } from "@/components/stat-card"
 
-interface RunLog {
+interface DashboardStats {
   jobs_discovered: number
   applied: number
   outreach_sent: number
   interviews: number
-  run_at: string
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -95,12 +94,13 @@ export default function DashboardPage() {
   const [openFilter, setOpenFilter] = useState<string | null>(null)
   const [filterValues, setFilterValues] = useState<Record<string, string>>({})
   const closeRef = useRef<HTMLDivElement>(null)
-  const [lastRun, setLastRun] = useState<RunLog | null>(null)
+  const [stats, setStats] = useState<DashboardStats | null>(null)
+  const [lastRunAt, setLastRunAt] = useState<string | null>(null)
 
   useEffect(() => {
     fetch("/api/run-log")
       .then(r => r.json())
-      .then(d => setLastRun(d?.lastRun ?? null))
+      .then(d => { setStats(d?.stats ?? null); setLastRunAt(d?.lastRunAt ?? null) })
       .catch(() => {})
   }, [])
 
@@ -139,18 +139,20 @@ export default function DashboardPage() {
     <>
       <style dangerouslySetInnerHTML={{ __html: SHIMMER_CSS }} />
 
-      {/* ── Last run ── */}
-      {lastRun && (
+      {/* ── Stats (rolling 24h) ── */}
+      {stats && (
         <div style={{ flexShrink: 0 }}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 12 }}>
-            <StatCard label="Jobs found" value={lastRun.jobs_discovered} index={0} />
-            <StatCard label="Applied" value={lastRun.applied} index={1} accent />
-            <StatCard label="Interviews" value={lastRun.interviews} index={2} />
-            <StatCard label="Outreach sent" value={lastRun.outreach_sent} index={3} />
+            <StatCard label="Jobs found (24h)" value={stats.jobs_discovered} index={0} />
+            <StatCard label="Applied (24h)" value={stats.applied} index={1} accent />
+            <StatCard label="Interviews (24h)" value={stats.interviews} index={2} />
+            <StatCard label="Outreach sent (24h)" value={stats.outreach_sent} index={3} />
           </div>
-          <p style={{ fontSize: 11, color: "rgba(0,49,53,0.4)", margin: "8px 2px 0" }}>
-            Last run {timeAgo(lastRun.run_at)} — same numbers posted to Slack
-          </p>
+          {lastRunAt && (
+            <p style={{ fontSize: 11, color: "rgba(0,49,53,0.4)", margin: "8px 2px 0" }}>
+              Last run {timeAgo(lastRunAt)} — same numbers posted to Slack
+            </p>
+          )}
         </div>
       )}
 
