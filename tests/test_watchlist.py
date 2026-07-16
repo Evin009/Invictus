@@ -1,6 +1,16 @@
 from unittest.mock import MagicMock, patch, call
 
-from src.agents.watchlist import watchlist_agent, _scrape_career_page, _parse_jobs, _try_search
+from datetime import datetime, timedelta, timezone
+
+from src.agents.watchlist import (
+    watchlist_agent,
+    _scrape_career_page,
+    _parse_jobs,
+    _try_search,
+    _get_cached_jobs,
+    _set_cached_jobs,
+    _keywords_hash,
+)
 
 
 _WATCHLIST_ROW = {
@@ -85,6 +95,95 @@ def test_try_search_swallows_interaction_errors():
     mock_page = MagicMock()
     mock_page.locator.side_effect = Exception("no such element")
     _try_search(mock_page, ["engineer"])  # should not raise
+
+
+# --- scrape cache ---
+
+def test_keywords_hash_order_independent():
+    assert _keywords_hash(["engineer", "data"]) == _keywords_hash(["Data", " Engineer "])
+
+
+def test_keywords_hash_differs_for_different_keywords():
+    assert _keywords_hash(["engineer"]) != _keywords_hash(["designer"])
+
+
+def test_get_cached_jobs_returns_none_when_no_row():
+    mock_db = MagicMock()
+    mock_db.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value.data = []
+    with patch("src.agents.watchlist.get_client", return_value=mock_db):
+        result = _get_cached_jobs("https://acme.com/careers", ["engineer"])
+    assert result is None
+
+
+def test_get_cached_jobs_returns_none_when_stale():
+    stale_time = (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat()
+    mock_db = MagicMock()
+    mock_db.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value.data = [
+        {"parsed_jobs": _PARSED_JOBS, "scraped_at": stale_time}
+    ]
+    with patch("src.agents.watchlist.get_client", return_value=mock_db):
+        result = _get_cached_jobs("https://acme.com/careers", ["engineer"])
+    assert result is None
+
+
+def test_get_cached_jobs_returns_jobs_when_fresh():
+    fresh_time = datetime.now(timezone.utc).isoformat()
+    mock_db = MagicMock()
+    mock_db.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value.data = [
+        {"parsed_jobs": _PARSED_JOBS, "scraped_at": fresh_time}
+    ]
+    with patch("src.agents.watchlist.get_client", return_value=mock_db):
+        result = _get_cached_jobs("https://acme.com/careers", ["engineer"])
+    assert result == _PARSED_JOBS
+
+
+def test_set_cached_jobs_upserts():
+    mock_db = MagicMock()
+    with patch("src.agents.watchlist.get_client", return_value=mock_db):
+        _set_cached_jobs("https://acme.com/careers", ["engineer"], _PARSED_JOBS)
+    mock_db.table.assert_any_call("scrape_cache")
+    mock_db.table.return_value.upsert.assert_called_once()
+    _, kwargs = mock_db.table.return_value.upsert.call_args
+    assert kwargs["on_conflict"] == "careers_url,keywords_hash"
+
+
+def test_watchlist_agent_uses_cache_skips_scrape():
+    state = {"jobs_discovered": []}
+    mock_db = MagicMock()
+    mock_db.table.return_value.select.return_value.execute.return_value.data = [_WATCHLIST_ROW]
+
+    fresh_time = datetime.now(timezone.utc).isoformat()
+    with patch("src.agents.watchlist.get_client", return_value=mock_db):
+        with patch(
+            "src.agents.watchlist._get_cached_jobs", return_value=_PARSED_JOBS
+        ):
+            with patch("src.agents.watchlist._scrape_career_page") as mock_scrape:
+                result = watchlist_agent(state)
+
+    mock_scrape.assert_not_called()
+    assert len(result["jobs_discovered"]) == 1
+
+
+def test_watchlist_agent_cache_lookup_error_falls_back_to_scrape():
+    state = {"jobs_discovered": []}
+    mock_db = MagicMock()
+    mock_db.table.return_value.select.return_value.execute.return_value.data = [_WATCHLIST_ROW]
+
+    with patch("src.agents.watchlist.get_client", return_value=mock_db):
+        with patch(
+            "src.agents.watchlist._get_cached_jobs", side_effect=Exception("db down")
+        ):
+            with patch(
+                "src.agents.watchlist._scrape_career_page", return_value=_RAW_HTML
+            ) as mock_scrape:
+                with patch(
+                    "src.agents.watchlist._parse_jobs", return_value=_PARSED_JOBS
+                ):
+                    with patch("src.agents.watchlist._set_cached_jobs"):
+                        result = watchlist_agent(state)
+
+    mock_scrape.assert_called_once()
+    assert len(result["jobs_discovered"]) == 1
 
 
 # --- _parse_jobs ---

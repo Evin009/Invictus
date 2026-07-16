@@ -1,5 +1,7 @@
+import hashlib
 import json
 import re
+from datetime import datetime, timedelta, timezone
 
 import anthropic
 from playwright.sync_api import sync_playwright
@@ -8,6 +10,48 @@ from src.config import settings
 from src.db.client import get_client
 from src.notifications.slack import post_error
 from src.state import GraphState, JobItem
+
+CACHE_TTL_HOURS = 1
+
+
+def _keywords_hash(keywords: list[str]) -> str:
+    normalized = ",".join(sorted(k.strip().lower() for k in keywords))
+    return hashlib.sha256(normalized.encode()).hexdigest()
+
+
+def _get_cached_jobs(careers_url: str, keywords: list[str]) -> list[dict] | None:
+    db = get_client()
+    kh = _keywords_hash(keywords)
+    rows = (
+        db.table("scrape_cache")
+        .select("parsed_jobs, scraped_at")
+        .eq("careers_url", careers_url)
+        .eq("keywords_hash", kh)
+        .limit(1)
+        .execute()
+        .data
+        or []
+    )
+    if not rows:
+        return None
+    scraped_at = datetime.fromisoformat(rows[0]["scraped_at"].replace("Z", "+00:00"))
+    if datetime.now(timezone.utc) - scraped_at > timedelta(hours=CACHE_TTL_HOURS):
+        return None
+    return rows[0]["parsed_jobs"]
+
+
+def _set_cached_jobs(careers_url: str, keywords: list[str], jobs: list[dict]) -> None:
+    db = get_client()
+    kh = _keywords_hash(keywords)
+    db.table("scrape_cache").upsert(
+        {
+            "careers_url": careers_url,
+            "keywords_hash": kh,
+            "parsed_jobs": jobs,
+            "scraped_at": datetime.now(timezone.utc).isoformat(),
+        },
+        on_conflict="careers_url,keywords_hash",
+    ).execute()
 
 
 def watchlist_agent(state: GraphState) -> dict:
@@ -32,8 +76,19 @@ def watchlist_agent(state: GraphState) -> dict:
         if not url:
             continue
         try:
-            text = _scrape_career_page(url, keywords)
-            jobs = _parse_jobs(text, company, url, keywords, source="watchlist")
+            try:
+                cached = _get_cached_jobs(url, keywords)
+            except Exception:
+                cached = None
+            if cached is not None:
+                jobs = cached
+            else:
+                text = _scrape_career_page(url, keywords)
+                jobs = _parse_jobs(text, company, url, keywords, source="watchlist")
+                try:
+                    _set_cached_jobs(url, keywords, jobs)
+                except Exception:
+                    pass
             for job in jobs:
                 if job["job_url"] not in seen_urls:
                     seen_urls.add(job["job_url"])
