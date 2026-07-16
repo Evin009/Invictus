@@ -35,7 +35,11 @@ apt-get update -y
 apt-get install -y python3.11 python3.11-venv python3-pip
 
 echo "==> Creating service user ($SERVICE_USER)"
-id "$SERVICE_USER" &>/dev/null || useradd --system --no-create-home --shell /usr/sbin/nologin "$SERVICE_USER"
+id "$SERVICE_USER" &>/dev/null || useradd --system --create-home --shell /usr/sbin/nologin "$SERVICE_USER"
+# Idempotent fix for droplets where this ran before --create-home was added —
+# Playwright needs a writable $HOME (~/.cache/ms-playwright) to install browsers into.
+mkdir -p "/home/$SERVICE_USER"
+chown -R "$SERVICE_USER:$SERVICE_USER" "/home/$SERVICE_USER"
 chown -R "$SERVICE_USER:$SERVICE_USER" "$REPO_DIR"
 
 echo "==> Creating virtualenv"
