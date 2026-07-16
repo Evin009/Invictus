@@ -12,7 +12,8 @@ LOGROTATE_CONF="/etc/logrotate.d/invictus"
 
 echo "==> Updating system packages"
 apt-get update -y
-apt-get install -y python3.11 python3.11-venv python3-pip git curl logrotate
+apt-get install -y python3.11 python3.11-venv python3-pip git curl logrotate \
+    texlive-latex-extra latexmk poppler-utils
 
 echo "==> Creating service user ($SERVICE_USER)"
 id "$SERVICE_USER" &>/dev/null || useradd --system --no-create-home --shell /usr/sbin/nologin "$SERVICE_USER"
@@ -28,6 +29,10 @@ sudo -u "$SERVICE_USER" "$VENV_DIR/bin/pip" install -e "$REPO_DIR[dev]"
 echo "==> Installing Playwright Chromium"
 sudo -u "$SERVICE_USER" "$VENV_DIR/bin/playwright" install chromium
 "$VENV_DIR/bin/playwright" install-deps chromium
+
+echo "==> Verifying LaTeX toolchain"
+command -v latexmk >/dev/null || { echo "ERROR: latexmk not found after install"; exit 1; }
+command -v pdfinfo >/dev/null || { echo "ERROR: pdfinfo not found after install"; exit 1; }
 
 echo "==> Verifying .env exists"
 if [ ! -f "$REPO_DIR/.env" ]; then

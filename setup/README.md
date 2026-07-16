@@ -21,56 +21,52 @@ cp /opt/invictus/.env.example /opt/invictus/.env
 nano /opt/invictus/.env   # fill in all values
 ```
 
-Required variables (see `.env.example` for full list):
+Required variables (see `.env.example` for the full list):
 - `ANTHROPIC_API_KEY`
-- `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`
-- `SLACK_WEBHOOK_URL`
-- `GMAIL_CREDENTIALS_PATH` — path to OAuth credentials JSON on the droplet
-- `HUNTER_API_KEY`
+- `OPENAI_API_KEY`
+- `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` — same project the web app uses
+- `GMAIL_CREDENTIALS_PATH` — path to the authorized token JSON on the droplet (see step 4)
+- `HUNTER_API_KEY` — optional, only gates cold-outreach contact lookup
 
-## 4. Upload Gmail credentials
+Slack is no longer a static env var — it's connected per-user through the web app's
+Settings page (OAuth), stored in the `slack_integration` table. Nothing to set here.
 
-```bash
-scp gmail_credentials.json root@<droplet-ip>:/opt/invictus/gmail_credentials.json
-```
+## 4. Gmail credentials
 
-Then set `GMAIL_CREDENTIALS_PATH=/opt/invictus/gmail_credentials.json` in `.env`.
-
-## 5. Upload your resume
+The OAuth consent flow (`setup/gmail_auth.py`) needs a real browser, so run it on your
+own machine first, then copy the resulting token to the droplet:
 
 ```bash
-scp resume.tex root@<droplet-ip>:/opt/invictus/resumes/resume.tex
+# on your machine, once:
+python setup/gmail_auth.py   # opens a browser, writes gmail_token.json
+
+# copy it to the droplet:
+scp gmail_token.json root@<droplet-ip>:/opt/invictus/gmail_token.json
 ```
 
-Then set `BASE_RESUME_TEX=/opt/invictus/resumes/resume.tex` in `.env`.
+Set `GMAIL_CREDENTIALS_PATH=/opt/invictus/gmail_token.json` in `.env`.
 
-## 6. Seed the database
+Note: while the Google Cloud project's OAuth consent screen is in "Testing" status,
+the refresh token expires after 7 days — rerun `gmail_auth.py` and re-copy weekly,
+or submit the app for Google's verification to move it to "In production".
 
-Edit `setup/seed.py` — fill in your profile, preferences, watchlist, and tone examples. Then run:
+## 5. Resume, profile, preferences, watchlist
 
-```bash
-python setup/seed.py
-```
+All of this now lives in Supabase, set up through the web app (onboarding, or the
+Profile/Resume/Cover Letter pages) — not local files or `setup/seed.py`. As long as
+`SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` point at the same project the web app
+writes to, the backend picks it all up automatically. Nothing to seed manually here.
 
-Run this once on the droplet after `.env` is filled. Re-run any time you update your preferences or watchlist.
-
-## 7. Embed your resume
-
-```bash
-python -c "from src.rag.embedder import embed_resumes; embed_resumes('resumes/')"
-```
-
-Re-run whenever `resumes/resume.tex` changes.
-
-## 8. Run the provisioning script
+## 6. Run the provisioning script
 
 ```bash
 bash /opt/invictus/setup/deploy.sh
 ```
 
-This installs Python 3.11, all dependencies, Playwright Chromium, and registers the hourly cron job.
+Installs Python 3.11, all dependencies, the LaTeX toolchain (`latexmk`, `pdfinfo`),
+Playwright Chromium, and registers the hourly cron job.
 
-## 9. Verify
+## 7. Verify
 
 ```bash
 # Manual test run (as service user)
