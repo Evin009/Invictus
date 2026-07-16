@@ -1,3 +1,6 @@
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timezone
+
 from langgraph.graph import StateGraph, END
 
 from src.agents.apply import apply_to_job, count_applications_today, fetch_agent_settings
@@ -12,7 +15,90 @@ from src.agents.watchlist import watchlist_agent
 from src.filters.dedup import dedup_filter
 from src.filters.preference import preference_filter
 from src.notifications.slack import post_error
-from src.state import GraphState
+from src.state import GraphState, JobItem
+
+BROAD_SCAN_INTERVAL_HOURS = 4
+
+
+def _should_run_broad_scan() -> bool:
+    """search_agent/crawler_agent are lower-priority, broader discovery — gated
+    to roughly every 4 hours. watchlist_agent (top-priority companies) always
+    runs. Defaults to running when there's no record yet (first run)."""
+    from src.db.client import get_client
+
+    db = get_client()
+    rows = db.table("agent_settings").select("last_broad_scan_at").limit(1).execute().data or []
+    if not rows or not rows[0].get("last_broad_scan_at"):
+        return True
+    last = datetime.fromisoformat(rows[0]["last_broad_scan_at"].replace("Z", "+00:00"))
+    elapsed_hours = (datetime.now(timezone.utc) - last).total_seconds() / 3600
+    return elapsed_hours >= BROAD_SCAN_INTERVAL_HOURS
+
+
+def _mark_broad_scan_run() -> None:
+    from src.db.client import get_client
+
+    db = get_client()
+    existing = db.table("agent_settings").select("id").limit(1).execute().data or []
+    now = datetime.now(timezone.utc).isoformat()
+    if existing:
+        db.table("agent_settings").update({"last_broad_scan_at": now}).eq("id", existing[0]["id"]).execute()
+    else:
+        db.table("agent_settings").insert({"last_broad_scan_at": now}).execute()
+
+
+def _dedupe_by_url(jobs: list[JobItem]) -> list[JobItem]:
+    seen: set[str] = set()
+    deduped: list[JobItem] = []
+    for job in jobs:
+        url = job.get("job_url")
+        if url in seen:
+            continue
+        seen.add(url)
+        deduped.append(job)
+    return deduped
+
+
+def discovery_node(state: GraphState) -> dict:
+    """Two-tier discovery: watchlist_agent (top-priority companies) runs every
+    invocation; search_agent + crawler_agent (broader, lower-priority) run in
+    parallel roughly every 4 hours instead of every run."""
+    empty_state: GraphState = {**state, "jobs_discovered": []}
+
+    watchlist_jobs: list[JobItem] = []
+    try:
+        watchlist_jobs = watchlist_agent(empty_state).get("jobs_discovered", [])
+    except Exception as e:
+        post_error("discovery_node", str(e), {"step": "watchlist_agent"})
+
+    broad_jobs: list[JobItem] = []
+    try:
+        run_broad = _should_run_broad_scan()
+    except Exception as e:
+        post_error("discovery_node", str(e), {"step": "check_broad_scan_due"})
+        run_broad = False
+
+    if run_broad:
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            search_future = pool.submit(search_agent, empty_state)
+            crawler_future = pool.submit(crawler_agent, empty_state)
+
+            try:
+                broad_jobs += search_future.result().get("jobs_discovered", [])
+            except Exception as e:
+                post_error("discovery_node", str(e), {"step": "search_agent"})
+
+            try:
+                broad_jobs += crawler_future.result().get("jobs_discovered", [])
+            except Exception as e:
+                post_error("discovery_node", str(e), {"step": "crawler_agent"})
+
+        try:
+            _mark_broad_scan_run()
+        except Exception as e:
+            post_error("discovery_node", str(e), {"step": "mark_broad_scan_run"})
+
+    return {"jobs_discovered": _dedupe_by_url(watchlist_jobs + broad_jobs)}
 
 
 def filter_node(state: GraphState) -> dict:
@@ -118,9 +204,7 @@ def report_node(state: GraphState) -> dict:
 def build_graph() -> StateGraph:
     graph = StateGraph(GraphState)
 
-    graph.add_node("search", search_agent)
-    graph.add_node("watchlist", watchlist_agent)
-    graph.add_node("crawler", crawler_agent)
+    graph.add_node("discovery", discovery_node)
     graph.add_node("filter", filter_node)
     graph.add_node("tailor", tailor_node)
     graph.add_node("apply", apply_node)
@@ -128,10 +212,8 @@ def build_graph() -> StateGraph:
     graph.add_node("reply_track", reply_track_node)
     graph.add_node("report", report_node)
 
-    graph.set_entry_point("search")
-    graph.add_edge("search", "watchlist")
-    graph.add_edge("watchlist", "crawler")
-    graph.add_edge("crawler", "filter")
+    graph.set_entry_point("discovery")
+    graph.add_edge("discovery", "filter")
     graph.add_edge("filter", "tailor")
     graph.add_edge("tailor", "apply")
     graph.add_edge("apply", "outreach")
