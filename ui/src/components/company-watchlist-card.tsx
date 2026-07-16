@@ -43,8 +43,6 @@ export function CompanyWatchlistCard() {
   const [companies, setCompanies] = useState<Company[]>([])
   const [companyName, setCompanyName] = useState("")
   const [resolving, setResolving] = useState(false)
-  const [manualUrlFor, setManualUrlFor] = useState<string | null>(null)
-  const [manualUrl, setManualUrl] = useState("")
   const [toast, setToast] = useState<string | null>(null)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -64,8 +62,8 @@ export function CompanyWatchlistCard() {
     })
   }
 
-  function flashError() {
-    setToast("Couldn't save — try again")
+  function flash(msg: string) {
+    setToast(msg)
     if (toastTimer.current) clearTimeout(toastTimer.current)
     toastTimer.current = setTimeout(() => setToast(null), 3000)
   }
@@ -81,28 +79,22 @@ export function CompanyWatchlistCard() {
       .catch(() => null)
     setResolving(false)
 
-    const next = [...companies, { name, url: resolved ?? "" }]
-    setCompanies(next)
-    const res = await persist(next).catch(() => null)
-    if (!res?.ok) flashError()
-    if (!resolved) setManualUrlFor(name)
-  }
+    if (!resolved) {
+      flash(`Couldn't find a career page for "${name}"`)
+      return
+    }
 
-  async function saveManualUrl() {
-    if (!manualUrlFor || !manualUrl.trim()) return
-    const next = companies.map(c => c.name === manualUrlFor ? { ...c, url: manualUrl.trim() } : c)
+    const next = [...companies, { name, url: resolved }]
     setCompanies(next)
-    setManualUrlFor(null)
-    setManualUrl("")
     const res = await persist(next).catch(() => null)
-    if (!res?.ok) flashError()
+    if (!res?.ok) flash("Couldn't save — try again")
   }
 
   async function removeCompany(i: number) {
     const next = companies.filter((_, idx) => idx !== i)
     setCompanies(next)
     const res = await persist(next).catch(() => null)
-    if (!res?.ok) flashError()
+    if (!res?.ok) flash("Couldn't save — try again")
   }
 
   if (loading) {
@@ -125,35 +117,15 @@ export function CompanyWatchlistCard() {
         <p style={{ fontSize: 12, color: "#964734", margin: "0 0 14px" }}>{toast}</p>
       )}
 
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 16 }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
         {companies.length > 0 ? companies.map((co, i) => (
-          <div key={i} style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "center", width: 72 }}>
-            <div style={{ position: "relative" }}>
-              <CompanyLogo name={co.name} size={46} />
-              {editing && (
-                <span
-                  onClick={() => removeCompany(i)}
-                  style={{ position: "absolute", top: -6, right: -6, width: 17, height: 17, borderRadius: "50%", background: "#003135", color: "#fff", fontSize: 11, lineHeight: "17px", textAlign: "center", cursor: "pointer", userSelect: "none" }}
-                >×</span>
-              )}
-            </div>
+          <div key={i} style={{ position: "relative" }}>
+            <CompanyLogo name={co.name} size={46} />
             {editing && (
-              co.url ? (
-                <span
-                  onClick={() => { setManualUrlFor(co.name); setManualUrl(co.url) }}
-                  style={{ fontSize: 10, color: "rgba(0,49,53,0.4)", marginTop: 4, cursor: "pointer", textAlign: "center", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", width: "100%" }}
-                  title={co.url}
-                >
-                  {co.url.replace(/^https?:\/\//, "")}
-                </span>
-              ) : (
-                <span
-                  onClick={() => { setManualUrlFor(co.name); setManualUrl("") }}
-                  style={{ fontSize: 10, color: "#964734", marginTop: 4, cursor: "pointer", fontWeight: 700 }}
-                >
-                  no URL — fix
-                </span>
-              )
+              <span
+                onClick={() => removeCompany(i)}
+                style={{ position: "absolute", top: -6, right: -6, width: 17, height: 17, borderRadius: "50%", background: "#003135", color: "#fff", fontSize: 11, lineHeight: "17px", textAlign: "center", cursor: "pointer", userSelect: "none" }}
+              >×</span>
             )}
           </div>
         )) : (
@@ -176,9 +148,6 @@ export function CompanyWatchlistCard() {
               disabled={resolving}
             />
           </div>
-          <p style={{ fontSize: 11, color: "rgba(0,49,53,0.4)", margin: "8px 0 0" }}>
-            Career page found automatically — no URL needed. Click a company&apos;s URL above to override.
-          </p>
           <button
             onClick={addCompany}
             disabled={resolving || !companyName.trim()}
@@ -186,32 +155,6 @@ export function CompanyWatchlistCard() {
           >
             {resolving ? "Finding career page…" : "+ Add company"}
           </button>
-
-          {manualUrlFor && (
-            <div style={{ marginTop: 16, padding: 14, background: "#F5F8F7", borderRadius: 10 }}>
-              <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700 }}>Career page URL for {manualUrlFor}</p>
-              <div style={{ display: "flex", gap: 8 }}>
-                <input
-                  className="pf-input" type="text" placeholder="https://company.com/careers" value={manualUrl}
-                  onChange={e => setManualUrl(e.target.value)}
-                  onKeyDown={e => { if (e.key === "Enter" && manualUrl.trim()) { e.preventDefault(); saveManualUrl() } }}
-                  style={{ ...INPUT, flex: 1, background: "#fff" }}
-                />
-                <button
-                  onClick={saveManualUrl}
-                  style={{ padding: "0 18px", borderRadius: 8, border: "none", background: "#024950", color: "#fff", fontFamily: "inherit", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
-                >
-                  Save
-                </button>
-                <button
-                  onClick={() => { setManualUrlFor(null); setManualUrl("") }}
-                  style={{ padding: "0 14px", borderRadius: 8, border: "none", background: "transparent", color: "rgba(0,49,53,0.5)", fontFamily: "inherit", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          )}
         </>
       )}
     </div>
