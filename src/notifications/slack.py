@@ -34,8 +34,15 @@ def post_error(agent: str, error: str, context: dict) -> None:
     lines = [f":red_circle: *{agent} error*", f"```{error}```"]
     for k, v in context.items():
         lines.append(f"• {k}: {v}")
+    text = "\n".join(lines)
+
+    # Always print — cron redirects stdout to /var/log/invictus.log, so this
+    # is the only trace of a failure until Slack is connected. Without it,
+    # every per-agent error was being swallowed with zero visibility.
+    print(text, flush=True)
+
     try:
-        post_message("\n".join(lines))
+        post_message(text)
     except Exception:
         pass
 
