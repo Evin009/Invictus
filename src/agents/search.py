@@ -4,6 +4,7 @@ import urllib.request
 from src.state import GraphState, JobItem
 from src.config import settings
 from src.notifications.slack import post_error
+from src.agents.job_meta import infer_job_type
 
 
 def fetch_greenhouse_jobs(board_token: str, keywords: list[str]) -> list[JobItem]:
@@ -24,6 +25,8 @@ def fetch_greenhouse_jobs(board_token: str, keywords: list[str]) -> list[JobItem
             description=j.get("content", ""),
             ats_platform="greenhouse",
             raw_json=j,
+            location=(j.get("location") or {}).get("name"),
+            job_type=infer_job_type(title),
         ))
     return jobs
 
@@ -39,6 +42,7 @@ def fetch_lever_jobs(company: str, keywords: list[str]) -> list[JobItem]:
         title = j.get("text", "")
         if not any(kw.lower() in title.lower() for kw in keywords):
             continue
+        categories = j.get("categories") or {}
         jobs.append(JobItem(
             job_url=j["hostedUrl"],
             job_id=j["id"],
@@ -48,6 +52,8 @@ def fetch_lever_jobs(company: str, keywords: list[str]) -> list[JobItem]:
             description=j.get("descriptionPlain", ""),
             ats_platform="lever",
             raw_json=j,
+            location=categories.get("location"),
+            job_type=categories.get("commitment") or infer_job_type(title),
         ))
     return jobs
 
@@ -109,6 +115,8 @@ def fetch_github_jobs(repo_url: str, keywords: list[str]) -> list[JobItem]:
             description=f"{role} — {location}".strip(" —"),
             ats_platform="unknown",
             raw_json={"company": company, "role": role, "location": location},
+            location=location or None,
+            job_type=infer_job_type(role),
         ))
     return jobs
 

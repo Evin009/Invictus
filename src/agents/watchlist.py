@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 import anthropic
 from playwright.sync_api import sync_playwright
 
+from src.agents.job_meta import infer_job_type
 from src.config import settings
 from src.db.client import get_client
 from src.notifications.slack import post_error
@@ -181,8 +182,9 @@ def _parse_jobs(text: str, company: str, careers_url: str, keywords: list[str], 
     prompt = (
         f"You are parsing a company careers page for {company}.\n"
         f"Extract all job listings matching these keywords: {kw_str}\n\n"
-        "Return a JSON array of objects with keys: title (string), url (string).\n"
+        "Return a JSON array of objects with keys: title (string), url (string), location (string).\n"
         "Include a url for each listing if visible; omit the key if no URL is available.\n"
+        "Include location if the page shows one for that listing (city/remote); omit the key if not shown.\n"
         "If no matching jobs found, return [].\n"
         "Return only the JSON array, no other text.\n\n"
         f"Page text:\n{truncated}"
@@ -218,6 +220,7 @@ def _parse_jobs(text: str, company: str, careers_url: str, keywords: list[str], 
         # Use title-based synthetic ID when Claude can't extract a URL so multiple
         # jobs from the same page don't all collapse onto careers_url in dedup.
         job_url = raw_url or f"{careers_url}#{re.sub(r'[^a-z0-9]+', '-', title.lower())}"
+        location = (item.get("location") or "").strip() or None
         jobs.append(JobItem(
             job_url=job_url,
             job_id=job_url,
@@ -227,5 +230,7 @@ def _parse_jobs(text: str, company: str, careers_url: str, keywords: list[str], 
             description=title,
             ats_platform="unknown",
             raw_json=item,
+            location=location,
+            job_type=infer_job_type(title),
         ))
     return jobs

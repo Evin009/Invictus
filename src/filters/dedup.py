@@ -25,6 +25,8 @@ def dedup_filter(jobs: list[JobItem]) -> list[JobItem]:
                     "company": j["company"],
                     "source": j["source"],
                     "raw_json": j["raw_json"],
+                    "location": j.get("location"),
+                    "job_type": j.get("job_type"),
                 }
                 for j in new_jobs
             ]).execute()

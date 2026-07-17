@@ -5,7 +5,7 @@ from src.agents.search import fetch_greenhouse_jobs, fetch_lever_jobs, fetch_git
 
 def test_fetch_greenhouse_returns_matching_jobs():
     mock_jobs = [
-        {"id": "123", "title": "SWE Intern", "absolute_url": "https://boards.greenhouse.io/acme/jobs/123", "content": "Python role"},
+        {"id": "123", "title": "SWE Intern", "absolute_url": "https://boards.greenhouse.io/acme/jobs/123", "content": "Python role", "location": {"name": "Hawthorne, CA"}},
         {"id": "456", "title": "Marketing Manager", "absolute_url": "https://boards.greenhouse.io/acme/jobs/456", "content": "Marketing role"},
     ]
     with patch("urllib.request.urlopen") as mock_open:
@@ -18,6 +18,8 @@ def test_fetch_greenhouse_returns_matching_jobs():
     assert result[0]["job_url"] == "https://boards.greenhouse.io/acme/jobs/123"
     assert result[0]["source"] == "greenhouse"
     assert result[0]["ats_platform"] == "greenhouse"
+    assert result[0]["location"] == "Hawthorne, CA"
+    assert result[0]["job_type"] == "Internship"
 
 
 def test_fetch_greenhouse_empty_board():
@@ -31,7 +33,7 @@ def test_fetch_greenhouse_empty_board():
 
 def test_fetch_lever_returns_matching_jobs():
     mock_jobs = [
-        {"id": "abc", "text": "Data Engineer", "hostedUrl": "https://jobs.lever.co/acme/abc", "descriptionPlain": "Kafka role"},
+        {"id": "abc", "text": "Data Engineer", "hostedUrl": "https://jobs.lever.co/acme/abc", "descriptionPlain": "Kafka role", "categories": {"location": "London, United Kingdom", "commitment": "Full-time"}},
         {"id": "def", "text": "Designer", "hostedUrl": "https://jobs.lever.co/acme/def", "descriptionPlain": "Design role"},
     ]
     with patch("urllib.request.urlopen") as mock_open:
@@ -43,6 +45,8 @@ def test_fetch_lever_returns_matching_jobs():
     assert len(result) == 1
     assert result[0]["job_url"] == "https://jobs.lever.co/acme/abc"
     assert result[0]["source"] == "lever"
+    assert result[0]["location"] == "London, United Kingdom"
+    assert result[0]["job_type"] == "Full-time"
 
 
 def test_fetch_lever_empty():
@@ -104,6 +108,8 @@ def test_fetch_github_jobs_extracts_matching_roles():
     assert result[0]["job_url"] == "https://jobs.ashbyhq.com/acme/apply-1"
     assert result[0]["company"] == "Acme"
     assert result[0]["source"] == "github"
+    assert result[0]["location"] == "SF"
+    assert result[0]["job_type"] == "Internship"
 
 
 def test_fetch_github_jobs_carries_company_forward_for_sub_rows():

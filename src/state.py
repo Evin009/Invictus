@@ -10,6 +10,8 @@ class JobItem(TypedDict):
     description: str
     ats_platform: str
     raw_json: dict
+    location: str | None
+    job_type: str | None
 
 
 class GraphState(TypedDict):

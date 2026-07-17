@@ -56,3 +56,24 @@ def test_new_jobs_inserted_to_db():
     with patch("src.filters.dedup.get_client", return_value=mock_db):
         dedup_filter([_job("https://new.com/job/1")])
     mock_db.table.return_value.insert.assert_called_once()
+
+
+def test_new_jobs_insert_includes_location_and_job_type():
+    job = _job("https://new.com/job/1")
+    job["location"] = "Remote"
+    job["job_type"] = "Internship"
+    mock_db = _mock_db([])
+    with patch("src.filters.dedup.get_client", return_value=mock_db):
+        dedup_filter([job])
+    inserted = mock_db.table.return_value.insert.call_args[0][0]
+    assert inserted[0]["location"] == "Remote"
+    assert inserted[0]["job_type"] == "Internship"
+
+
+def test_new_jobs_insert_defaults_location_and_job_type_to_none():
+    mock_db = _mock_db([])
+    with patch("src.filters.dedup.get_client", return_value=mock_db):
+        dedup_filter([_job("https://new.com/job/1")])
+    inserted = mock_db.table.return_value.insert.call_args[0][0]
+    assert inserted[0]["location"] is None
+    assert inserted[0]["job_type"] is None

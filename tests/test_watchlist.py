@@ -277,6 +277,28 @@ def test_parse_jobs_builds_job_items():
     assert result[0]["company"] == "Acme"
     assert result[0]["source"] == "watchlist"
     assert result[0]["job_url"] == "https://acme.com/jobs/2"
+    assert result[0]["job_type"] == "Full-time"
+
+
+def test_parse_jobs_extracts_location_when_present():
+    mock_client = MagicMock()
+    mock_client.messages.create.return_value.content = [
+        MagicMock(text='[{"title": "Software Engineer Intern", "url": "https://acme.com/jobs/3", "location": "Remote"}]')
+    ]
+    with patch("src.agents.watchlist.anthropic.Anthropic", return_value=mock_client):
+        result = _parse_jobs(_RAW_HTML, "Acme", "https://acme.com/careers", ["engineer"])
+    assert result[0]["location"] == "Remote"
+    assert result[0]["job_type"] == "Internship"
+
+
+def test_parse_jobs_missing_location_is_none():
+    mock_client = MagicMock()
+    mock_client.messages.create.return_value.content = [
+        MagicMock(text='[{"title": "SWE", "url": "https://acme.com/jobs/4"}]')
+    ]
+    with patch("src.agents.watchlist.anthropic.Anthropic", return_value=mock_client):
+        result = _parse_jobs(_RAW_HTML, "Acme", "https://acme.com/careers", ["engineer"])
+    assert result[0]["location"] is None
 
 
 def test_parse_jobs_missing_url_uses_careers_url():
