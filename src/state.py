@@ -12,6 +12,10 @@ class JobItem(TypedDict):
     raw_json: dict
     location: str | None
     job_type: str | None
+    workplace: str | None
+    degree_level: str | None
+    visa_sponsorship: str | None
+    role_category: str | None
 
 
 class GraphState(TypedDict):

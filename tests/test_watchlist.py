@@ -301,6 +301,36 @@ def test_parse_jobs_missing_location_is_none():
     assert result[0]["location"] is None
 
 
+def test_parse_jobs_extracts_claude_provided_metadata():
+    mock_client = MagicMock()
+    mock_client.messages.create.return_value.content = [
+        MagicMock(text=(
+            '[{"title": "Data Engineer Intern", "url": "https://acme.com/jobs/5", '
+            '"location": "Remote", "workplace": "Remote", "degree_level": "Bachelor\'s", '
+            '"visa_sponsorship": "Yes", "role_category": "Data"}]'
+        ))
+    ]
+    with patch("src.agents.watchlist.anthropic.Anthropic", return_value=mock_client):
+        result = _parse_jobs(_RAW_HTML, "Acme", "https://acme.com/careers", ["engineer"])
+    assert result[0]["workplace"] == "Remote"
+    assert result[0]["degree_level"] == "Bachelor's"
+    assert result[0]["visa_sponsorship"] == "Yes"
+    assert result[0]["role_category"] == "Data"
+
+
+def test_parse_jobs_falls_back_to_heuristics_when_claude_omits_fields():
+    mock_client = MagicMock()
+    mock_client.messages.create.return_value.content = [
+        MagicMock(text='[{"title": "Software Engineer Intern", "url": "https://acme.com/jobs/6", "location": "Remote"}]')
+    ]
+    with patch("src.agents.watchlist.anthropic.Anthropic", return_value=mock_client):
+        result = _parse_jobs(_RAW_HTML, "Acme", "https://acme.com/careers", ["engineer"])
+    assert result[0]["workplace"] == "Remote"
+    assert result[0]["role_category"] == "Engineering"
+    assert result[0]["degree_level"] is None
+    assert result[0]["visa_sponsorship"] is None
+
+
 def test_parse_jobs_missing_url_uses_careers_url():
     mock_client = MagicMock()
     mock_client.messages.create.return_value.content = [

@@ -5,7 +5,7 @@ from src.agents.search import fetch_greenhouse_jobs, fetch_lever_jobs, fetch_git
 
 def test_fetch_greenhouse_returns_matching_jobs():
     mock_jobs = [
-        {"id": "123", "title": "SWE Intern", "absolute_url": "https://boards.greenhouse.io/acme/jobs/123", "content": "Python role", "location": {"name": "Hawthorne, CA"}},
+        {"id": "123", "title": "SWE Intern", "absolute_url": "https://boards.greenhouse.io/acme/jobs/123", "content": "Python role, remote friendly. Bachelor's degree required. We will sponsor visas.", "location": {"name": "Hawthorne, CA"}},
         {"id": "456", "title": "Marketing Manager", "absolute_url": "https://boards.greenhouse.io/acme/jobs/456", "content": "Marketing role"},
     ]
     with patch("urllib.request.urlopen") as mock_open:
@@ -20,6 +20,10 @@ def test_fetch_greenhouse_returns_matching_jobs():
     assert result[0]["ats_platform"] == "greenhouse"
     assert result[0]["location"] == "Hawthorne, CA"
     assert result[0]["job_type"] == "Internship"
+    assert result[0]["workplace"] == "Remote"
+    assert result[0]["degree_level"] == "Bachelor's"
+    assert result[0]["visa_sponsorship"] == "Yes"
+    assert result[0]["role_category"] == "Engineering"
 
 
 def test_fetch_greenhouse_empty_board():
@@ -33,7 +37,7 @@ def test_fetch_greenhouse_empty_board():
 
 def test_fetch_lever_returns_matching_jobs():
     mock_jobs = [
-        {"id": "abc", "text": "Data Engineer", "hostedUrl": "https://jobs.lever.co/acme/abc", "descriptionPlain": "Kafka role", "categories": {"location": "London, United Kingdom", "commitment": "Full-time"}},
+        {"id": "abc", "text": "Data Engineer", "hostedUrl": "https://jobs.lever.co/acme/abc", "descriptionPlain": "PhD in CS preferred. Unable to sponsor visas at this time.", "categories": {"location": "London, United Kingdom", "commitment": "Full-time"}, "workplaceType": "hybrid"},
         {"id": "def", "text": "Designer", "hostedUrl": "https://jobs.lever.co/acme/def", "descriptionPlain": "Design role"},
     ]
     with patch("urllib.request.urlopen") as mock_open:
@@ -47,6 +51,10 @@ def test_fetch_lever_returns_matching_jobs():
     assert result[0]["source"] == "lever"
     assert result[0]["location"] == "London, United Kingdom"
     assert result[0]["job_type"] == "Full-time"
+    assert result[0]["workplace"] == "Hybrid"
+    assert result[0]["degree_level"] == "PhD"
+    assert result[0]["visa_sponsorship"] == "No"
+    assert result[0]["role_category"] == "Data"
 
 
 def test_fetch_lever_empty():
@@ -110,6 +118,9 @@ def test_fetch_github_jobs_extracts_matching_roles():
     assert result[0]["source"] == "github"
     assert result[0]["location"] == "SF"
     assert result[0]["job_type"] == "Internship"
+    assert result[0]["role_category"] == "Engineering"
+    assert result[0]["degree_level"] is None
+    assert result[0]["visa_sponsorship"] is None
 
 
 def test_fetch_github_jobs_carries_company_forward_for_sub_rows():

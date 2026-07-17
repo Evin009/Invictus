@@ -77,3 +77,30 @@ def test_new_jobs_insert_defaults_location_and_job_type_to_none():
     inserted = mock_db.table.return_value.insert.call_args[0][0]
     assert inserted[0]["location"] is None
     assert inserted[0]["job_type"] is None
+
+
+def test_new_jobs_insert_includes_workplace_degree_visa_role():
+    job = _job("https://new.com/job/1")
+    job["workplace"] = "Remote"
+    job["degree_level"] = "Bachelor's"
+    job["visa_sponsorship"] = "Yes"
+    job["role_category"] = "Engineering"
+    mock_db = _mock_db([])
+    with patch("src.filters.dedup.get_client", return_value=mock_db):
+        dedup_filter([job])
+    inserted = mock_db.table.return_value.insert.call_args[0][0]
+    assert inserted[0]["workplace"] == "Remote"
+    assert inserted[0]["degree_level"] == "Bachelor's"
+    assert inserted[0]["visa_sponsorship"] == "Yes"
+    assert inserted[0]["role_category"] == "Engineering"
+
+
+def test_new_jobs_insert_defaults_workplace_degree_visa_role_to_none():
+    mock_db = _mock_db([])
+    with patch("src.filters.dedup.get_client", return_value=mock_db):
+        dedup_filter([_job("https://new.com/job/1")])
+    inserted = mock_db.table.return_value.insert.call_args[0][0]
+    assert inserted[0]["workplace"] is None
+    assert inserted[0]["degree_level"] is None
+    assert inserted[0]["visa_sponsorship"] is None
+    assert inserted[0]["role_category"] is None

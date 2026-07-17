@@ -4,7 +4,13 @@ import urllib.request
 from src.state import GraphState, JobItem
 from src.config import settings
 from src.notifications.slack import post_error
-from src.agents.job_meta import infer_job_type
+from src.agents.job_meta import (
+    infer_degree_level,
+    infer_job_type,
+    infer_role_category,
+    infer_visa_sponsorship,
+    infer_workplace,
+)
 
 
 def fetch_greenhouse_jobs(board_token: str, keywords: list[str]) -> list[JobItem]:
@@ -16,17 +22,23 @@ def fetch_greenhouse_jobs(board_token: str, keywords: list[str]) -> list[JobItem
         title = j.get("title", "")
         if not any(kw.lower() in title.lower() for kw in keywords):
             continue
+        content = j.get("content", "")
+        location = (j.get("location") or {}).get("name")
         jobs.append(JobItem(
             job_url=j["absolute_url"],
             job_id=str(j["id"]),
             title=title,
             company=board_token,
             source="greenhouse",
-            description=j.get("content", ""),
+            description=content,
             ats_platform="greenhouse",
             raw_json=j,
-            location=(j.get("location") or {}).get("name"),
+            location=location,
             job_type=infer_job_type(title),
+            workplace=infer_workplace(location, content),
+            degree_level=infer_degree_level(content),
+            visa_sponsorship=infer_visa_sponsorship(content),
+            role_category=infer_role_category(title),
         ))
     return jobs
 
@@ -43,17 +55,23 @@ def fetch_lever_jobs(company: str, keywords: list[str]) -> list[JobItem]:
         if not any(kw.lower() in title.lower() for kw in keywords):
             continue
         categories = j.get("categories") or {}
+        description = j.get("descriptionPlain", "")
+        location = categories.get("location")
         jobs.append(JobItem(
             job_url=j["hostedUrl"],
             job_id=j["id"],
             title=title,
             company=company,
             source="lever",
-            description=j.get("descriptionPlain", ""),
+            description=description,
             ats_platform="lever",
             raw_json=j,
-            location=categories.get("location"),
+            location=location,
             job_type=categories.get("commitment") or infer_job_type(title),
+            workplace=infer_workplace(location, j.get("workplaceType")),
+            degree_level=infer_degree_level(description),
+            visa_sponsorship=infer_visa_sponsorship(description),
+            role_category=infer_role_category(title),
         ))
     return jobs
 
@@ -117,6 +135,10 @@ def fetch_github_jobs(repo_url: str, keywords: list[str]) -> list[JobItem]:
             raw_json={"company": company, "role": role, "location": location},
             location=location or None,
             job_type=infer_job_type(role),
+            workplace=infer_workplace(location),
+            degree_level=None,
+            visa_sponsorship=None,
+            role_category=infer_role_category(role),
         ))
     return jobs
 
