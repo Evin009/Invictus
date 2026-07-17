@@ -1,11 +1,9 @@
-from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
 from langgraph.graph import StateGraph, END
 
 from src.agents.apply import apply_to_job, count_applications_today, fetch_agent_settings
 from src.agents.cover_letter import generate_cover_letter
-from src.agents.crawler import crawler_agent
 from src.agents.outreach import run_outreach
 from src.agents.reply_tracker import scan_replies
 from src.agents.reporter import generate_report
@@ -18,7 +16,6 @@ from src.notifications.slack import post_error
 from src.state import GraphState, JobItem
 
 SEARCH_SCAN_INTERVAL_HOURS = 2
-CRAWLER_SCAN_INTERVAL_HOURS = 4
 
 
 def _should_run_scan(column: str, interval_hours: float) -> bool:
@@ -50,14 +47,8 @@ def _mark_scan_run(column: str) -> None:
 
 def _should_run_search_scan() -> bool:
     """search_agent hits Greenhouse/Lever/GitHub structured APIs — cheap,
-    no Playwright — so it's gated to a shorter interval than crawler_agent."""
+    no Playwright — so it's gated to a short interval."""
     return _should_run_scan("last_search_scan_at", SEARCH_SCAN_INTERVAL_HOURS)
-
-
-def _should_run_crawler_scan() -> bool:
-    """crawler_agent does real Playwright page scrapes against crawler_urls —
-    more expensive, so it keeps the longer interval."""
-    return _should_run_scan("last_crawler_scan_at", CRAWLER_SCAN_INTERVAL_HOURS)
 
 
 def _dedupe_by_url(jobs: list[JobItem]) -> list[JobItem]:
@@ -73,11 +64,15 @@ def _dedupe_by_url(jobs: list[JobItem]) -> list[JobItem]:
 
 
 def discovery_node(state: GraphState) -> dict:
-    """Three-tier discovery: watchlist_agent (top-priority companies) runs
+    """Two-tier discovery: watchlist_agent (top-priority companies) runs
     every invocation; search_agent (Greenhouse/Lever/GitHub — cheap structured
-    APIs) is gated to roughly every 2 hours; crawler_agent (arbitrary page
-    scrapes) is gated separately to roughly every 4 hours. The two lower tiers
-    run in parallel when both happen to be due in the same cycle."""
+    APIs) is gated to roughly every 2 hours.
+
+    crawler_agent (arbitrary page-scrape tier) was retired from this graph —
+    its crawler_urls table had no rows and no UI ever populated it, so it ran
+    every 4h and did nothing. search_agent's ATS auto-detection + curated
+    GitHub sources now cover that same "broad, non-watchlist" ground for real.
+    """
     empty_state: GraphState = {**state, "jobs_discovered": []}
 
     watchlist_jobs: list[JobItem] = []
@@ -92,36 +87,16 @@ def discovery_node(state: GraphState) -> dict:
     except Exception as e:
         post_error("discovery_node", str(e), {"step": "check_search_scan_due"})
 
-    run_crawler = False
-    try:
-        run_crawler = _should_run_crawler_scan()
-    except Exception as e:
-        post_error("discovery_node", str(e), {"step": "check_crawler_scan_due"})
-
     broad_jobs: list[JobItem] = []
-    with ThreadPoolExecutor(max_workers=2) as pool:
-        search_future = pool.submit(search_agent, empty_state) if run_search else None
-        crawler_future = pool.submit(crawler_agent, empty_state) if run_crawler else None
-
-        if search_future is not None:
-            try:
-                broad_jobs += search_future.result().get("jobs_discovered", [])
-            except Exception as e:
-                post_error("discovery_node", str(e), {"step": "search_agent"})
-            try:
-                _mark_scan_run("last_search_scan_at")
-            except Exception as e:
-                post_error("discovery_node", str(e), {"step": "mark_search_scan_run"})
-
-        if crawler_future is not None:
-            try:
-                broad_jobs += crawler_future.result().get("jobs_discovered", [])
-            except Exception as e:
-                post_error("discovery_node", str(e), {"step": "crawler_agent"})
-            try:
-                _mark_scan_run("last_crawler_scan_at")
-            except Exception as e:
-                post_error("discovery_node", str(e), {"step": "mark_crawler_scan_run"})
+    if run_search:
+        try:
+            broad_jobs = search_agent(empty_state).get("jobs_discovered", [])
+        except Exception as e:
+            post_error("discovery_node", str(e), {"step": "search_agent"})
+        try:
+            _mark_scan_run("last_search_scan_at")
+        except Exception as e:
+            post_error("discovery_node", str(e), {"step": "mark_search_scan_run"})
 
     return {"jobs_discovered": _dedupe_by_url(watchlist_jobs + broad_jobs)}
 
