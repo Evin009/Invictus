@@ -43,17 +43,12 @@ const SHIMMER = {
   borderRadius: "6px",
 } as React.CSSProperties
 
-const FILTER_KEYS = ["Term", "Posted date", "Location", "Workplace", "Companies", "Degree Level", "Sponsors Visa", "Job Type"]
-const FILTER_OPTIONS: Record<string, string[]> = {
-  "Term": ["Fall", "Spring", "Winter", "Summer"],
-  "Posted date": ["Any time", "Past 24 hours", "Past week", "Past month"],
-  "Location": ["Remote", "San Francisco, CA", "New York, NY", "Austin, TX", "Tampa, FL"],
-  "Workplace": ["Remote", "Hybrid", "Onsite"],
-  "Companies": ["Any"],
-  "Degree Level": ["High school", "Associate", "Bachelor's", "Master's", "PhD"],
-  "Sponsors Visa": ["Yes", "No", "Any"],
-  "Job Type": ["Full-time", "Part-time", "Internship", "Contract"],
-}
+// Only filters backed by data the discovery agents actually capture. Term,
+// Degree Level, Sponsors Visa, and Workplace aren't extractable from scraped
+// job postings today — a decorative filter that always returns zero results
+// is worse than no filter at all.
+const FILTER_KEYS = ["Posted date", "Location", "Companies", "Job Type"]
+const POSTED_DATE_OPTIONS = ["Any time", "Past 24 hours", "Past week", "Past month"]
 const SORT_OPTIONS = ["Best match", "Most recent"]
 const BATCH_SIZE_OPTIONS = [12, 24, 48, 96]
 
@@ -84,7 +79,6 @@ interface RawJob {
   source: string | null
   discovered_at: string | null
   logo_url?: string | null
-  term?: string | null
   job_type?: string | null
   location?: string | null
   status?: string | null
@@ -92,12 +86,12 @@ interface RawJob {
 
 // Fallback demo jobs if DB is empty
 const DEMO_JOBS: RawJob[] = [
-  { id:"j1", url:"#", title:"AI Engineer", company:"Anthropic", source:"search", discovered_at: new Date(Date.now()-2*86400000).toISOString(), term:"Fall", job_type:"Full-time", location:"Remote", status:"New" },
-  { id:"j2", url:"#", title:"AI Talent Development Intern", company:"OpenAI", source:"search", discovered_at: new Date(Date.now()-6*3600000).toISOString(), term:"Summer", job_type:"Internship", location:"San Francisco, CA", status:"New" },
-  { id:"j3", url:"#", title:"Computer Science Internship", company:"University of South Florida", source:"crawler", discovered_at: new Date(Date.now()-86400000).toISOString(), term:"Spring", job_type:"Internship", location:"Tampa, FL", status:"New" },
-  { id:"j4", url:"#", title:"Product Design Intern", company:"Figma", source:"watchlist", discovered_at: new Date(Date.now()-4*86400000).toISOString(), term:"Fall", job_type:"Internship", location:"New York, NY", status:"New" },
-  { id:"j5", url:"#", title:"Backend Engineer", company:"Stripe", source:"search", discovered_at: new Date(Date.now()-5*86400000).toISOString(), term:"Winter", job_type:"Contract", location:"Austin, TX", status:"New" },
-  { id:"j6", url:"#", title:"Data Scientist Intern", company:"Netflix", source:"search", discovered_at: new Date(Date.now()-8*3600000).toISOString(), term:"Summer", job_type:"Internship", location:"Los Gatos, CA", status:"New" },
+  { id:"j1", url:"#", title:"AI Engineer", company:"Anthropic", source:"search", discovered_at: new Date(Date.now()-2*86400000).toISOString(), job_type:"Full-time", location:"Remote", status:"New" },
+  { id:"j2", url:"#", title:"AI Talent Development Intern", company:"OpenAI", source:"search", discovered_at: new Date(Date.now()-6*3600000).toISOString(), job_type:"Internship", location:"San Francisco, CA", status:"New" },
+  { id:"j3", url:"#", title:"Computer Science Internship", company:"University of South Florida", source:"crawler", discovered_at: new Date(Date.now()-86400000).toISOString(), job_type:"Internship", location:"Tampa, FL", status:"New" },
+  { id:"j4", url:"#", title:"Product Design Intern", company:"Figma", source:"watchlist", discovered_at: new Date(Date.now()-4*86400000).toISOString(), job_type:"Internship", location:"New York, NY", status:"New" },
+  { id:"j5", url:"#", title:"Backend Engineer", company:"Stripe", source:"search", discovered_at: new Date(Date.now()-5*86400000).toISOString(), job_type:"Contract", location:"Austin, TX", status:"New" },
+  { id:"j6", url:"#", title:"Data Scientist Intern", company:"Netflix", source:"search", discovered_at: new Date(Date.now()-8*3600000).toISOString(), job_type:"Internship", location:"Los Gatos, CA", status:"New" },
 ]
 
 function timeAgo(iso: string | null) {
@@ -176,13 +170,35 @@ export default function BrowseJobsPage() {
     return () => document.removeEventListener("mousedown", handle)
   }, [openFilter])
 
+  // Dropdown option lists derived from real discovered jobs, not guesses —
+  // an option that returns zero results is worse than no option.
+  const companyOptions = Array.from(new Set(jobs.map(j => j.company).filter((c): c is string => !!c))).sort()
+  const locationOptions = Array.from(new Set(jobs.map(j => j.location).filter((l): l is string => !!l))).sort()
+  const jobTypeOptions = Array.from(new Set(jobs.map(j => j.job_type).filter((t): t is string => !!t))).sort()
+  const filterOptions: Record<string, string[]> = {
+    "Posted date": POSTED_DATE_OPTIONS,
+    "Location": locationOptions,
+    "Companies": companyOptions,
+    "Job Type": jobTypeOptions,
+  }
+
+  function withinPostedDate(iso: string | null, bucket: string) {
+    if (bucket === "Any time" || !iso) return true
+    const hours = (Date.now() - new Date(iso).getTime()) / 3600000
+    if (bucket === "Past 24 hours") return hours <= 24
+    if (bucket === "Past week") return hours <= 24 * 7
+    if (bucket === "Past month") return hours <= 24 * 30
+    return true
+  }
+
   const q = searchQuery.trim().toLowerCase()
   const filtered = jobs.filter(j => {
     if (passedIds.includes(j.id)) return false
     if (q && !j.title?.toLowerCase().includes(q) && !j.company?.toLowerCase().includes(q)) return false
-    if (filterValues["Term"] && j.term !== filterValues["Term"]) return false
     if (filterValues["Job Type"] && j.job_type !== filterValues["Job Type"]) return false
     if (filterValues["Location"] && j.location !== filterValues["Location"]) return false
+    if (filterValues["Companies"] && j.company !== filterValues["Companies"]) return false
+    if (filterValues["Posted date"] && !withinPostedDate(j.discovered_at, filterValues["Posted date"])) return false
     return true
   })
 
@@ -279,7 +295,9 @@ export default function BrowseJobsPage() {
                     </div>
                     {isOpen && (
                       <div style={dropdownPanel}>
-                        {(FILTER_OPTIONS[key] ?? []).map(opt => (
+                        {(filterOptions[key] ?? []).length === 0 ? (
+                          <div style={{ padding: "10px 14px", fontSize: 12.5, color: "rgba(0,49,53,0.4)" }}>No options yet</div>
+                        ) : (filterOptions[key] ?? []).map(opt => (
                           <div
                             key={opt}
                             className="bj-opt"
@@ -476,13 +494,8 @@ export default function BrowseJobsPage() {
 
                     {/* Meta tags */}
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 18, flex: 1, alignContent: "flex-start" }}>
-                      {j.term && (
-                        <span style={{ fontSize: 11, fontWeight: 700, padding: "4px 9px", borderRadius: 8, background: "rgba(150,71,52,0.09)", color: "#964734", letterSpacing: "0.01em" }}>
-                          {j.term}
-                        </span>
-                      )}
                       {j.job_type && (
-                        <span style={{ fontSize: 11, fontWeight: 600, padding: "4px 9px", borderRadius: 8, background: "rgba(2,49,53,0.045)", color: "rgba(0,49,53,0.62)" }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, padding: "4px 9px", borderRadius: 8, background: "rgba(150,71,52,0.09)", color: "#964734", letterSpacing: "0.01em" }}>
                           {j.job_type}
                         </span>
                       )}
@@ -578,12 +591,6 @@ export default function BrowseJobsPage() {
 
               {/* Metadata */}
               <div style={{ borderTop: "1px solid rgba(0,49,53,0.07)", borderBottom: "1px solid rgba(0,49,53,0.07)", padding: "14px 0", marginBottom: 20, display: "flex", flexDirection: "column", gap: 10 }}>
-                {selected.term && (
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13 }}>
-                    <span style={{ color: "rgba(0,49,53,0.45)", fontWeight: 600 }}>Term</span>
-                    <span style={{ fontWeight: 700, color: "#964734", background: "rgba(150,71,52,0.09)", padding: "2px 10px", borderRadius: 8 }}>{selected.term}</span>
-                  </div>
-                )}
                 {selected.job_type && (
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13 }}>
                     <span style={{ color: "rgba(0,49,53,0.45)", fontWeight: 600 }}>Job type</span>

@@ -10,7 +10,7 @@ export async function GET() {
     const db = createClient()
     const { data, error } = await db
       .from("jobs_seen")
-      .select("id, url:job_url, title, company, source, discovered_at:created_at")
+      .select("id, url:job_url, title, company, source, location, job_type, discovered_at:created_at")
       .order("created_at", { ascending: false })
       .limit(100)
 
