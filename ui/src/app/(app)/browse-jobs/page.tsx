@@ -43,11 +43,7 @@ const SHIMMER = {
   borderRadius: "6px",
 } as React.CSSProperties
 
-// Only filters backed by data the discovery agents actually capture. Term,
-// Degree Level, Sponsors Visa, and Workplace aren't extractable from scraped
-// job postings today — a decorative filter that always returns zero results
-// is worse than no filter at all.
-const FILTER_KEYS = ["Posted date", "Location", "Companies", "Job Type"]
+const FILTER_KEYS = ["Date", "Location", "Workplace", "Companies", "Degree Level", "Sponsors Visa", "Role", "Job Type"]
 const POSTED_DATE_OPTIONS = ["Any time", "Past 24 hours", "Past week", "Past month"]
 const SORT_OPTIONS = ["Best match", "Most recent"]
 const BATCH_SIZE_OPTIONS = [12, 24, 48, 96]
@@ -81,6 +77,10 @@ interface RawJob {
   logo_url?: string | null
   job_type?: string | null
   location?: string | null
+  workplace?: string | null
+  degree_level?: string | null
+  visa_sponsorship?: string | null
+  role_category?: string | null
   status?: string | null
 }
 
@@ -171,14 +171,26 @@ export default function BrowseJobsPage() {
   }, [openFilter])
 
   // Dropdown option lists derived from real discovered jobs, not guesses —
-  // an option that returns zero results is worse than no option.
-  const companyOptions = Array.from(new Set(jobs.map(j => j.company).filter((c): c is string => !!c))).sort()
-  const locationOptions = Array.from(new Set(jobs.map(j => j.location).filter((l): l is string => !!l))).sort()
-  const jobTypeOptions = Array.from(new Set(jobs.map(j => j.job_type).filter((t): t is string => !!t))).sort()
+  // an option that returns zero results is worse than no option. Fields with
+  // partial coverage (workplace/degree/visa aren't extractable from every
+  // source) just show fewer options rather than fake placeholders.
+  const uniqueOf = (get: (j: RawJob) => string | null | undefined) =>
+    Array.from(new Set(jobs.map(get).filter((v): v is string => !!v))).sort()
+  const companyOptions = uniqueOf(j => j.company)
+  const locationOptions = uniqueOf(j => j.location)
+  const jobTypeOptions = uniqueOf(j => j.job_type)
+  const workplaceOptions = uniqueOf(j => j.workplace)
+  const degreeOptions = uniqueOf(j => j.degree_level)
+  const visaOptions = uniqueOf(j => j.visa_sponsorship)
+  const roleOptions = uniqueOf(j => j.role_category)
   const filterOptions: Record<string, string[]> = {
-    "Posted date": POSTED_DATE_OPTIONS,
+    "Date": POSTED_DATE_OPTIONS,
     "Location": locationOptions,
+    "Workplace": workplaceOptions,
     "Companies": companyOptions,
+    "Degree Level": degreeOptions,
+    "Sponsors Visa": visaOptions,
+    "Role": roleOptions,
     "Job Type": jobTypeOptions,
   }
 
@@ -197,8 +209,12 @@ export default function BrowseJobsPage() {
     if (q && !j.title?.toLowerCase().includes(q) && !j.company?.toLowerCase().includes(q)) return false
     if (filterValues["Job Type"] && j.job_type !== filterValues["Job Type"]) return false
     if (filterValues["Location"] && j.location !== filterValues["Location"]) return false
+    if (filterValues["Workplace"] && j.workplace !== filterValues["Workplace"]) return false
     if (filterValues["Companies"] && j.company !== filterValues["Companies"]) return false
-    if (filterValues["Posted date"] && !withinPostedDate(j.discovered_at, filterValues["Posted date"])) return false
+    if (filterValues["Degree Level"] && j.degree_level !== filterValues["Degree Level"]) return false
+    if (filterValues["Sponsors Visa"] && j.visa_sponsorship !== filterValues["Sponsors Visa"]) return false
+    if (filterValues["Role"] && j.role_category !== filterValues["Role"]) return false
+    if (filterValues["Date"] && !withinPostedDate(j.discovered_at, filterValues["Date"])) return false
     return true
   })
 
@@ -499,6 +515,16 @@ export default function BrowseJobsPage() {
                           {j.job_type}
                         </span>
                       )}
+                      {j.role_category && (
+                        <span style={{ fontSize: 11, fontWeight: 600, padding: "4px 9px", borderRadius: 8, background: "rgba(2,49,53,0.045)", color: "rgba(0,49,53,0.62)" }}>
+                          {j.role_category}
+                        </span>
+                      )}
+                      {j.workplace && (
+                        <span style={{ fontSize: 11, fontWeight: 600, padding: "4px 9px", borderRadius: 8, background: "rgba(2,49,53,0.045)", color: "rgba(0,49,53,0.62)" }}>
+                          {j.workplace}
+                        </span>
+                      )}
                       {j.location && (
                         <span style={{ fontSize: 11, fontWeight: 600, padding: "4px 9px", borderRadius: 8, background: "rgba(2,49,53,0.045)", color: "rgba(0,49,53,0.62)", display: "inline-flex", alignItems: "center", gap: 4 }}>
                           <svg width="9" height="9" viewBox="0 0 24 24" fill="none"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/><circle cx="12" cy="9" r="2.5" stroke="currentColor" strokeWidth="1.8"/></svg>
@@ -601,6 +627,30 @@ export default function BrowseJobsPage() {
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13 }}>
                     <span style={{ color: "rgba(0,49,53,0.45)", fontWeight: 600 }}>Location</span>
                     <span style={{ fontWeight: 700 }}>{selected.location}</span>
+                  </div>
+                )}
+                {selected.workplace && (
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13 }}>
+                    <span style={{ color: "rgba(0,49,53,0.45)", fontWeight: 600 }}>Workplace</span>
+                    <span style={{ fontWeight: 700 }}>{selected.workplace}</span>
+                  </div>
+                )}
+                {selected.role_category && (
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13 }}>
+                    <span style={{ color: "rgba(0,49,53,0.45)", fontWeight: 600 }}>Role</span>
+                    <span style={{ fontWeight: 700 }}>{selected.role_category}</span>
+                  </div>
+                )}
+                {selected.degree_level && (
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13 }}>
+                    <span style={{ color: "rgba(0,49,53,0.45)", fontWeight: 600 }}>Degree level</span>
+                    <span style={{ fontWeight: 700 }}>{selected.degree_level}</span>
+                  </div>
+                )}
+                {selected.visa_sponsorship && (
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13 }}>
+                    <span style={{ color: "rgba(0,49,53,0.45)", fontWeight: 600 }}>Sponsors visa</span>
+                    <span style={{ fontWeight: 700 }}>{selected.visa_sponsorship}</span>
                   </div>
                 )}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13 }}>
