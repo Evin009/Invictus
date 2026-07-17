@@ -45,6 +45,17 @@ const SHIMMER = {
 
 const FILTER_KEYS = ["Date", "Location", "Workplace", "Companies", "Degree Level", "Sponsors Visa", "Role", "Job Type"]
 const POSTED_DATE_OPTIONS = ["Any time", "Past 24 hours", "Past week", "Past month"]
+
+// Fixed-vocabulary fields — these come from job_meta.py's own enums (the
+// full set of values the backend heuristics can ever produce), so the
+// dropdown always shows every possible value, not just ones a job happens
+// to have hit so far. Location/Companies stay dynamic below since those are
+// genuinely open-ended real-world strings, not a fixed enum.
+const WORKPLACE_OPTIONS = ["Remote", "Hybrid", "Onsite"]
+const DEGREE_LEVEL_OPTIONS = ["High school", "Associate", "Bachelor's", "Master's", "PhD"]
+const VISA_SPONSORSHIP_OPTIONS = ["Yes", "No"]
+const ROLE_OPTIONS = ["Engineering", "Design", "Product", "Data", "Marketing"]
+const JOB_TYPE_OPTIONS = ["Full-time", "Part-time", "Internship", "Contract"]
 const SORT_OPTIONS = ["Best match", "Most recent"]
 const BATCH_SIZE_OPTIONS = [12, 24, 48, 96]
 
@@ -170,19 +181,24 @@ export default function BrowseJobsPage() {
     return () => document.removeEventListener("mousedown", handle)
   }, [openFilter])
 
-  // Dropdown option lists derived from real discovered jobs, not guesses —
-  // an option that returns zero results is worse than no option. Fields with
-  // partial coverage (workplace/degree/visa aren't extractable from every
-  // source) just show fewer options rather than fake placeholders.
+  // Location/Companies are genuinely open-ended real-world strings, so their
+  // options are derived from actually-discovered jobs — an option that
+  // returns zero results is worse than no option.
   const uniqueOf = (get: (j: RawJob) => string | null | undefined) =>
     Array.from(new Set(jobs.map(get).filter((v): v is string => !!v))).sort()
   const companyOptions = uniqueOf(j => j.company)
   const locationOptions = uniqueOf(j => j.location)
-  const jobTypeOptions = uniqueOf(j => j.job_type)
-  const workplaceOptions = uniqueOf(j => j.workplace)
-  const degreeOptions = uniqueOf(j => j.degree_level)
-  const visaOptions = uniqueOf(j => j.visa_sponsorship)
-  const roleOptions = uniqueOf(j => j.role_category)
+
+  // Fixed-vocabulary fields always show every possible value (from
+  // job_meta.py's enums), merged with any real value seen that somehow
+  // isn't in that list, so the dropdown is never missing an option.
+  const withRealExtras = (fixed: string[], get: (j: RawJob) => string | null | undefined) =>
+    Array.from(new Set([...fixed, ...uniqueOf(get)]))
+  const jobTypeOptions = withRealExtras(JOB_TYPE_OPTIONS, j => j.job_type)
+  const workplaceOptions = withRealExtras(WORKPLACE_OPTIONS, j => j.workplace)
+  const degreeOptions = withRealExtras(DEGREE_LEVEL_OPTIONS, j => j.degree_level)
+  const visaOptions = withRealExtras(VISA_SPONSORSHIP_OPTIONS, j => j.visa_sponsorship)
+  const roleOptions = withRealExtras(ROLE_OPTIONS, j => j.role_category)
   const filterOptions: Record<string, string[]> = {
     "Date": POSTED_DATE_OPTIONS,
     "Location": locationOptions,
