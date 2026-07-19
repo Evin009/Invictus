@@ -4,7 +4,7 @@ Autonomous multi-agent AI job application system. Runs hourly via cron. One [Lan
 
 A dashboard (`ui/`) lets you monitor and configure everything without touching the database.
 
-## How it works
+## The agents
 
 ```
 search_agent ─┐
@@ -12,13 +12,18 @@ watchlist_agent ─┤─→ filter_node → tailor_node → apply_node → outr
 crawler_agent ─┘
 ```
 
-1. **Discover** — search agent (Greenhouse/Lever APIs + GitHub lists), watchlist agent (VIP companies), crawler agent (broad career pages) all append new postings to shared state.
-2. **Filter** — drops jobs that don't match preferences or were already seen.
-3. **Tailor** — pulls the most relevant resume bullets (pgvector + OpenAI embeddings), rewrites them to match the JD, recompiles to a 2-page PDF, plus a 350-word cover letter.
-4. **Apply** — Playwright fills the form on Greenhouse, Lever, Ashby, or Workday. Any captcha, login wall, or unknown field halts the run and alerts Slack — never guessed or skipped.
-5. **Outreach** — finds contacts, auto-sends a cold email via Gmail, drafts a LinkedIn message to Slack for manual sending (never automated — against LinkedIn's ToS).
-6. **Reply tracking** — scans the inbox, classifies replies with AI, updates application status, pings Slack on interviews/rejections.
-7. **Report** — posts an hourly Slack summary of everything above.
+| Agent | File | Purpose |
+|---|---|---|
+| **Search Agent** | `src/agents/search.py` | Pulls new postings from Greenhouse, Lever, and GitHub job lists |
+| **Watchlist Agent** | `src/agents/watchlist.py` | Deep-checks your VIP company list's career pages for new roles |
+| **Crawler Agent** | `src/agents/crawler.py` | Broad sweep of any career-page URL you feed it, for jobs the boards miss |
+| **Filter** | `src/filters/` | Drops jobs that don't match your preferences or were already seen |
+| **Resume Tailoring Agent** | `src/agents/resume_tailor.py` | Retrieves relevant resume bullets (RAG), rewrites them for the JD, recompiles a 2-page PDF |
+| **Cover Letter Agent** | `src/agents/cover_letter.py` | Writes a matching 350-word cover letter in your tone |
+| **Apply Agent** | `src/agents/apply.py` | Fills the ATS form with Playwright (Greenhouse/Lever/Ashby/Workday); halts + alerts Slack on captcha, login wall, or unknown field — never guesses |
+| **Outreach Agent** | `src/agents/outreach.py` | Finds contacts, auto-sends a cold email via Gmail, drafts LinkedIn messages to Slack for manual send |
+| **Reply Tracker** | `src/agents/reply_tracker.py` | Scans your inbox, classifies replies with AI, updates application status, pings Slack on interviews/rejections |
+| **Reporter Agent** | `src/agents/reporter.py` | Posts the hourly Slack summary of everything above |
 
 A crash mid-cycle never loses progress — every agent writes straight to Supabase.
 
