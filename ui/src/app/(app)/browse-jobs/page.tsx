@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react"
 import gsap from "gsap"
 import { CompanyLogo } from "@/components/company-logo"
 import { sourceCategory } from "@/lib/source-category"
+import { locationMatches } from "@/lib/location-match"
 
 const CSS = `
   @keyframes bj-shimmer { 0%{background-position:100% 0} 100%{background-position:0 0} }
@@ -230,7 +231,7 @@ export default function BrowseJobsPage() {
     if (passedIds.includes(j.id)) return false
     if (q && !j.title?.toLowerCase().includes(q) && !j.company?.toLowerCase().includes(q)) return false
     if (filterValues["Job Type"] && j.job_type !== filterValues["Job Type"]) return false
-    if (filterValues["Location"] && j.location !== filterValues["Location"]) return false
+    if (filterValues["Location"] && !locationMatches(j.location, filterValues["Location"])) return false
     if (filterValues["Workplace"] && j.workplace !== filterValues["Workplace"]) return false
     if (filterValues["Companies"] && j.company !== filterValues["Companies"]) return false
     if (filterValues["Degree Level"] && j.degree_level !== filterValues["Degree Level"]) return false
