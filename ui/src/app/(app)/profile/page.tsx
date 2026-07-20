@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback } from "react"
 import { CITY_STATE_OPTIONS, DEGREE_OPTIONS, MAJOR_OPTIONS, SCHOOL_OPTIONS, MONTH_OPTIONS, gradYearOptions } from "@/lib/location-data"
 import { JobPreferencesCard } from "@/components/job-preferences-card"
 import { CompanyWatchlistCard } from "@/components/company-watchlist-card"
+import { GithubReposCard } from "@/components/github-repos-card"
 import { SettingsForm } from "@/components/settings-form"
 import type { Seed } from "@/lib/types"
 
@@ -623,6 +624,9 @@ export default function ProfilePage() {
 
         {/* Company watchlist */}
         <CompanyWatchlistCard />
+
+        {/* Monitored GitHub job repos */}
+        <GithubReposCard />
 
         {/* Demographics */}
         <div style={CARD}>

@@ -143,13 +143,24 @@ def fetch_github_jobs(repo_url: str, keywords: list[str]) -> list[JobItem]:
     return jobs
 
 
-# Actively-maintained curated intern/new-grad job list repos — publish an
-# HTML job table in README.md, updated daily by their maintainers/community.
+# Fallback list of curated intern/new-grad job repos, used only if the
+# github_repos table is empty or unreadable. The live list is user-managed
+# from the Profile page and stored in the github_repos table.
 GITHUB_JOB_REPOS: list[str] = [
     "https://raw.githubusercontent.com/SimplifyJobs/Summer2026-Internships/dev/README.md",
     "https://raw.githubusercontent.com/SimplifyJobs/New-Grad-Positions/dev/README.md",
     "https://raw.githubusercontent.com/vanshb03/New-Grad-2026/main/README.md",
 ]
+
+
+def _load_github_repos(db) -> list[str]:
+    try:
+        rows = db.table("github_repos").select("raw_readme_url").execute().data or []
+        urls = [r["raw_readme_url"] for r in rows if r.get("raw_readme_url")]
+        return urls or GITHUB_JOB_REPOS
+    except Exception as e:
+        post_error("search_agent", str(e), {"step": "load_github_repos"})
+        return GITHUB_JOB_REPOS
 
 
 def _resolve_watchlist_ats(db, row: dict) -> tuple[str, str] | None:
@@ -208,7 +219,7 @@ def search_agent(state: GraphState) -> dict:
         except Exception as e:
             post_error("search_agent", str(e), {"source": platform, "company": company})
 
-    for repo_url in GITHUB_JOB_REPOS:
+    for repo_url in _load_github_repos(db):
         try:
             all_jobs.extend(fetch_github_jobs(repo_url, keywords))
         except Exception as e:

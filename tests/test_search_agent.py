@@ -208,19 +208,9 @@ def test_resolve_watchlist_ats_caches_none_when_not_found():
 
 def test_search_agent_uses_resolved_watchlist_ats():
     state = {"jobs_discovered": []}
-    mock_db = MagicMock()
-
-    def table_side(name):
-        m = MagicMock()
-        if name == "preferences":
-            m.select.return_value.limit.return_value.execute.return_value.data = [{"role_keywords": ["engineer"]}]
-        elif name == "watchlist":
-            m.select.return_value.execute.return_value.data = [
-                {"id": "1", "company_name": "Acme", "ats_platform": "greenhouse", "ats_token": "acme", "ats_checked_at": "2026-01-01T00:00:00Z"}
-            ]
-        return m
-
-    mock_db.table.side_effect = table_side
+    mock_db = _search_agent_mock_db(watchlist_rows=[
+        {"id": "1", "company_name": "Acme", "ats_platform": "greenhouse", "ats_token": "acme", "ats_checked_at": "2026-01-01T00:00:00Z"}
+    ])
 
     with patch("src.db.client.get_client", return_value=mock_db):
         with patch("src.agents.search.fetch_greenhouse_jobs", return_value=[{"job_url": "https://boards.greenhouse.io/acme/jobs/1", "source": "greenhouse"}]) as mock_gh:
@@ -231,41 +221,64 @@ def test_search_agent_uses_resolved_watchlist_ats():
     assert len(result["jobs_discovered"]) == 1
 
 
-def test_search_agent_fetches_github_curated_repos():
-    state = {"jobs_discovered": []}
+def _search_agent_mock_db(repo_rows=None, watchlist_rows=None, prefs_rows=None, watchlist_error=None):
     mock_db = MagicMock()
 
     def table_side(name):
         m = MagicMock()
         if name == "preferences":
-            m.select.return_value.limit.return_value.execute.return_value.data = [{"role_keywords": ["engineer"]}]
+            m.select.return_value.limit.return_value.execute.return_value.data = (
+                prefs_rows if prefs_rows is not None else [{"role_keywords": ["engineer"]}]
+            )
         elif name == "watchlist":
-            m.select.return_value.execute.return_value.data = []
+            if watchlist_error:
+                m.select.return_value.execute.side_effect = watchlist_error
+            else:
+                m.select.return_value.execute.return_value.data = watchlist_rows or []
+        elif name == "github_repos":
+            m.select.return_value.execute.return_value.data = repo_rows or []
         return m
 
     mock_db.table.side_effect = table_side
+    return mock_db
+
+
+def test_search_agent_fetches_repos_from_db():
+    state = {"jobs_discovered": []}
+    mock_db = _search_agent_mock_db(repo_rows=[
+        {"raw_readme_url": "https://raw.githubusercontent.com/a/b/main/README.md"},
+        {"raw_readme_url": "https://raw.githubusercontent.com/c/d/dev/README.md"},
+    ])
 
     with patch("src.db.client.get_client", return_value=mock_db):
         with patch("src.agents.search.fetch_github_jobs", return_value=[{"job_url": "https://acme.com/apply", "source": "github"}]) as mock_gh:
             result = search_agent(state)
 
-    assert mock_gh.call_count == len(__import__("src.agents.search", fromlist=["GITHUB_JOB_REPOS"]).GITHUB_JOB_REPOS)
+    assert mock_gh.call_count == 2
+    called_urls = {c.args[0] for c in mock_gh.call_args_list}
+    assert called_urls == {
+        "https://raw.githubusercontent.com/a/b/main/README.md",
+        "https://raw.githubusercontent.com/c/d/dev/README.md",
+    }
+    assert len(result["jobs_discovered"]) >= 1
+
+
+def test_search_agent_falls_back_to_default_repos_when_table_empty():
+    state = {"jobs_discovered": []}
+    mock_db = _search_agent_mock_db(repo_rows=[])
+
+    with patch("src.db.client.get_client", return_value=mock_db):
+        with patch("src.agents.search.fetch_github_jobs", return_value=[{"job_url": "https://acme.com/apply", "source": "github"}]) as mock_gh:
+            result = search_agent(state)
+
+    from src.agents.search import GITHUB_JOB_REPOS
+    assert mock_gh.call_count == len(GITHUB_JOB_REPOS)
     assert len(result["jobs_discovered"]) >= 1
 
 
 def test_search_agent_watchlist_error_still_gets_github_jobs():
     state = {"jobs_discovered": []}
-    mock_db = MagicMock()
-
-    def table_side(name):
-        m = MagicMock()
-        if name == "preferences":
-            m.select.return_value.limit.return_value.execute.return_value.data = []
-        elif name == "watchlist":
-            m.select.return_value.execute.side_effect = Exception("db down")
-        return m
-
-    mock_db.table.side_effect = table_side
+    mock_db = _search_agent_mock_db(prefs_rows=[], watchlist_error=Exception("db down"))
 
     with patch("src.db.client.get_client", return_value=mock_db):
         with patch("src.agents.search.fetch_github_jobs", return_value=[{"job_url": "https://acme.com/apply", "source": "github"}]):
