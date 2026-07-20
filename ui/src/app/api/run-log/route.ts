@@ -1,17 +1,18 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase"
 import { requireAuth } from "@/lib/require-auth"
+import { midnightEasternISO } from "@/lib/day-window"
 
 export async function GET() {
   const auth = await requireAuth()
   if (auth instanceof NextResponse) return auth
 
   const db = createClient()
-  const since = new Date(Date.now() - 24 * 3600 * 1000).toISOString()
+  // "Today" resets at exactly midnight US Eastern — the count and displayed
+  // jobs roll over to zero for the new day. Computed live at request time,
+  // never from a stale cron snapshot.
+  const since = midnightEasternISO()
 
-  // Stat cards always reflect a live trailing-24h window computed at request
-  // time — not whatever the last cron run happened to snapshot, which could
-  // be up to an hour (or longer, if a run failed) out of date.
   const [jobsDiscovered, applied, interviews, outreachSent, lastRunRow] = await Promise.all([
     db.from("jobs_seen").select("id", { count: "exact", head: true }).gte("created_at", since),
     db.from("applications").select("id", { count: "exact", head: true }).neq("status", "manual_pending").gte("submitted_at", since),
@@ -28,5 +29,6 @@ export async function GET() {
       outreach_sent: outreachSent.count ?? 0,
     },
     lastRunAt: lastRunRow.data?.[0]?.run_at ?? null,
+    windowStart: since,
   })
 }

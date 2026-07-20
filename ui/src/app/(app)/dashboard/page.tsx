@@ -11,6 +11,17 @@ interface DashboardStats {
   interviews: number
 }
 
+interface TodayJob {
+  id: string
+  url: string
+  title: string | null
+  company: string | null
+  source: string | null
+  location: string | null
+  job_type: string | null
+  discovered_at: string | null
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 type StatusTab = { label: string; filter: ApplicationStatus | "all" }
 
@@ -96,11 +107,26 @@ export default function DashboardPage() {
   const closeRef = useRef<HTMLDivElement>(null)
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [lastRunAt, setLastRunAt] = useState<string | null>(null)
+  const [todayJobs, setTodayJobs] = useState<TodayJob[]>([])
 
   useEffect(() => {
+    // windowStart is midnight US Eastern, computed server-side — jobs and
+    // count both reset there, so the list and the stat card always agree.
     fetch("/api/run-log")
       .then(r => r.json())
-      .then(d => { setStats(d?.stats ?? null); setLastRunAt(d?.lastRunAt ?? null) })
+      .then(d => {
+        setStats(d?.stats ?? null)
+        setLastRunAt(d?.lastRunAt ?? null)
+        const windowStart = typeof d?.windowStart === "string" ? d.windowStart : null
+        if (!windowStart) return
+        fetch("/api/jobs")
+          .then(r => r.json())
+          .then((jobs: TodayJob[]) => {
+            if (!Array.isArray(jobs)) return
+            setTodayJobs(jobs.filter(j => j.discovered_at && j.discovered_at >= windowStart))
+          })
+          .catch(() => {})
+      })
       .catch(() => {})
   }, [])
 
@@ -139,20 +165,53 @@ export default function DashboardPage() {
     <>
       <style dangerouslySetInnerHTML={{ __html: SHIMMER_CSS }} />
 
-      {/* ── Stats (rolling 24h) ── */}
+      {/* ── Stats (today, resets midnight ET) ── */}
       {stats && (
         <div style={{ flexShrink: 0 }}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 12 }}>
-            <StatCard label="Jobs found (24h)" value={stats.jobs_discovered} index={0} />
-            <StatCard label="Applied (24h)" value={stats.applied} index={1} accent />
-            <StatCard label="Interviews (24h)" value={stats.interviews} index={2} />
-            <StatCard label="Outreach sent (24h)" value={stats.outreach_sent} index={3} />
+            <StatCard label="Jobs found today" value={stats.jobs_discovered} index={0} />
+            <StatCard label="Applied today" value={stats.applied} index={1} accent />
+            <StatCard label="Interviews today" value={stats.interviews} index={2} />
+            <StatCard label="Outreach sent today" value={stats.outreach_sent} index={3} />
           </div>
-          {lastRunAt && (
-            <p style={{ fontSize: 11, color: "rgba(0,49,53,0.4)", margin: "8px 2px 0" }}>
-              Last run {timeAgo(lastRunAt)} — same numbers posted to Slack
-            </p>
-          )}
+          <p style={{ fontSize: 11, color: "rgba(0,49,53,0.4)", margin: "8px 2px 0" }}>
+            Resets at midnight ET{lastRunAt ? ` — last run ${timeAgo(lastRunAt)}` : ""}
+          </p>
+        </div>
+      )}
+
+      {/* ── Today's discovered jobs (all agents) ── */}
+      {todayJobs.length > 0 && (
+        <div style={{ background: "#fff", borderRadius: 18, boxShadow: "0 1px 3px rgba(0,49,53,0.05)", padding: "18px 20px", flexShrink: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+            <h2 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>Discovered today</h2>
+            <span style={{ fontSize: 12, fontWeight: 700, color: "#024950", background: "rgba(15,164,175,0.12)", padding: "3px 10px", borderRadius: 10 }}>
+              {todayJobs.length} job{todayJobs.length !== 1 ? "s" : ""}
+            </span>
+          </div>
+          <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 4 }}>
+            {todayJobs.map(j => (
+              <a
+                key={j.id}
+                href={j.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ flexShrink: 0, width: 210, background: "#F5F8F7", borderRadius: 12, padding: "12px 14px", textDecoration: "none", color: "#003135" }}
+              >
+                <p style={{ margin: "0 0 3px", fontSize: 13, fontWeight: 700, lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
+                  {j.title ?? "Untitled"}
+                </p>
+                <p style={{ margin: "0 0 6px", fontSize: 11.5, color: "rgba(0,49,53,0.5)", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {j.company ?? "Unknown"}{j.location ? ` · ${j.location}` : ""}
+                </p>
+                {j.job_type && (
+                  <span style={{ fontSize: 10.5, fontWeight: 700, padding: "2px 8px", borderRadius: 7, background: "rgba(150,71,52,0.09)", color: "#964734" }}>
+                    {j.job_type}
+                  </span>
+                )}
+              </a>
+            ))}
+          </div>
         </div>
       )}
 
