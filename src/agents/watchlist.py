@@ -121,11 +121,63 @@ def watchlist_agent(state: GraphState) -> dict:
     return {"jobs_discovered": existing + all_jobs}
 
 
+def _looks_like_job_list(items) -> bool:
+    if not isinstance(items, list) or not items:
+        return False
+    sample = items[0]
+    if not isinstance(sample, dict):
+        return False
+    keys = " ".join(str(k).lower() for k in sample.keys())
+    return bool(re.search(r"title|position|role|job", keys))
+
+
+def _extract_job_arrays(obj, found: list, depth: int = 0) -> None:
+    if depth > 4:
+        return
+    if isinstance(obj, list):
+        if _looks_like_job_list(obj):
+            found.append(obj)
+        for item in obj:
+            if isinstance(item, (dict, list)):
+                _extract_job_arrays(item, found, depth + 1)
+    elif isinstance(obj, dict):
+        for v in obj.values():
+            if isinstance(v, (dict, list)):
+                _extract_job_arrays(v, found, depth + 1)
+
+
+def _register_api_capture(page) -> list[list[dict]]:
+    """Many large-company career portals (Google/Meta/Microsoft-style SPAs)
+    render results from their own internal JSON API rather than plain HTML —
+    the rendered-DOM text scrape misses them, and we can't guess each
+    company's private endpoint URL. Instead, capture any JSON response the
+    page itself fetches during our automated session that looks like a real
+    job-listing array, so the real data reaches Claude even when the visible
+    page text doesn't have it."""
+    captured: list[list[dict]] = []
+
+    def on_response(response):
+        try:
+            ctype = response.headers.get("content-type", "")
+            if "json" not in ctype or response.status != 200:
+                return
+            body = response.json()
+        except Exception:
+            return
+        found: list = []
+        _extract_job_arrays(body, found)
+        captured.extend(found)
+
+    page.on("response", on_response)
+    return captured
+
+
 def _scrape_career_page(url: str, keywords: list[str] | None = None) -> str:
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         try:
             page = browser.new_page()
+            captured = _register_api_capture(page)
             page.goto(url, timeout=30000, wait_until="domcontentloaded")
             # networkidle never fires on pages with persistent background
             # activity (chat widgets, analytics, polling) — wait for it
@@ -137,9 +189,49 @@ def _scrape_career_page(url: str, keywords: list[str] | None = None) -> str:
             if page.query_selector("input[type='password']"):
                 raise RuntimeError("Login wall detected")
             _try_search(page, keywords)
-            return page.inner_text("body")
+            try:
+                page.wait_for_timeout(1500)  # let any XHR triggered by the search settle
+            except Exception:
+                pass
+            text = page.inner_text("body")
+            if captured:
+                best = max(captured, key=len)
+                api_text = json.dumps(best[:40], default=str)[:6000]
+                text = f"{text}\n\n--- Job data captured from page's own API ---\n{api_text}"
+            return text
         finally:
             browser.close()
+
+
+_SEARCH_BOX_SELECTORS = [
+    "input[type='search']",
+    "input[placeholder*='search' i]",
+    "input[placeholder*='job title' i]",
+    "input[placeholder*='keyword' i]",
+    "input[aria-label*='search' i]",
+]
+
+# Some portals (Amazon-style) keep the real search input hidden inside a
+# modal/overlay that only opens after clicking a trigger icon — a common
+# enough pattern to handle generically rather than per-company.
+_SEARCH_REVEAL_SELECTORS = [
+    "button[aria-label*='search' i]",
+    "a[aria-label*='search' i]",
+    "button:has-text('Search')",
+]
+
+
+def _reveal_hidden_search_box(page) -> None:
+    for selector in _SEARCH_REVEAL_SELECTORS:
+        try:
+            trigger = page.locator(selector).first
+            if trigger.count() == 0:
+                continue
+            trigger.click(timeout=3000)
+            page.wait_for_timeout(500)
+            return
+        except Exception:
+            continue
 
 
 def _try_search(page, keywords: list[str] | None) -> None:
@@ -151,18 +243,15 @@ def _try_search(page, keywords: list[str] | None) -> None:
     if not keywords:
         return
     query = keywords[0]
-    selectors = [
-        "input[type='search']",
-        "input[placeholder*='search' i]",
-        "input[placeholder*='job title' i]",
-        "input[placeholder*='keyword' i]",
-        "input[aria-label*='search' i]",
-    ]
-    for selector in selectors:
+    revealed = False
+    for selector in _SEARCH_BOX_SELECTORS:
         try:
             box = page.locator(selector).first
             if box.count() == 0:
                 continue
+            if not box.is_visible() and not revealed:
+                _reveal_hidden_search_box(page)
+                revealed = True
             box.click(timeout=3000)
             box.fill(query, timeout=3000)
             box.press("Enter", timeout=3000)

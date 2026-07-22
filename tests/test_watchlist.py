@@ -7,6 +7,10 @@ from src.agents.watchlist import (
     _scrape_career_page,
     _parse_jobs,
     _try_search,
+    _reveal_hidden_search_box,
+    _register_api_capture,
+    _looks_like_job_list,
+    _extract_job_arrays,
     _get_cached_jobs,
     _set_cached_jobs,
     _keywords_hash,
@@ -97,6 +101,144 @@ def test_try_search_swallows_interaction_errors():
     mock_page = MagicMock()
     mock_page.locator.side_effect = Exception("no such element")
     _try_search(mock_page, ["engineer"])  # should not raise
+
+
+def test_try_search_reveals_hidden_box_before_filling():
+    mock_page = MagicMock()
+    mock_box = mock_page.locator.return_value.first
+    mock_box.count.return_value = 1
+    mock_box.is_visible.return_value = False
+    with patch("src.agents.watchlist._reveal_hidden_search_box") as mock_reveal:
+        _try_search(mock_page, ["engineer"])
+    mock_reveal.assert_called_once_with(mock_page)
+    mock_box.fill.assert_called_once_with("engineer", timeout=3000)
+
+
+def test_try_search_skips_reveal_when_box_already_visible():
+    mock_page = MagicMock()
+    mock_box = mock_page.locator.return_value.first
+    mock_box.count.return_value = 1
+    mock_box.is_visible.return_value = True
+    with patch("src.agents.watchlist._reveal_hidden_search_box") as mock_reveal:
+        _try_search(mock_page, ["engineer"])
+    mock_reveal.assert_not_called()
+
+
+# --- _reveal_hidden_search_box ---
+
+def test_reveal_hidden_search_box_clicks_first_matching_trigger():
+    mock_page = MagicMock()
+    mock_trigger = mock_page.locator.return_value.first
+    mock_trigger.count.return_value = 1
+    _reveal_hidden_search_box(mock_page)
+    mock_trigger.click.assert_called_once()
+
+
+def test_reveal_hidden_search_box_noops_when_no_trigger_found():
+    mock_page = MagicMock()
+    mock_page.locator.return_value.first.count.return_value = 0
+    _reveal_hidden_search_box(mock_page)  # should not raise
+
+
+def test_reveal_hidden_search_box_swallows_errors():
+    mock_page = MagicMock()
+    mock_page.locator.side_effect = Exception("boom")
+    _reveal_hidden_search_box(mock_page)  # should not raise
+
+
+# --- _looks_like_job_list / _extract_job_arrays ---
+
+def test_looks_like_job_list_true_for_job_shaped_items():
+    assert _looks_like_job_list([{"title": "SWE"}, {"title": "PM"}]) is True
+
+
+def test_looks_like_job_list_false_for_non_job_shaped_items():
+    assert _looks_like_job_list([{"userId": 1}, {"userId": 2}]) is False
+
+
+def test_looks_like_job_list_false_for_empty_or_non_list():
+    assert _looks_like_job_list([]) is False
+    assert _looks_like_job_list("not a list") is False
+    assert _looks_like_job_list([1, 2, 3]) is False
+
+
+def test_extract_job_arrays_finds_nested_job_list():
+    found = []
+    payload = {"data": {"results": [{"jobTitle": "SWE"}, {"jobTitle": "PM"}]}}
+    _extract_job_arrays(payload, found)
+    assert len(found) == 1
+    assert found[0] == payload["data"]["results"]
+
+
+def test_extract_job_arrays_ignores_unrelated_arrays():
+    found = []
+    payload = {"tags": ["a", "b", "c"]}
+    _extract_job_arrays(payload, found)
+    assert found == []
+
+
+def test_extract_job_arrays_respects_depth_limit():
+    found = []
+    deeply_nested = {"a": {"b": {"c": {"d": {"e": [{"title": "SWE"}]}}}}}
+    _extract_job_arrays(deeply_nested, found)
+    assert found == []
+
+
+# --- _register_api_capture ---
+
+def test_register_api_capture_captures_matching_json_response():
+    mock_page = MagicMock()
+    captured = _register_api_capture(mock_page)
+    handler = mock_page.on.call_args[0][1]
+
+    mock_response = MagicMock()
+    mock_response.headers = {"content-type": "application/json"}
+    mock_response.status = 200
+    mock_response.json.return_value = {"jobs": [{"title": "SWE"}, {"title": "PM"}]}
+    handler(mock_response)
+
+    assert len(captured) == 1
+    assert captured[0] == [{"title": "SWE"}, {"title": "PM"}]
+
+
+def test_register_api_capture_ignores_non_json_response():
+    mock_page = MagicMock()
+    captured = _register_api_capture(mock_page)
+    handler = mock_page.on.call_args[0][1]
+
+    mock_response = MagicMock()
+    mock_response.headers = {"content-type": "text/html"}
+    mock_response.status = 200
+    handler(mock_response)
+
+    assert captured == []
+
+
+def test_register_api_capture_ignores_non_200_response():
+    mock_page = MagicMock()
+    captured = _register_api_capture(mock_page)
+    handler = mock_page.on.call_args[0][1]
+
+    mock_response = MagicMock()
+    mock_response.headers = {"content-type": "application/json"}
+    mock_response.status = 404
+    handler(mock_response)
+
+    assert captured == []
+
+
+def test_register_api_capture_swallows_json_parse_errors():
+    mock_page = MagicMock()
+    captured = _register_api_capture(mock_page)
+    handler = mock_page.on.call_args[0][1]
+
+    mock_response = MagicMock()
+    mock_response.headers = {"content-type": "application/json"}
+    mock_response.status = 200
+    mock_response.json.side_effect = Exception("bad json")
+    handler(mock_response)  # should not raise
+
+    assert captured == []
 
 
 # --- _select_active_batch ---
