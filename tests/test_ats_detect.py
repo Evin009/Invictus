@@ -53,3 +53,34 @@ def test_detect_ats_rejects_malformed_greenhouse_response():
         with patch("urllib.error.URLError", Exception):
             result = detect_ats("Acme")
     assert result != ("greenhouse", "acme")
+
+
+def test_detect_ats_falls_back_to_ashby():
+    def urlopen_side(req, timeout=None):
+        if "ashbyhq" in req.full_url:
+            return _mock_response({"jobs": []})
+        raise __import__("urllib.error", fromlist=["URLError"]).URLError("404")
+
+    with patch("urllib.request.urlopen", side_effect=urlopen_side):
+        result = detect_ats("Acme")
+    assert result == ("ashby", "acme")
+
+
+def test_detect_ats_falls_back_to_smartrecruiters():
+    def urlopen_side(req, timeout=None):
+        if "smartrecruiters" in req.full_url:
+            return _mock_response({"content": [], "totalFound": 3})
+        raise __import__("urllib.error", fromlist=["URLError"]).URLError("404")
+
+    with patch("urllib.request.urlopen", side_effect=urlopen_side):
+        result = detect_ats("Acme")
+    assert result == ("smartrecruiters", "acme")
+
+
+def test_detect_ats_rejects_smartrecruiters_empty_totalfound():
+    """SmartRecruiters returns 200 + empty content for ANY slug, real or
+    fake — confirmed live. totalFound must be > 0 or every company would
+    falsely match this platform."""
+    with patch("urllib.request.urlopen", return_value=_mock_response({"content": [], "totalFound": 0})):
+        result = detect_ats("Totally Fake Corp")
+    assert result != ("smartrecruiters", "totallyfakecorp")
