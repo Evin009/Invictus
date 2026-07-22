@@ -1,6 +1,21 @@
 import json
 from unittest.mock import patch, MagicMock
-from src.agents.search import fetch_greenhouse_jobs, fetch_lever_jobs, fetch_github_jobs, search_agent, _resolve_watchlist_ats
+from src.agents.search import (
+    fetch_greenhouse_jobs,
+    fetch_lever_jobs,
+    fetch_github_jobs,
+    fetch_ashby_jobs,
+    fetch_smartrecruiters_jobs,
+    fetch_amazon_jobs,
+    search_agent,
+    _resolve_watchlist_ats,
+)
+
+
+def _mock_urlopen_json(payload):
+    mock_cm = MagicMock()
+    mock_cm.__enter__.return_value.read.return_value = json.dumps(payload).encode()
+    return mock_cm
 
 
 def test_fetch_greenhouse_returns_matching_jobs():
@@ -63,6 +78,90 @@ def test_fetch_lever_empty():
         mock_cm.__enter__.return_value.read.return_value = json.dumps([]).encode()
         mock_open.return_value = mock_cm
         result = fetch_lever_jobs(company="empty", keywords=["SWE"])
+    assert result == []
+
+
+def test_fetch_ashby_returns_matching_jobs():
+    mock_jobs = [
+        {
+            "id": "j1", "title": "Security Engineer, Cloud", "employmentType": "FullTime",
+            "location": "New York, NY (HQ)", "workplaceType": "Hybrid",
+            "jobUrl": "https://jobs.ashbyhq.com/ramp/j1", "applyUrl": "https://jobs.ashbyhq.com/ramp/j1/application",
+            "descriptionHtml": "Bachelor's degree required. We will sponsor visas.",
+        },
+        {"id": "j2", "title": "Recruiter", "jobUrl": "https://jobs.ashbyhq.com/ramp/j2"},
+    ]
+    with patch("urllib.request.urlopen", return_value=_mock_urlopen_json({"jobs": mock_jobs})):
+        result = fetch_ashby_jobs("ramp", ["Engineer"])
+    assert len(result) == 1
+    assert result[0]["job_url"] == "https://jobs.ashbyhq.com/ramp/j1"
+    assert result[0]["source"] == "ashby"
+    assert result[0]["job_type"] == "FullTime"
+    assert result[0]["location"] == "New York, NY (HQ)"
+    assert result[0]["workplace"] == "Hybrid"
+    assert result[0]["degree_level"] == "Bachelor's"
+    assert result[0]["visa_sponsorship"] == "Yes"
+    assert result[0]["role_category"] == "Engineering"
+
+
+def test_fetch_ashby_empty_board():
+    with patch("urllib.request.urlopen", return_value=_mock_urlopen_json({"jobs": []})):
+        result = fetch_ashby_jobs("empty", ["Engineer"])
+    assert result == []
+
+
+def test_fetch_smartrecruiters_returns_matching_jobs():
+    mock_postings = [
+        {
+            "id": "p1", "name": "Software Engineer",
+            "location": {"fullLocation": "Austin, TX, United States", "remote": False, "hybrid": False},
+            "typeOfEmployment": {"label": "Full-time"},
+        },
+        {"id": "p2", "name": "Sr. Manager"},
+    ]
+    with patch("urllib.request.urlopen", return_value=_mock_urlopen_json({"content": mock_postings})):
+        result = fetch_smartrecruiters_jobs("visa", ["Engineer"])
+    assert len(result) == 1
+    assert result[0]["job_url"] == "https://jobs.smartrecruiters.com/visa/p1"
+    assert result[0]["source"] == "smartrecruiters"
+    assert result[0]["location"] == "Austin, TX, United States"
+    assert result[0]["job_type"] == "Full-time"
+
+
+def test_fetch_smartrecruiters_empty():
+    with patch("urllib.request.urlopen", return_value=_mock_urlopen_json({"content": []})):
+        result = fetch_smartrecruiters_jobs("empty", ["Engineer"])
+    assert result == []
+
+
+def test_fetch_amazon_jobs_returns_matching_jobs():
+    mock_response = {
+        "hits": 2,
+        "jobs": [
+            {
+                "id": "1", "id_icims": "10418355", "title": "Software Dev Engineer Intern",
+                "job_path": "/en/jobs/10418355/software-dev-engineer-intern",
+                "normalized_location": "Dublin, IRL",
+                "description": "We will sponsor visas. Bachelor's degree required.",
+            },
+            {"id": "2", "title": "Sr. Product Manager", "job_path": "/en/jobs/2"},
+        ],
+    }
+    with patch("urllib.request.urlopen", return_value=_mock_urlopen_json(mock_response)):
+        result = fetch_amazon_jobs(["Software Dev Engineer Intern"])
+    assert len(result) == 1
+    assert result[0]["job_url"] == "https://www.amazon.jobs/en/jobs/10418355/software-dev-engineer-intern"
+    assert result[0]["source"] == "amazon"
+    assert result[0]["company"] == "Amazon"
+    assert result[0]["location"] == "Dublin, IRL"
+    assert result[0]["job_type"] == "Internship"
+    assert result[0]["visa_sponsorship"] == "Yes"
+    assert result[0]["degree_level"] == "Bachelor's"
+
+
+def test_fetch_amazon_jobs_empty():
+    with patch("urllib.request.urlopen", return_value=_mock_urlopen_json({"jobs": []})):
+        result = fetch_amazon_jobs(["Software Engineer"])
     assert result == []
 
 
@@ -219,6 +318,41 @@ def test_search_agent_uses_resolved_watchlist_ats():
 
     mock_gh.assert_called_once_with("acme", ["engineer"])
     assert len(result["jobs_discovered"]) == 1
+
+
+def test_search_agent_routes_amazon_to_dedicated_fetcher():
+    state = {"jobs_discovered": []}
+    mock_db = _search_agent_mock_db(watchlist_rows=[
+        {"id": "1", "company_name": "amazon", "careers_url": "https://www.amazon.jobs"}
+    ])
+
+    with patch("src.db.client.get_client", return_value=mock_db):
+        with patch("src.agents.search.fetch_amazon_jobs", return_value=[{"job_url": "https://www.amazon.jobs/en/jobs/1", "source": "amazon"}]) as mock_amazon:
+            with patch("src.agents.search._resolve_watchlist_ats") as mock_resolve:
+                with patch("src.agents.search.fetch_github_jobs", return_value=[]):
+                    result = search_agent(state)
+
+    mock_amazon.assert_called_once_with(["engineer"])
+    mock_resolve.assert_not_called()
+    assert len(result["jobs_discovered"]) == 1
+
+
+def test_search_agent_routes_ashby_and_smartrecruiters():
+    state = {"jobs_discovered": []}
+    mock_db = _search_agent_mock_db(watchlist_rows=[
+        {"id": "1", "company_name": "Ramp", "ats_platform": "ashby", "ats_token": "ramp", "ats_checked_at": "2026-01-01T00:00:00Z"},
+        {"id": "2", "company_name": "Visa", "ats_platform": "smartrecruiters", "ats_token": "visa", "ats_checked_at": "2026-01-01T00:00:00Z"},
+    ])
+
+    with patch("src.db.client.get_client", return_value=mock_db):
+        with patch("src.agents.search.fetch_ashby_jobs", return_value=[{"job_url": "https://jobs.ashbyhq.com/ramp/1", "source": "ashby"}]) as mock_ashby:
+            with patch("src.agents.search.fetch_smartrecruiters_jobs", return_value=[{"job_url": "https://jobs.smartrecruiters.com/visa/1", "source": "smartrecruiters"}]) as mock_sr:
+                with patch("src.agents.search.fetch_github_jobs", return_value=[]):
+                    result = search_agent(state)
+
+    mock_ashby.assert_called_once_with("ramp", ["engineer"])
+    mock_sr.assert_called_once_with("visa", ["engineer"])
+    assert len(result["jobs_discovered"]) == 2
 
 
 def _search_agent_mock_db(repo_rows=None, watchlist_rows=None, prefs_rows=None, watchlist_error=None):

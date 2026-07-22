@@ -1,5 +1,6 @@
 import json
 import re
+import urllib.parse
 import urllib.request
 from src.state import GraphState, JobItem
 from src.config import settings
@@ -69,6 +70,110 @@ def fetch_lever_jobs(company: str, keywords: list[str]) -> list[JobItem]:
             location=location,
             job_type=categories.get("commitment") or infer_job_type(title),
             workplace=infer_workplace(location, j.get("workplaceType")),
+            degree_level=infer_degree_level(description),
+            visa_sponsorship=infer_visa_sponsorship(description),
+            role_category=infer_role_category(title),
+        ))
+    return jobs
+
+
+def fetch_ashby_jobs(board_token: str, keywords: list[str]) -> list[JobItem]:
+    url = f"https://api.ashbyhq.com/posting-api/job-board/{board_token}"
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (compatible; InvictusBot/1.0)"})
+    with urllib.request.urlopen(req) as r:
+        data = json.loads(r.read())
+    jobs = []
+    for j in data.get("jobs", []):
+        title = j.get("title", "")
+        if not any(kw.lower() in title.lower() for kw in keywords):
+            continue
+        description = j.get("descriptionHtml", "") or j.get("descriptionPlain", "")
+        location = j.get("location")
+        jobs.append(JobItem(
+            job_url=j.get("jobUrl") or j.get("applyUrl", ""),
+            job_id=j.get("id", ""),
+            title=title,
+            company=board_token,
+            source="ashby",
+            description=description,
+            ats_platform="ashby",
+            raw_json=j,
+            location=location,
+            job_type=j.get("employmentType") or infer_job_type(title),
+            workplace=infer_workplace(location, j.get("workplaceType")),
+            degree_level=infer_degree_level(description),
+            visa_sponsorship=infer_visa_sponsorship(description),
+            role_category=infer_role_category(title),
+        ))
+    return jobs
+
+
+def fetch_smartrecruiters_jobs(company_token: str, keywords: list[str]) -> list[JobItem]:
+    url = f"https://api.smartrecruiters.com/v1/companies/{company_token}/postings"
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (compatible; InvictusBot/1.0)"})
+    with urllib.request.urlopen(req) as r:
+        data = json.loads(r.read())
+    jobs = []
+    for j in data.get("content", []):
+        title = j.get("name", "")
+        if not any(kw.lower() in title.lower() for kw in keywords):
+            continue
+        loc = j.get("location") or {}
+        location = loc.get("fullLocation")
+        employment = (j.get("typeOfEmployment") or {}).get("label")
+        workplace_explicit = "Remote" if loc.get("remote") else ("Hybrid" if loc.get("hybrid") else None)
+        jobs.append(JobItem(
+            job_url=f"https://jobs.smartrecruiters.com/{company_token}/{j.get('id', '')}",
+            job_id=j.get("id", ""),
+            title=title,
+            company=company_token,
+            source="smartrecruiters",
+            description="",
+            ats_platform="smartrecruiters",
+            raw_json=j,
+            location=location,
+            job_type=employment or infer_job_type(title),
+            workplace=workplace_explicit or infer_workplace(location),
+            degree_level=None,
+            visa_sponsorship=None,
+            role_category=infer_role_category(title),
+        ))
+    return jobs
+
+
+def fetch_amazon_jobs(keywords: list[str]) -> list[JobItem]:
+    """Amazon's actual public jobs-search API (used by amazon.jobs itself) —
+    verified real, no auth needed. Amazon's own career portal is a JS-heavy
+    SPA that generic scraping can't reliably read, so this is a direct
+    integration rather than a scrape."""
+    query = keywords[0] if keywords else "software engineer"
+    url = "https://www.amazon.jobs/en/search.json?" + urllib.parse.urlencode({
+        "base_query": query, "result_limit": 50,
+    })
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (compatible; InvictusBot/1.0)"})
+    with urllib.request.urlopen(req) as r:
+        data = json.loads(r.read())
+    jobs = []
+    for j in data.get("jobs", []):
+        title = j.get("title", "")
+        if not any(kw.lower() in title.lower() for kw in keywords):
+            continue
+        description = j.get("description", "") or j.get("basic_qualifications", "")
+        location = j.get("normalized_location") or j.get("location")
+        job_path = j.get("job_path", "")
+        job_id = str(j.get("id_icims") or j.get("id") or title)
+        jobs.append(JobItem(
+            job_url=f"https://www.amazon.jobs{job_path}" if job_path else f"https://www.amazon.jobs/en/jobs/{job_id}",
+            job_id=job_id,
+            title=title,
+            company="Amazon",
+            source="amazon",
+            description=description,
+            ats_platform="amazon",
+            raw_json=j,
+            location=location,
+            job_type=infer_job_type(title),
+            workplace=infer_workplace(location, description),
             degree_level=infer_degree_level(description),
             visa_sponsorship=infer_visa_sponsorship(description),
             role_category=infer_role_category(title),
@@ -203,6 +308,17 @@ def search_agent(state: GraphState) -> dict:
 
     for row in watchlist_rows:
         company = row.get("company_name", "")
+
+        # Amazon has a real, verified public jobs-search API of its own —
+        # not a third-party ATS, so it's handled directly rather than via
+        # the generic ATS-detection path.
+        if company.strip().lower() == "amazon":
+            try:
+                all_jobs.extend(fetch_amazon_jobs(keywords))
+            except Exception as e:
+                post_error("search_agent", str(e), {"source": "amazon", "company": company})
+            continue
+
         try:
             resolved = _resolve_watchlist_ats(db, row)
         except Exception as e:
@@ -216,6 +332,10 @@ def search_agent(state: GraphState) -> dict:
                 all_jobs.extend(fetch_greenhouse_jobs(token, keywords))
             elif platform == "lever":
                 all_jobs.extend(fetch_lever_jobs(token, keywords))
+            elif platform == "ashby":
+                all_jobs.extend(fetch_ashby_jobs(token, keywords))
+            elif platform == "smartrecruiters":
+                all_jobs.extend(fetch_smartrecruiters_jobs(token, keywords))
         except Exception as e:
             post_error("search_agent", str(e), {"source": platform, "company": company})
 
