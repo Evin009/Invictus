@@ -45,7 +45,12 @@ const SHIMMER = {
 } as React.CSSProperties
 
 const FILTER_KEYS = ["Date", "Location", "Workplace", "Companies", "Degree Level", "Sponsors Visa", "Role", "Job Type"]
-const POSTED_DATE_OPTIONS = ["Any time", "Past 24 hours", "Past week", "Past month"]
+const POSTED_DATE_OPTIONS = ["Any time", "Past 24 hours"]
+
+// Browse only ever shows "active" postings — discovered within the last 7
+// days. Older listings are presumed stale (we don't re-verify postings are
+// still open), and the dashboard's Top 5 widget draws from this same window.
+const ACTIVE_WINDOW_MS = 7 * 24 * 3600 * 1000
 
 // Fixed-vocabulary fields — these come from job_meta.py's own enums (the
 // full set of values the backend heuristics can ever produce), so the
@@ -102,16 +107,6 @@ interface RawJob {
   status?: string | null
 }
 
-// Fallback demo jobs if DB is empty
-const DEMO_JOBS: RawJob[] = [
-  { id:"j1", url:"#", title:"AI Engineer", company:"Anthropic", source:"search", discovered_at: new Date(Date.now()-2*86400000).toISOString(), job_type:"Full-time", location:"Remote", status:"New" },
-  { id:"j2", url:"#", title:"AI Talent Development Intern", company:"OpenAI", source:"search", discovered_at: new Date(Date.now()-6*3600000).toISOString(), job_type:"Internship", location:"San Francisco, CA", status:"New" },
-  { id:"j3", url:"#", title:"Computer Science Internship", company:"University of South Florida", source:"crawler", discovered_at: new Date(Date.now()-86400000).toISOString(), job_type:"Internship", location:"Tampa, FL", status:"New" },
-  { id:"j4", url:"#", title:"Product Design Intern", company:"Figma", source:"watchlist", discovered_at: new Date(Date.now()-4*86400000).toISOString(), job_type:"Internship", location:"New York, NY", status:"New" },
-  { id:"j5", url:"#", title:"Backend Engineer", company:"Stripe", source:"search", discovered_at: new Date(Date.now()-5*86400000).toISOString(), job_type:"Contract", location:"Austin, TX", status:"New" },
-  { id:"j6", url:"#", title:"Data Scientist Intern", company:"Netflix", source:"search", discovered_at: new Date(Date.now()-8*3600000).toISOString(), job_type:"Internship", location:"Los Gatos, CA", status:"New" },
-]
-
 function timeAgo(iso: string | null) {
   if (!iso) return "—"
   const diff = Date.now() - new Date(iso).getTime()
@@ -143,14 +138,11 @@ export default function BrowseJobsPage() {
     fetch("/api/jobs")
       .then(r => r.json())
       .then((data: RawJob[]) => {
-        const list = Array.isArray(data) && data.length > 0 ? data : DEMO_JOBS
+        const list = Array.isArray(data) ? data : []
         setJobs(list)
         if (list.length > 0) setSelectedId(list[0].id)
       })
-      .catch(() => {
-        setJobs(DEMO_JOBS)
-        setSelectedId(DEMO_JOBS[0].id)
-      })
+      .catch(() => setJobs([]))
       .finally(() => setLoading(false))
   }, [])
 
@@ -188,10 +180,16 @@ export default function BrowseJobsPage() {
     return () => document.removeEventListener("mousedown", handle)
   }, [openFilter])
 
+  // Active-window baseline: only jobs discovered in the last 7 days count as
+  // "active" — everything downstream (filter options, results) draws from
+  // this set, not the full all-time jobs list.
+  const activeSince = new Date(Date.now() - ACTIVE_WINDOW_MS).toISOString()
+  const activeJobs = jobs.filter(j => j.discovered_at && j.discovered_at >= activeSince)
+
   // Companies is genuinely unbounded (real company names), so its options
   // are derived purely from actually-discovered jobs.
   const uniqueOf = (get: (j: RawJob) => string | null | undefined) =>
-    Array.from(new Set(jobs.map(get).filter((v): v is string => !!v))).sort()
+    Array.from(new Set(activeJobs.map(get).filter((v): v is string => !!v))).sort()
   const companyOptions = uniqueOf(j => j.company)
 
   // Fixed/baseline fields always show their full option set (from
@@ -221,13 +219,11 @@ export default function BrowseJobsPage() {
     if (bucket === "Any time" || !iso) return true
     const hours = (Date.now() - new Date(iso).getTime()) / 3600000
     if (bucket === "Past 24 hours") return hours <= 24
-    if (bucket === "Past week") return hours <= 24 * 7
-    if (bucket === "Past month") return hours <= 24 * 30
     return true
   }
 
   const q = searchQuery.trim().toLowerCase()
-  const filtered = jobs.filter(j => {
+  const filtered = activeJobs.filter(j => {
     if (passedIds.includes(j.id)) return false
     if (q && !j.title?.toLowerCase().includes(q) && !j.company?.toLowerCase().includes(q)) return false
     if (filterValues["Job Type"] && j.job_type !== filterValues["Job Type"]) return false

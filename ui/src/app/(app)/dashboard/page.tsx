@@ -11,7 +11,7 @@ interface DashboardStats {
   interviews: number
 }
 
-interface TodayJob {
+interface TopJob {
   id: string
   url: string
   title: string | null
@@ -21,6 +21,10 @@ interface TodayJob {
   job_type: string | null
   discovered_at: string | null
 }
+
+const TOP_JOBS_COUNT = 5
+const ACTIVE_WINDOW_MS = 7 * 24 * 3600 * 1000
+const TOP_JOBS_REFRESH_MS = 5 * 3600 * 1000
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type StatusTab = { label: string; filter: ApplicationStatus | "all" }
@@ -107,27 +111,35 @@ export default function DashboardPage() {
   const closeRef = useRef<HTMLDivElement>(null)
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [lastRunAt, setLastRunAt] = useState<string | null>(null)
-  const [todayJobs, setTodayJobs] = useState<TodayJob[]>([])
+  const [topJobs, setTopJobs] = useState<TopJob[]>([])
 
   useEffect(() => {
-    // windowStart is midnight US Eastern, computed server-side — jobs and
-    // count both reset there, so the list and the stat card always agree.
     fetch("/api/run-log")
       .then(r => r.json())
-      .then(d => {
-        setStats(d?.stats ?? null)
-        setLastRunAt(d?.lastRunAt ?? null)
-        const windowStart = typeof d?.windowStart === "string" ? d.windowStart : null
-        if (!windowStart) return
-        fetch("/api/jobs")
-          .then(r => r.json())
-          .then((jobs: TodayJob[]) => {
-            if (!Array.isArray(jobs)) return
-            setTodayJobs(jobs.filter(j => j.discovered_at && j.discovered_at >= windowStart))
-          })
-          .catch(() => {})
-      })
+      .then(d => { setStats(d?.stats ?? null); setLastRunAt(d?.lastRunAt ?? null) })
       .catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    // Top 5 most recently discovered active jobs (last 7 days), across
+    // every agent. Polled every 5h so a page left open picks up new
+    // postings without a manual reload.
+    function loadTopJobs() {
+      const activeSince = new Date(Date.now() - ACTIVE_WINDOW_MS).toISOString()
+      fetch("/api/jobs")
+        .then(r => r.json())
+        .then((jobs: TopJob[]) => {
+          if (!Array.isArray(jobs)) return
+          const active = jobs
+            .filter(j => j.discovered_at && j.discovered_at >= activeSince)
+            .sort((a, b) => new Date(b.discovered_at ?? 0).getTime() - new Date(a.discovered_at ?? 0).getTime())
+          setTopJobs(active.slice(0, TOP_JOBS_COUNT))
+        })
+        .catch(() => {})
+    }
+    loadTopJobs()
+    const interval = setInterval(loadTopJobs, TOP_JOBS_REFRESH_MS)
+    return () => clearInterval(interval)
   }, [])
 
   useEffect(() => {
@@ -180,17 +192,15 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* ── Today's discovered jobs (all agents) ── */}
-      {todayJobs.length > 0 && (
+      {/* ── Top 5 recent active jobs (all agents, refreshes every 5h) ── */}
+      {topJobs.length > 0 && (
         <div style={{ background: "#fff", borderRadius: 18, boxShadow: "0 1px 3px rgba(0,49,53,0.05)", padding: "18px 20px", flexShrink: 0 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-            <h2 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>Discovered today</h2>
-            <span style={{ fontSize: 12, fontWeight: 700, color: "#024950", background: "rgba(15,164,175,0.12)", padding: "3px 10px", borderRadius: 10 }}>
-              {todayJobs.length} job{todayJobs.length !== 1 ? "s" : ""}
-            </span>
+            <h2 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>Top 5 jobs</h2>
+            <span style={{ fontSize: 11, color: "rgba(0,49,53,0.4)" }}>Refreshes every 5h · rest on Browse jobs</span>
           </div>
           <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 4 }}>
-            {todayJobs.map(j => (
+            {topJobs.map(j => (
               <a
                 key={j.id}
                 href={j.url}
