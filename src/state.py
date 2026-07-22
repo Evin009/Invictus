@@ -20,7 +20,7 @@ class JobItem(TypedDict):
 
 class GraphState(TypedDict):
     run_id: str
-    jobs_discovered: list[JobItem]    # after search / watchlist / crawler
+    jobs_discovered: list[JobItem]    # after search_agent / watchlist_agent
     jobs_filtered: list[JobItem]      # after preference filter + dedup
     jobs_tailored: list[dict]         # after resume tailor: includes resume_pdf_path
     jobs_applied: list[dict]          # after apply: includes confirmation

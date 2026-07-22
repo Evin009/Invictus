@@ -68,21 +68,6 @@ WATCHLIST = [
     },
 ]
 
-# Additional career pages to crawl broadly (no per-company keyword filter —
-# uses preferences.role_keywords).
-CRAWLER_URLS = [
-    {
-        "company_name": "Vercel",
-        "careers_url": "https://vercel.com/careers",
-        "active": True,
-    },
-    {
-        "company_name": "Supabase",
-        "careers_url": "https://supabase.com/careers",
-        "active": True,
-    },
-]
-
 # Paste 1-2 real cover letters you've written. AI matches this tone.
 COVER_LETTER_SEEDS = [
     {
@@ -136,11 +121,6 @@ def seed():
     db.table("watchlist").delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
     if WATCHLIST:
         db.table("watchlist").insert(WATCHLIST).execute()
-
-    print("Seeding crawler_urls...")
-    db.table("crawler_urls").delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
-    if CRAWLER_URLS:
-        db.table("crawler_urls").insert(CRAWLER_URLS).execute()
 
     print("Seeding cover_letter_seeds...")
     db.table("cover_letter_seeds").delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()

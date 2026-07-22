@@ -7,7 +7,7 @@ create table if not exists jobs_seen (
     job_id text,
     title text,
     company text,
-    source text,         -- 'greenhouse' | 'lever' | 'github' | 'crawler' | 'watchlist'
+    source text,         -- 'greenhouse' | 'lever' | 'github' | 'watchlist'
     raw_json jsonb,
     created_at timestamptz default now()
 );
@@ -107,13 +107,6 @@ create table if not exists watchlist (
     company_name text,
     careers_url text,
     role_keywords text[]
-);
-
-create table if not exists crawler_urls (
-    id uuid primary key default gen_random_uuid(),
-    company_name text,
-    careers_url text,
-    active boolean default true
 );
 
 create table if not exists cover_letter_seeds (

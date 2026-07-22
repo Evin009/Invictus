@@ -66,13 +66,7 @@ def _dedupe_by_url(jobs: list[JobItem]) -> list[JobItem]:
 def discovery_node(state: GraphState) -> dict:
     """Two-tier discovery: watchlist_agent (top-priority companies) runs
     every invocation; search_agent (Greenhouse/Lever/GitHub — cheap structured
-    APIs) is gated to roughly every 2 hours.
-
-    crawler_agent (arbitrary page-scrape tier) was retired from this graph —
-    its crawler_urls table had no rows and no UI ever populated it, so it ran
-    every 4h and did nothing. search_agent's ATS auto-detection + curated
-    GitHub sources now cover that same "broad, non-watchlist" ground for real.
-    """
+    APIs) is gated to roughly every 2 hours."""
     empty_state: GraphState = {**state, "jobs_discovered": []}
 
     watchlist_jobs: list[JobItem] = []

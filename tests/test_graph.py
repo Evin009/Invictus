@@ -353,10 +353,10 @@ def test_should_run_scan_true_when_interval_elapsed():
     mock_db = MagicMock()
     old = (datetime.now(timezone.utc) - timedelta(hours=5)).isoformat()
     mock_db.table.return_value.select.return_value.limit.return_value.execute.return_value.data = [
-        {"last_crawler_scan_at": old}
+        {"last_other_scan_at": old}
     ]
     with patch("src.db.client.get_client", return_value=mock_db):
-        assert _should_run_scan("last_crawler_scan_at", 4) is True
+        assert _should_run_scan("last_other_scan_at", 4) is True
 
 
 def test_should_run_search_scan_uses_2h_interval():
@@ -385,7 +385,7 @@ def test_mark_scan_run_inserts_when_no_row():
     mock_db = MagicMock()
     mock_db.table.return_value.select.return_value.limit.return_value.execute.return_value.data = []
     with patch("src.db.client.get_client", return_value=mock_db):
-        _mark_scan_run("last_crawler_scan_at")
+        _mark_scan_run("last_other_scan_at")
     mock_db.table.return_value.insert.assert_called_once()
 
 

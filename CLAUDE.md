@@ -68,15 +68,14 @@ python -c "from src.rag.embedder import embed_resumes; embed_resumes('resumes/')
 
 ```
 search_agent ─┐
-watchlist_agent ─┤─→ filter_node → tailor_node → apply_node → outreach_node → reply_track_node → reporter_agent
-crawler_agent ─┘
+watchlist_agent ─┴─→ filter_node → tailor_node → apply_node → outreach_node → reply_track_node → reporter_agent
 ```
 
 Each node mutates `GraphState` (defined in `src/state.py`). All agents read from and write to Supabase — nothing is held in memory across runs.
 
 ### Key Design Decisions
 
-**LangGraph graph** (`src/graph.py`) — single compiled graph, all agents as nodes. Discovery runs sequentially (search → watchlist → crawler), each appending to `state.jobs_discovered`. Filter and tailor nodes process the merged list.
+**LangGraph graph** (`src/graph.py`) — single compiled graph, all agents as nodes. Two discovery agents: `watchlist_agent` (every run — scrapes every watchlist company's career page, batched 50/hour + rotating every 5h once the list grows past 50) and `search_agent` (gated to ~every 2h — Greenhouse/Lever APIs via auto-detected ATS per watchlist company, plus curated GitHub job-list repos). Both append to `state.jobs_discovered`; filter and tailor nodes process the merged list.
 
 **RAG pipeline** (`src/rag/`) — `.tex` resumes are pre-chunked into individual bullets and stored as pgvector embeddings in `resume_bullets` table. For each JD, the retriever embeds the JD and pulls the top-k most relevant bullets. The tailoring agent rewrites only those bullets in the original `.tex` structure, then compiles to PDF via `latexmk`.
 
@@ -97,8 +96,8 @@ Each node mutates `GraphState` (defined in `src/state.py`). All agents read from
 | `resume_bullets` | pgvector embeddings of individual resume bullets |
 | `user_profile` | Name, email, education, work history for ATS form-fill |
 | `preferences` | Locations, seniority, salary floor, role keywords (preference filter) |
-| `watchlist` | VIP companies for deeper checking |
-| `crawler_urls` | Career page URLs for broad crawler |
+| `watchlist` | VIP companies for deeper checking (career page + auto-detected ATS platform/token) |
+| `github_repos` | Curated GitHub job-list repos monitored by `search_agent`, user-managed from Profile |
 | `cover_letter_seeds` | Sample cover letters for tone matching |
 | `outreach_seeds` | Sample cold messages for tone matching |
 

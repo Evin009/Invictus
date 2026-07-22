@@ -8,15 +8,13 @@ A dashboard (`ui/`) lets you monitor and configure everything without touching t
 
 ```
 search_agent ─┐
-watchlist_agent ─┤─→ filter_node → tailor_node → apply_node → outreach_node → reply_track_node → reporter_agent
-crawler_agent ─┘
+watchlist_agent ─┴─→ filter_node → tailor_node → apply_node → outreach_node → reply_track_node → reporter_agent
 ```
 
 | Agent | File | Purpose |
 |---|---|---|
-| **Search Agent** | `src/agents/search.py` | Pulls new postings from Greenhouse, Lever, and GitHub job lists |
-| **Watchlist Agent** | `src/agents/watchlist.py` | Deep-checks your VIP company list's career pages for new roles |
-| **Crawler Agent** | `src/agents/crawler.py` | Broad sweep of any career-page URL you feed it, for jobs the boards miss |
+| **Search Agent** | `src/agents/search.py` | Pulls new postings from Greenhouse/Lever (auto-detected per watchlist company) and your monitored GitHub job-list repos, gated to ~every 2h |
+| **Watchlist Agent** | `src/agents/watchlist.py` | Deep-checks every watchlist company's career page every hour — batched 50/hour + rotating every 5h once the list grows past 50 |
 | **Filter** | `src/filters/` | Drops jobs that don't match your preferences or were already seen |
 | **Resume Tailoring Agent** | `src/agents/resume_tailor.py` | Retrieves relevant resume bullets (RAG), rewrites them for the JD, recompiles a 2-page PDF |
 | **Cover Letter Agent** | `src/agents/cover_letter.py` | Writes a matching 350-word cover letter in your tone |
@@ -84,8 +82,8 @@ Everything below is written to Supabase as it happens.
 | `resume_bullets` | pgvector embeddings of resume bullets |
 | `user_profile` | Name, email, education, work history for ATS form-fill |
 | `preferences` | Locations, seniority, salary floor, role keywords |
-| `watchlist` | VIP companies for deeper checking |
-| `crawler_urls` | Career page URLs for the broad crawler |
+| `watchlist` | VIP companies for deeper checking (career page + auto-detected ATS platform/token) |
+| `github_repos` | Curated GitHub job-list repos monitored by the search agent, user-managed from Profile |
 | `cover_letter_seeds` | Sample cover letters for tone matching |
 | `outreach_seeds` | Sample cold messages for tone matching |
 
@@ -104,7 +102,7 @@ Never relaxed:
 
 ```
 src/
-  agents/          # search, watchlist, crawler, tailor, apply, outreach, reply_tracker, reporter
+  agents/          # search, watchlist, tailor, apply, outreach, reply_tracker, reporter
   rag/             # resume chunking, embedding (OpenAI text-embedding-3-small), retrieval
   db/              # Supabase schema + client
   filters/         # preference filter, dedup check
