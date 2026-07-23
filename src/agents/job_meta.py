@@ -1,6 +1,64 @@
 import re
 
 _INTERN_RE = re.compile(r"\bintern(ship)?\b", re.IGNORECASE)
+_INTERNSHIP_STYLE_RE = re.compile(r"\bintern(ship)?\b|\bco-?op\b", re.IGNORECASE)
+
+# Dropped when extracting "core role words" from a keyword phrase — these
+# describe the employment type, not the role itself, and would otherwise
+# force an exact-phrase match instead of a broader role match.
+_STOPWORDS = {"intern", "internship", "co-op", "coop", "the", "a", "an", "and", "or", "in", "for", "of"}
+
+
+_WORD_RE = re.compile(r"[a-z]+(?:-[a-z]+)*")  # keeps hyphenated compounds ("co-op") as one token
+
+
+def _tokenize(text: str) -> list[str]:
+    return _WORD_RE.findall(text.lower())
+
+
+def _core_role_words(text: str) -> set[str]:
+    return {w for w in _tokenize(text) if w not in _STOPWORDS}
+
+
+_ORIGINAL_CASE_WORD_RE = re.compile(r"[A-Za-z]+(?:-[A-Za-z]+)*")
+
+
+def broad_search_query(keyword: str) -> str:
+    """Strips employment-type words ("Intern", "Co-op") from a keyword
+    phrase before typing it into a portal's own search box — searching the
+    narrower literal phrase (e.g. "Software Engineering Intern") misses real
+    postings the site itself would return for the broader role term (e.g.
+    "Software Engineer Co-op", "Backend Intern"). Falls back to the original
+    keyword if stripping would leave nothing."""
+    words = [w for w in _ORIGINAL_CASE_WORD_RE.findall(keyword) if w.lower() not in _STOPWORDS]
+    return " ".join(words) if words else keyword
+
+
+def matches_keywords(text: str, keywords: list[str]) -> bool:
+    """Whether a job posting matches the configured search keywords.
+
+    Two passes: first, the exact-phrase match (fast, precise). If that
+    misses, a broader "role match" — true if the posting mentions
+    internship/co-op-style employment AND shares a core role word with any
+    configured keyword. This catches real postings phrased differently than
+    the exact keyword (e.g. keyword "Software Engineering Intern" matching
+    a real posting titled "Software Engineer Co-op" or "Backend Intern,
+    Engineering"), which the old exact-substring check silently missed.
+    """
+    if not keywords:
+        return True
+    t = text.lower()
+    for kw in keywords:
+        if kw.lower() in t:
+            return True
+    if not _INTERNSHIP_STYLE_RE.search(t):
+        return False
+    text_words = _core_role_words(t)
+    for kw in keywords:
+        kw_words = _core_role_words(kw)
+        if kw_words and (kw_words & text_words):
+            return True
+    return False
 _CONTRACT_RE = re.compile(r"\bcontract(or)?\b", re.IGNORECASE)
 _PART_TIME_RE = re.compile(r"\bpart[- ]time\b", re.IGNORECASE)
 

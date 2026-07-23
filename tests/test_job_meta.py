@@ -4,6 +4,8 @@ from src.agents.job_meta import (
     infer_degree_level,
     infer_visa_sponsorship,
     infer_role_category,
+    matches_keywords,
+    broad_search_query,
 )
 
 
@@ -119,3 +121,63 @@ def test_infer_role_category_marketing():
 
 def test_infer_role_category_none_when_unmatched():
     assert infer_role_category("Executive Assistant") is None
+
+
+# --- matches_keywords ---
+
+def test_matches_keywords_exact_phrase():
+    assert matches_keywords("Software Engineering Intern", ["Software Engineering Intern"]) is True
+
+
+def test_matches_keywords_case_insensitive():
+    assert matches_keywords("software engineering intern", ["Software Engineering Intern"]) is True
+
+
+def test_matches_keywords_broad_role_match_co_op():
+    # Real postings often phrase this differently than the exact keyword —
+    # "Co-op" instead of "Intern", but same core role words.
+    assert matches_keywords("Software Engineer Co-op", ["Software Engineering Intern"]) is True
+
+
+def test_matches_keywords_broad_role_match_different_word_order():
+    assert matches_keywords("Backend Intern, Platform Team", ["Software Engineering Intern"]) is False
+    assert matches_keywords("Backend Intern, Platform Team", ["Backend Intern"]) is True
+
+
+def test_matches_keywords_rejects_non_internship_non_matching_role():
+    # Not an internship/co-op posting and doesn't share the exact phrase —
+    # should not fall through to a broad match.
+    assert matches_keywords("Marketing Manager", ["Software Engineering Intern"]) is False
+
+
+def test_matches_keywords_rejects_internship_without_shared_role_words():
+    # Mentions internship, but shares no core role word with the keyword —
+    # broad match should not fire.
+    assert matches_keywords("Marketing Intern", ["Software Engineering Intern"]) is False
+
+
+def test_matches_keywords_no_keywords_matches_everything():
+    assert matches_keywords("Anything at all", []) is True
+
+
+def test_matches_keywords_recognizes_coop_variants():
+    assert matches_keywords("Software Engineering Co-op", ["Software Engineer Intern"]) is True
+    assert matches_keywords("Software Engineering Coop", ["Software Engineer Intern"]) is True
+
+
+# --- broad_search_query ---
+
+def test_broad_search_query_strips_intern():
+    assert broad_search_query("Software Engineering Intern") == "Software Engineering"
+
+
+def test_broad_search_query_strips_co_op():
+    assert broad_search_query("Software Engineer Co-op") == "Software Engineer"
+
+
+def test_broad_search_query_leaves_non_internship_keyword_unchanged():
+    assert broad_search_query("Data Scientist") == "Data Scientist"
+
+
+def test_broad_search_query_falls_back_to_original_if_nothing_left():
+    assert broad_search_query("Internship") == "Internship"
