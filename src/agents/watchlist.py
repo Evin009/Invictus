@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 import anthropic
 from playwright.sync_api import sync_playwright
 
-from src.agents.job_meta import infer_job_type, infer_role_category, infer_workplace
+from src.agents.job_meta import broad_search_query, infer_job_type, infer_role_category, infer_workplace
 from src.config import settings
 from src.db.client import get_client
 from src.notifications.slack import post_error
@@ -237,12 +237,15 @@ def _reveal_hidden_search_box(page) -> None:
 def _try_search(page, keywords: list[str] | None) -> None:
     """Large-company career portals (Google/Meta/Apple/Amazon/Microsoft-style)
     render only marketing copy on landing; real listings appear after a search
-    is submitted. Best-effort: find a search box, submit the first configured
-    keyword, wait for results. Silently no-ops on any failure — the caller
-    falls back to whatever's already on the page."""
+    is submitted. Best-effort: find a search box, submit a broadened version
+    of the first configured keyword (employment-type words like "Intern"
+    stripped, so the portal's own search returns co-ops/new-grad roles too,
+    not just exact-phrase intern postings), wait for results. Silently
+    no-ops on any failure — the caller falls back to whatever's already on
+    the page."""
     if not keywords:
         return
-    query = keywords[0]
+    query = broad_search_query(keywords[0])
     revealed = False
     for selector in _SEARCH_BOX_SELECTORS:
         try:
@@ -270,7 +273,12 @@ def _parse_jobs(text: str, company: str, careers_url: str, keywords: list[str], 
     truncated = text[:8000]
     prompt = (
         f"You are parsing a company careers page for {company}.\n"
-        f"Extract all job listings matching these keywords: {kw_str}\n\n"
+        f"Extract job listings matching these keywords: {kw_str}\n"
+        "A listing counts as a match if its title contains one of the keyword phrases directly, "
+        "OR if it's an internship/co-op-style role that shares a core role word with a keyword "
+        "(e.g. keyword \"Software Engineering Intern\" should also match a real listing titled "
+        "\"Software Engineer Co-op\" or \"Backend Intern, Platform Team\") — don't require an exact "
+        "phrase match, look for real role matches.\n\n"
         "Return a JSON array of objects with keys: title (string), url (string), location (string), "
         "workplace (one of: Remote, Hybrid, Onsite), degree_level (one of: High school, Associate, "
         "Bachelor's, Master's, PhD), visa_sponsorship (one of: Yes, No), role_category (one of: "

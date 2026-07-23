@@ -97,6 +97,18 @@ def test_try_search_fills_and_submits_first_matching_box():
     mock_box.press.assert_called_once_with("Enter", timeout=3000)
 
 
+def test_try_search_types_broadened_query_not_literal_keyword():
+    # Searching the literal "Software Engineering Intern" phrase on a
+    # portal's own search misses real postings like "Software Engineer
+    # Co-op" — the typed query should be the broadened, employment-type-
+    # stripped version.
+    mock_page = MagicMock()
+    mock_box = mock_page.locator.return_value.first
+    mock_box.count.return_value = 1
+    _try_search(mock_page, ["Software Engineering Intern"])
+    mock_box.fill.assert_called_once_with("Software Engineering", timeout=3000)
+
+
 def test_try_search_swallows_interaction_errors():
     mock_page = MagicMock()
     mock_page.locator.side_effect = Exception("no such element")

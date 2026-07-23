@@ -71,3 +71,15 @@ def test_empty_prefs_passes_all():
 def test_empty_job_list():
     result = preference_filter([], PREFS)
     assert result == []
+
+
+def test_passes_broad_role_match_differently_phrased_title():
+    # Real postings often phrase this differently than the exact keyword
+    # ("Co-op" instead of "Intern", different word order) — the role filter
+    # should catch these via job_meta's broader role-word matching, not just
+    # an exact substring of "SWE"/"Data Engineer".
+    result = preference_filter(
+        [_job(title="Data Engineering Co-op", description="Remote data engineering co-op. Salary: 80000")],
+        PREFS,
+    )
+    assert len(result) == 1

@@ -50,6 +50,21 @@ def test_fetch_greenhouse_empty_board():
     assert result == []
 
 
+def test_fetch_greenhouse_broad_role_match_catches_differently_phrased_posting():
+    # Real postings often say "Co-op" instead of the exact keyword's
+    # "Intern" — the old exact-substring check silently missed these.
+    mock_jobs = [
+        {"id": "789", "title": "Software Engineer Co-op", "absolute_url": "https://boards.greenhouse.io/acme/jobs/789", "content": ""},
+    ]
+    with patch("urllib.request.urlopen") as mock_open:
+        mock_cm = MagicMock()
+        mock_cm.__enter__.return_value.read.return_value = json.dumps({"jobs": mock_jobs}).encode()
+        mock_open.return_value = mock_cm
+        result = fetch_greenhouse_jobs(board_token="acme", keywords=["Software Engineering Intern"])
+    assert len(result) == 1
+    assert result[0]["title"] == "Software Engineer Co-op"
+
+
 def test_fetch_lever_returns_matching_jobs():
     mock_jobs = [
         {"id": "abc", "text": "Data Engineer", "hostedUrl": "https://jobs.lever.co/acme/abc", "descriptionPlain": "PhD in CS preferred. Unable to sponsor visas at this time.", "categories": {"location": "London, United Kingdom", "commitment": "Full-time"}, "workplaceType": "hybrid"},

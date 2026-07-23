@@ -1,4 +1,5 @@
 import re
+from src.agents.job_meta import matches_keywords
 from src.state import JobItem
 
 
@@ -8,7 +9,7 @@ def preference_filter(jobs: list[JobItem], prefs: dict) -> list[JobItem]:
         text = f"{job['title']} {job['description']}".lower()
 
         if prefs.get("role_keywords"):
-            if not any(kw.lower() in text for kw in prefs["role_keywords"]):
+            if not matches_keywords(text, prefs["role_keywords"]):
                 continue
 
         if prefs.get("locations"):

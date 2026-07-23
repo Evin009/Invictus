@@ -11,6 +11,7 @@ from src.agents.job_meta import (
     infer_role_category,
     infer_visa_sponsorship,
     infer_workplace,
+    matches_keywords,
 )
 
 
@@ -21,7 +22,7 @@ def fetch_greenhouse_jobs(board_token: str, keywords: list[str]) -> list[JobItem
     jobs = []
     for j in data.get("jobs", []):
         title = j.get("title", "")
-        if not any(kw.lower() in title.lower() for kw in keywords):
+        if not matches_keywords(title, keywords):
             continue
         content = j.get("content", "")
         location = (j.get("location") or {}).get("name")
@@ -53,7 +54,7 @@ def fetch_lever_jobs(company: str, keywords: list[str]) -> list[JobItem]:
     jobs = []
     for j in data:
         title = j.get("text", "")
-        if not any(kw.lower() in title.lower() for kw in keywords):
+        if not matches_keywords(title, keywords):
             continue
         categories = j.get("categories") or {}
         description = j.get("descriptionPlain", "")
@@ -85,7 +86,7 @@ def fetch_ashby_jobs(board_token: str, keywords: list[str]) -> list[JobItem]:
     jobs = []
     for j in data.get("jobs", []):
         title = j.get("title", "")
-        if not any(kw.lower() in title.lower() for kw in keywords):
+        if not matches_keywords(title, keywords):
             continue
         description = j.get("descriptionHtml", "") or j.get("descriptionPlain", "")
         location = j.get("location")
@@ -116,7 +117,7 @@ def fetch_smartrecruiters_jobs(company_token: str, keywords: list[str]) -> list[
     jobs = []
     for j in data.get("content", []):
         title = j.get("name", "")
-        if not any(kw.lower() in title.lower() for kw in keywords):
+        if not matches_keywords(title, keywords):
             continue
         loc = j.get("location") or {}
         location = loc.get("fullLocation")
@@ -156,7 +157,7 @@ def fetch_amazon_jobs(keywords: list[str]) -> list[JobItem]:
     jobs = []
     for j in data.get("jobs", []):
         title = j.get("title", "")
-        if not any(kw.lower() in title.lower() for kw in keywords):
+        if not matches_keywords(title, keywords):
             continue
         description = j.get("description", "") or j.get("basic_qualifications", "")
         location = j.get("normalized_location") or j.get("location")
@@ -221,7 +222,7 @@ def fetch_github_jobs(repo_url: str, keywords: list[str]) -> list[JobItem]:
         last_company = company
 
         role = _strip_tags(cells[1])
-        if not role or not any(kw.lower() in role.lower() for kw in keywords):
+        if not role or not matches_keywords(role, keywords):
             continue
 
         location = _strip_tags(cells[2]) if len(cells) > 2 else ""
