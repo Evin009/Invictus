@@ -36,7 +36,11 @@ export function ApplicationsTable({ applications, initialSearch = "" }: { applic
   const [hovered, setHovered] = useState<string | null>(null)
   const [search] = useState(initialSearch)
 
-  const filtered = filter === "all" ? applications : applications.filter((a) => a.status === filter)
+  // "All" means companies actually applied to — manual_pending is still
+  // awaiting review/action, not a real application, and has its own tab.
+  const filtered = filter === "all"
+    ? applications.filter((a) => a.status !== "manual_pending")
+    : applications.filter((a) => a.status === filter)
   const visible = search
     ? filtered.filter((a) =>
         a.company?.toLowerCase().includes(search.toLowerCase()) ||
@@ -56,7 +60,7 @@ export function ApplicationsTable({ applications, initialSearch = "" }: { applic
           {TABS.map((tab) => {
             const active = filter === tab.value
             const count = tab.value === "all"
-              ? applications.length
+              ? applications.filter((a) => a.status !== "manual_pending").length
               : applications.filter((a) => a.status === tab.value).length
 
             return (

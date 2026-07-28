@@ -30,7 +30,6 @@ const STATUS_MAP: Record<string, string> = {
   applied: "applied",
   ghosted: "ghosted",
   rejection: "rejected",
-  manual_pending: "applied",
   interview: "interview",
 }
 
@@ -173,15 +172,22 @@ export default function TrackerPage() {
           setCards([])
           return
         }
-        setCards(data.map(a => {
-          const co = a.company ?? "Unknown"
-          const col = STATUS_MAP[a.status] ?? "applied"
-          return {
-            id: a.id, company: co, role: a.title ?? "—",
-            initials: initials(co), color: avatarColor(co),
-            applied: timeAgo(a.submitted_at), column: col,
-          }
-        }))
+        // manual_pending is awaiting review/action, not a real application —
+        // there's no board column for it, so it shouldn't show up here at all
+        // (it was previously mislabeled into "Applied").
+        setCards(
+          data
+            .filter(a => a.status !== "manual_pending")
+            .map(a => {
+              const co = a.company ?? "Unknown"
+              const col = STATUS_MAP[a.status] ?? "applied"
+              return {
+                id: a.id, company: co, role: a.title ?? "—",
+                initials: initials(co), color: avatarColor(co),
+                applied: timeAgo(a.submitted_at), column: col,
+              }
+            })
+        )
       })
       .catch(() => setCards([]))
       .finally(() => setLoading(false))
