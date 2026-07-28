@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react"
 import type { Application, ApplicationStatus } from "@/lib/types"
 import { StatCard } from "@/components/stat-card"
 import { JobCard, JOB_CARD_CSS, type JobCardJob } from "@/components/job-card"
+import { JOB_FILTER_KEYS, buildJobFilterOptions, jobMatchesFilters } from "@/lib/job-filter"
 
 interface DashboardStats {
   jobs_discovered: number
@@ -102,7 +103,11 @@ export default function DashboardPage() {
   const closeRef = useRef<HTMLDivElement>(null)
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [lastRunAt, setLastRunAt] = useState<string | null>(null)
-  const [topJobs, setTopJobs] = useState<JobCardJob[]>([])
+  // Full active-window (7-day) job pool, sorted most-recent-first — the
+  // "Top 10" strip is a filtered/sliced view of this, not a separate fetch.
+  const [activeJobs, setActiveJobs] = useState<JobCardJob[]>([])
+  const [jobFilterValues, setJobFilterValues] = useState<Record<string, string>>({})
+  const [jobOpenFilter, setJobOpenFilter] = useState<string | null>(null)
 
   useEffect(() => {
     fetch("/api/run-log")
@@ -112,10 +117,10 @@ export default function DashboardPage() {
   }, [])
 
   useEffect(() => {
-    // Top 5 most recently discovered active jobs (last 7 days), across
-    // every agent. Polled every 5h so a page left open picks up new
-    // postings without a manual reload.
-    function loadTopJobs() {
+    // Every job discovered in the last 7 days, across every agent. Polled
+    // every 5h so a page left open picks up new postings without a manual
+    // reload. The Top 10 strip filters/slices this client-side.
+    function loadActiveJobs() {
       const activeSince = new Date(Date.now() - ACTIVE_WINDOW_MS).toISOString()
       fetch("/api/jobs")
         .then(r => r.json())
@@ -124,14 +129,24 @@ export default function DashboardPage() {
           const active = jobs
             .filter(j => j.discovered_at && j.discovered_at >= activeSince)
             .sort((a, b) => new Date(b.discovered_at ?? 0).getTime() - new Date(a.discovered_at ?? 0).getTime())
-          setTopJobs(active.slice(0, TOP_JOBS_COUNT))
+          setActiveJobs(active)
         })
         .catch(() => {})
     }
-    loadTopJobs()
-    const interval = setInterval(loadTopJobs, TOP_JOBS_REFRESH_MS)
+    loadActiveJobs()
+    const interval = setInterval(loadActiveJobs, TOP_JOBS_REFRESH_MS)
     return () => clearInterval(interval)
   }, [])
+
+  // Close job-filter dropdown on outside click
+  useEffect(() => {
+    if (!jobOpenFilter) return
+    function handler(e: MouseEvent) {
+      if (!(e.target as Element).closest("[data-job-filter-pill]")) setJobOpenFilter(null)
+    }
+    document.addEventListener("mousedown", handler)
+    return () => document.removeEventListener("mousedown", handler)
+  }, [jobOpenFilter])
 
   useEffect(() => {
     fetch("/api/applications")
@@ -166,9 +181,18 @@ export default function DashboardPage() {
   const countFor = (f: StatusTab["filter"]) =>
     f === "all" ? apps.filter(a => a.status !== "manual_pending").length : apps.filter(a => a.status === f).length
 
+  const jobFilterOptions = buildJobFilterOptions(activeJobs)
+  const filteredActiveJobs = activeJobs.filter(j => jobMatchesFilters(j, jobFilterValues))
+  const topJobs = filteredActiveJobs.slice(0, TOP_JOBS_COUNT)
+
   // ─── Render ─────────────────────────────────────────────────────────────────
+  // This page is a flex:1 child of a fixed-height (100vh, overflow:hidden)
+  // layout. Everything below scrolls internally as one unit — without this,
+  // the Applications table (flex:1, minHeight:0) silently gets squeezed
+  // toward zero height whenever the sections above it (stats, filters, Top
+  // jobs) grow taller than the viewport, making it look "hidden".
   return (
-    <>
+    <div style={{ display: "flex", flexDirection: "column", gap: 18, flex: 1, minHeight: 0, overflowY: "auto" }}>
       <style dangerouslySetInnerHTML={{ __html: SHIMMER_CSS }} />
 
       {/* ── Stats (today, resets midnight ET) ── */}
@@ -186,6 +210,54 @@ export default function DashboardPage() {
         </div>
       )}
 
+      {/* ── Job filter bar (filters the Top 10 strip below) ── */}
+      <div style={{ background: "#fff", borderRadius: 18, boxShadow: "0 1px 3px rgba(0,49,53,0.05)", padding: "14px 20px", flexShrink: 0 }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", position: "relative" }}>
+          {JOB_FILTER_KEYS.map(key => {
+            const selected = jobFilterValues[key]
+            const active = !!selected
+            const isOpen = jobOpenFilter === key
+            const options = jobFilterOptions[key] ?? []
+            return (
+              <div key={key} style={{ position: "relative" }} data-job-filter-pill>
+                <div
+                  className="pill-filter"
+                  onClick={() => setJobOpenFilter(p => p === key ? null : key)}
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 8,
+                    borderRadius: 20, padding: "9px 16px", cursor: "pointer",
+                    background: active ? "#024950" : "#F5F8F7",
+                    color: active ? "#fff" : "#003135",
+                  }}
+                >
+                  <span style={{ fontSize: 13, fontWeight: 600 }}>{selected ? `${key}: ${selected}` : key}</span>
+                  {active
+                    ? <span onClick={e => { e.stopPropagation(); setJobFilterValues(p => { const n = { ...p }; delete n[key]; return n }) }} style={{ cursor: "pointer", opacity: 0.7 }}>×</span>
+                    : <span style={{ opacity: 0.4, fontSize: 11 }}>▾</span>
+                  }
+                </div>
+
+                {isOpen && (
+                  <div style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, minWidth: 190, background: "#fff", borderRadius: 12, boxShadow: "0 8px 24px rgba(0,49,53,0.14)", padding: 6, zIndex: 50, display: "flex", flexDirection: "column", gap: 2, maxHeight: 260, overflowY: "auto" }}>
+                    {options.length === 0 ? (
+                      <div style={{ padding: "10px 14px", fontSize: 12.5, color: "rgba(0,49,53,0.4)" }}>No options yet</div>
+                    ) : options.map(opt => (
+                      <div
+                        key={opt}
+                        onClick={() => { setJobFilterValues(p => ({ ...p, [key]: opt })); setJobOpenFilter(null) }}
+                        style={{ padding: "10px 14px", fontSize: 13, fontWeight: opt === selected ? 700 : 500, cursor: "pointer", color: opt === selected ? "#964734" : "#003135", background: opt === selected ? "rgba(150,71,52,0.08)" : "transparent", borderRadius: 8 }}
+                      >
+                        {opt}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
       {/* ── Top 10 recent active jobs (all agents, refreshes every 5h) ── */}
       <div style={{ background: "#fff", borderRadius: 18, boxShadow: "0 1px 3px rgba(0,49,53,0.05)", padding: "18px 20px", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
@@ -199,7 +271,7 @@ export default function DashboardPage() {
                 <JobCard
                   job={j}
                   onSelect={() => window.open(j.url, "_blank", "noopener,noreferrer")}
-                  onPass={e => { e.stopPropagation(); setTopJobs(prev => prev.filter(x => x.id !== j.id)) }}
+                  onPass={e => { e.stopPropagation(); setActiveJobs(prev => prev.filter(x => x.id !== j.id)) }}
                   onApply={e => { e.stopPropagation(); window.open(j.url, "_blank", "noopener,noreferrer") }}
                 />
               </div>
@@ -286,7 +358,7 @@ export default function DashboardPage() {
       </div>
 
       {/* ── Applications table card ── */}
-      <div style={{ background: "#fff", borderRadius: 18, boxShadow: "0 1px 3px rgba(0,49,53,0.05)", overflow: "hidden", flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
+      <div style={{ background: "#fff", borderRadius: 18, boxShadow: "0 1px 3px rgba(0,49,53,0.05)", overflow: "hidden", flexShrink: 0, minHeight: 420, display: "flex", flexDirection: "column" }}>
 
         {/* Table header row */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, padding: "16px 20px", borderBottom: "1px solid rgba(0,49,53,0.07)", flexWrap: "wrap", flexShrink: 0 }}>
@@ -383,6 +455,6 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
-    </>
+    </div>
   )
 }
