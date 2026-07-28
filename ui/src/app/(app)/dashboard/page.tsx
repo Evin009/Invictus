@@ -16,6 +16,7 @@ interface DashboardStats {
 const TOP_JOBS_COUNT = 10
 const ACTIVE_WINDOW_MS = 7 * 24 * 3600 * 1000
 const TOP_JOBS_REFRESH_MS = 5 * 3600 * 1000
+const STATS_REFRESH_MS = 60 * 1000
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type StatusTab = { label: string; filter: ApplicationStatus | "all" }
@@ -79,6 +80,16 @@ function timeAgo(iso: string) {
   return `${d}d ago`
 }
 
+// Finer-grained than timeAgo — the stats poll refreshes every 60s, so
+// "just now"/"Xh ago" granularity would never visibly change.
+function refreshedAgo(ts: number) {
+  const s = Math.floor((Date.now() - ts) / 1000)
+  if (s < 5) return "just now"
+  if (s < 60) return `${s}s ago`
+  const m = Math.floor(s / 60)
+  return `${m}m ago`
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function DashboardPage() {
   const [apps, setApps]         = useState<Application[]>([])
@@ -86,6 +97,7 @@ export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState<StatusTab["filter"]>("all")
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [lastRunAt, setLastRunAt] = useState<string | null>(null)
+  const [statsRefreshedAt, setStatsRefreshedAt] = useState<number | null>(null)
   // Full active-window (7-day) job pool, sorted most-recent-first — the
   // "Top 10" strip is a filtered/sliced view of this, not a separate fetch.
   const [activeJobs, setActiveJobs] = useState<JobCardJob[]>([])
@@ -93,10 +105,29 @@ export default function DashboardPage() {
   const [jobOpenFilter, setJobOpenFilter] = useState<string | null>(null)
 
   useEffect(() => {
-    fetch("/api/run-log")
-      .then(r => r.json())
-      .then(d => { setStats(d?.stats ?? null); setLastRunAt(d?.lastRunAt ?? null) })
-      .catch(() => {})
+    // Live count — polled every 60s so "Jobs found today" (and the other
+    // stat cards) update without a manual reload.
+    function loadStats() {
+      fetch("/api/run-log")
+        .then(r => r.json())
+        .then(d => {
+          setStats(d?.stats ?? null)
+          setLastRunAt(d?.lastRunAt ?? null)
+          setStatsRefreshedAt(Date.now())
+        })
+        .catch(() => {})
+    }
+    loadStats()
+    const interval = setInterval(loadStats, STATS_REFRESH_MS)
+    return () => clearInterval(interval)
+  }, [])
+
+  // Re-render every 5s so "refreshed Xs ago" stays accurate without waiting
+  // for the next 60s stats poll.
+  const [, forceTick] = useState(0)
+  useEffect(() => {
+    const tick = setInterval(() => forceTick(t => t + 1), 5000)
+    return () => clearInterval(tick)
   }, [])
 
   useEffect(() => {
@@ -173,6 +204,7 @@ export default function DashboardPage() {
           </div>
           <p style={{ fontSize: 11, color: "rgba(0,49,53,0.4)", margin: "8px 2px 0" }}>
             Resets at midnight ET{lastRunAt ? ` — last run ${timeAgo(lastRunAt)}` : ""}
+            {statsRefreshedAt ? ` — refreshed ${refreshedAgo(statsRefreshedAt)}` : ""}
           </p>
         </div>
       )}
