@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import type { Application, ApplicationStatus } from "@/lib/types"
 import { StatCard } from "@/components/stat-card"
+import { JobCard, JOB_CARD_CSS, type JobCardJob } from "@/components/job-card"
 
 interface DashboardStats {
   jobs_discovered: number
@@ -11,18 +12,7 @@ interface DashboardStats {
   interviews: number
 }
 
-interface TopJob {
-  id: string
-  url: string
-  title: string | null
-  company: string | null
-  source: string | null
-  location: string | null
-  job_type: string | null
-  discovered_at: string | null
-}
-
-const TOP_JOBS_COUNT = 5
+const TOP_JOBS_COUNT = 10
 const ACTIVE_WINDOW_MS = 7 * 24 * 3600 * 1000
 const TOP_JOBS_REFRESH_MS = 5 * 3600 * 1000
 
@@ -61,6 +51,7 @@ const SHIMMER_CSS = `
   .pill-filter:hover { opacity: 0.85; }
   .app-row:hover { background: rgba(0,49,53,0.02); }
   .dash-btn:hover { opacity: 0.85; }
+  ${JOB_CARD_CSS}
 `
 
 function statusColor(status: ApplicationStatus) {
@@ -111,7 +102,7 @@ export default function DashboardPage() {
   const closeRef = useRef<HTMLDivElement>(null)
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [lastRunAt, setLastRunAt] = useState<string | null>(null)
-  const [topJobs, setTopJobs] = useState<TopJob[]>([])
+  const [topJobs, setTopJobs] = useState<JobCardJob[]>([])
 
   useEffect(() => {
     fetch("/api/run-log")
@@ -128,7 +119,7 @@ export default function DashboardPage() {
       const activeSince = new Date(Date.now() - ACTIVE_WINDOW_MS).toISOString()
       fetch("/api/jobs")
         .then(r => r.json())
-        .then((jobs: TopJob[]) => {
+        .then((jobs: JobCardJob[]) => {
           if (!Array.isArray(jobs)) return
           const active = jobs
             .filter(j => j.discovered_at && j.discovered_at >= activeSince)
@@ -160,8 +151,11 @@ export default function DashboardPage() {
     return () => document.removeEventListener("mousedown", handler)
   }, [openFilter])
 
+  // "All" means companies actually applied to — manual_pending items are
+  // still awaiting your review/action, not real applications, and get their
+  // own "Pending" tab instead.
   const filtered = apps.filter(a => {
-    if (activeTab !== "all" && a.status !== activeTab) return false
+    if (activeTab === "all" ? a.status === "manual_pending" : a.status !== activeTab) return false
     if (search) {
       const q = search.toLowerCase()
       return (a.title?.toLowerCase().includes(q) || a.company?.toLowerCase().includes(q))
@@ -170,7 +164,7 @@ export default function DashboardPage() {
   })
 
   const countFor = (f: StatusTab["filter"]) =>
-    f === "all" ? apps.length : apps.filter(a => a.status === f).length
+    f === "all" ? apps.filter(a => a.status !== "manual_pending").length : apps.filter(a => a.status === f).length
 
   // ─── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -192,38 +186,33 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* ── Top 5 recent active jobs (all agents, refreshes every 5h) ── */}
-      {topJobs.length > 0 && (
-        <div style={{ background: "#fff", borderRadius: 18, boxShadow: "0 1px 3px rgba(0,49,53,0.05)", padding: "18px 20px", flexShrink: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-            <h2 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>Top 5 jobs</h2>
-            <span style={{ fontSize: 11, color: "rgba(0,49,53,0.4)" }}>Refreshes every 5h · rest on Browse jobs</span>
-          </div>
-          <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 4 }}>
+      {/* ── Top 10 recent active jobs (all agents, refreshes every 5h) ── */}
+      <div style={{ background: "#fff", borderRadius: 18, boxShadow: "0 1px 3px rgba(0,49,53,0.05)", padding: "18px 20px", flexShrink: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+          <h2 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>Top 10 jobs</h2>
+          <span style={{ fontSize: 11, color: "rgba(0,49,53,0.4)" }}>Refreshes every 5h · rest on Browse jobs</span>
+        </div>
+        {topJobs.length > 0 ? (
+          <div style={{ display: "flex", gap: 12, overflowX: "auto", paddingBottom: 4 }}>
             {topJobs.map(j => (
-              <a
-                key={j.id}
-                href={j.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{ flexShrink: 0, width: 210, background: "#F5F8F7", borderRadius: 12, padding: "12px 14px", textDecoration: "none", color: "#003135" }}
-              >
-                <p style={{ margin: "0 0 3px", fontSize: 13, fontWeight: 700, lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
-                  {j.title ?? "Untitled"}
-                </p>
-                <p style={{ margin: "0 0 6px", fontSize: 11.5, color: "rgba(0,49,53,0.5)", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                  {j.company ?? "Unknown"}{j.location ? ` · ${j.location}` : ""}
-                </p>
-                {j.job_type && (
-                  <span style={{ fontSize: 10.5, fontWeight: 700, padding: "2px 8px", borderRadius: 7, background: "rgba(150,71,52,0.09)", color: "#964734" }}>
-                    {j.job_type}
-                  </span>
-                )}
-              </a>
+              <div key={j.id} style={{ flexShrink: 0, width: 230 }}>
+                <JobCard
+                  job={j}
+                  onSelect={() => window.open(j.url, "_blank", "noopener,noreferrer")}
+                  onPass={e => { e.stopPropagation(); setTopJobs(prev => prev.filter(x => x.id !== j.id)) }}
+                  onApply={e => { e.stopPropagation(); window.open(j.url, "_blank", "noopener,noreferrer") }}
+                />
+              </div>
             ))}
           </div>
-        </div>
-      )}
+        ) : (
+          <div style={{ background: "linear-gradient(135deg, rgba(15,164,175,0.08), rgba(150,71,52,0.06))", borderRadius: 18, padding: "36px 24px", textAlign: "center" }}>
+            <div style={{ width: 40, height: 40, borderRadius: 11, background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px", color: "#024950", fontSize: 17 }}>◎</div>
+            <p style={{ margin: "0 0 6px", fontSize: 16, fontWeight: 700 }}>No picks today</p>
+            <p style={{ margin: 0, fontSize: 13, color: "rgba(0,49,53,0.55)" }}>The agent didn't surface anything new — broaden your filters or check back later.</p>
+          </div>
+        )}
+      </div>
 
       {/* ── Toolbar card ── */}
       <div style={{ background: "#fff", borderRadius: 18, boxShadow: "0 1px 3px rgba(0,49,53,0.05)", padding: "18px 20px", flexShrink: 0 }}>
@@ -281,13 +270,6 @@ export default function DashboardPage() {
             )
           })}
         </div>
-      </div>
-
-      {/* ── No picks banner ── */}
-      <div style={{ background: "linear-gradient(135deg, rgba(15,164,175,0.08), rgba(150,71,52,0.06))", borderRadius: 18, padding: "36px 24px", textAlign: "center", flexShrink: 0 }}>
-        <div style={{ width: 40, height: 40, borderRadius: 11, background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px", color: "#024950", fontSize: 17 }}>◎</div>
-        <p style={{ margin: "0 0 6px", fontSize: 16, fontWeight: 700 }}>No picks today</p>
-        <p style={{ margin: 0, fontSize: 13, color: "rgba(0,49,53,0.55)" }}>The agent didn't surface anything new — broaden your filters or check back later.</p>
       </div>
 
       {/* ── Applications section ── */}
