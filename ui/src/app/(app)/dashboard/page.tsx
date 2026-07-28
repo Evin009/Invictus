@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useState } from "react"
 import type { Application, ApplicationStatus } from "@/lib/types"
 import { StatCard } from "@/components/stat-card"
 import { JobCard, JOB_CARD_CSS, type JobCardJob } from "@/components/job-card"
@@ -29,19 +29,6 @@ const STATUS_TABS: StatusTab[] = [
   { label: "Ghosted",   filter: "ghosted" },
 ]
 
-const FILTER_OPTIONS: Record<string, string[]> = {
-  Date:          ["Any time", "Past 24 hours", "Past week", "Past month"],
-  Location:      ["Remote", "San Francisco, CA", "New York, NY", "Austin, TX"],
-  Workplace:     ["Remote", "Hybrid", "Onsite"],
-  Companies:     ["Stripe", "Figma", "Google", "Startups only"],
-  "Degree Level":   ["High school", "Associate", "Bachelor's", "Master's", "PhD"],
-  "Max Experience": ["Entry level", "1–3 years", "3–5 years", "5+ years"],
-  "Sponsors Visa":  ["Yes", "No", "Any"],
-  Role:          ["Engineering", "Design", "Product", "Data", "Marketing"],
-  "Job Type":    ["Full-time", "Part-time", "Internship", "Contract"],
-}
-
-const FILTER_KEYS = Object.keys(FILTER_OPTIONS)
 
 const SHIMMER_CSS = `
   @keyframes dash-shimmer { 0%{background-position:100% 0} 100%{background-position:0 0} }
@@ -97,10 +84,6 @@ export default function DashboardPage() {
   const [apps, setApps]         = useState<Application[]>([])
   const [loading, setLoading]   = useState(true)
   const [activeTab, setActiveTab] = useState<StatusTab["filter"]>("all")
-  const [search, setSearch]     = useState("")
-  const [openFilter, setOpenFilter] = useState<string | null>(null)
-  const [filterValues, setFilterValues] = useState<Record<string, string>>({})
-  const closeRef = useRef<HTMLDivElement>(null)
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [lastRunAt, setLastRunAt] = useState<string | null>(null)
   // Full active-window (7-day) job pool, sorted most-recent-first — the
@@ -155,28 +138,12 @@ export default function DashboardPage() {
       .catch(() => setLoading(false))
   }, [])
 
-  // Close filter dropdown on outside click
-  useEffect(() => {
-    function handler(e: MouseEvent) {
-      if (openFilter && !(e.target as Element).closest("[data-filter-pill]")) {
-        setOpenFilter(null)
-      }
-    }
-    document.addEventListener("mousedown", handler)
-    return () => document.removeEventListener("mousedown", handler)
-  }, [openFilter])
-
   // "All" means companies actually applied to — manual_pending items are
   // still awaiting your review/action, not real applications, and get their
   // own "Pending" tab instead.
-  const filtered = apps.filter(a => {
-    if (activeTab === "all" ? a.status === "manual_pending" : a.status !== activeTab) return false
-    if (search) {
-      const q = search.toLowerCase()
-      return (a.title?.toLowerCase().includes(q) || a.company?.toLowerCase().includes(q))
-    }
-    return true
-  })
+  const filtered = apps.filter(a =>
+    activeTab === "all" ? a.status !== "manual_pending" : a.status === activeTab
+  )
 
   const countFor = (f: StatusTab["filter"]) =>
     f === "all" ? apps.filter(a => a.status !== "manual_pending").length : apps.filter(a => a.status === f).length
@@ -210,9 +177,15 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* ── Job filter bar (filters the Top 10 strip below) ── */}
-      <div style={{ background: "#fff", borderRadius: 18, boxShadow: "0 1px 3px rgba(0,49,53,0.05)", padding: "14px 20px", flexShrink: 0 }}>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", position: "relative" }}>
+      {/* ── Top 10 recent active jobs (all agents, refreshes every 5h) ── */}
+      <div style={{ background: "#fff", borderRadius: 18, boxShadow: "0 1px 3px rgba(0,49,53,0.05)", padding: "18px 20px", flexShrink: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+          <h2 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>Top 10 jobs</h2>
+          <span style={{ fontSize: 11, color: "rgba(0,49,53,0.4)" }}>Refreshes every 5h · rest on Browse jobs</span>
+        </div>
+
+        {/* Job filter bar */}
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", position: "relative", marginBottom: 14 }}>
           {JOB_FILTER_KEYS.map(key => {
             const selected = jobFilterValues[key]
             const active = !!selected
@@ -256,14 +229,7 @@ export default function DashboardPage() {
             )
           })}
         </div>
-      </div>
 
-      {/* ── Top 10 recent active jobs (all agents, refreshes every 5h) ── */}
-      <div style={{ background: "#fff", borderRadius: 18, boxShadow: "0 1px 3px rgba(0,49,53,0.05)", padding: "18px 20px", flexShrink: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-          <h2 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>Top 10 jobs</h2>
-          <span style={{ fontSize: 11, color: "rgba(0,49,53,0.4)" }}>Refreshes every 5h · rest on Browse jobs</span>
-        </div>
         {topJobs.length > 0 ? (
           <div style={{ display: "flex", gap: 12, overflowX: "auto", paddingBottom: 4 }}>
             {topJobs.map(j => (
@@ -284,64 +250,6 @@ export default function DashboardPage() {
             <p style={{ margin: 0, fontSize: 13, color: "rgba(0,49,53,0.55)" }}>The agent didn't surface anything new — broaden your filters or check back later.</p>
           </div>
         )}
-      </div>
-
-      {/* ── Toolbar card ── */}
-      <div style={{ background: "#fff", borderRadius: 18, boxShadow: "0 1px 3px rgba(0,49,53,0.05)", padding: "18px 20px", flexShrink: 0 }}>
-        {/* Search */}
-        <div style={{ display: "flex", gap: 12, marginBottom: 14 }}>
-          <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 10, background: "#F5F8F7", borderRadius: 10, padding: "0 16px" }}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" style={{ color: "rgba(0,49,53,0.35)", flexShrink: 0 }}><circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2"/><line x1="21" y1="21" x2="16.65" y2="16.65" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
-            <input
-              type="text" placeholder="Search by title or keyword…"
-              value={search} onChange={e => setSearch(e.target.value)}
-              style={{ flex: 1, border: "none", outline: "none", background: "transparent", fontFamily: "inherit", fontSize: 14, padding: "12px 0", color: "#003135" }}
-            />
-          </div>
-        </div>
-
-        {/* Filter pills */}
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", position: "relative" }}>
-          {FILTER_KEYS.map(key => {
-            const selected = filterValues[key]
-            const active = !!selected
-            const isOpen = openFilter === key
-            return (
-              <div key={key} style={{ position: "relative" }} data-filter-pill>
-                <div
-                  className="pill-filter"
-                  onClick={() => setOpenFilter(p => p === key ? null : key)}
-                  style={{
-                    display: "inline-flex", alignItems: "center", gap: 8,
-                    borderRadius: 20, padding: "9px 16px", cursor: "pointer",
-                    background: active ? "#024950" : "#F5F8F7",
-                    color: active ? "#fff" : "#003135",
-                  }}
-                >
-                  <span style={{ fontSize: 13, fontWeight: 600 }}>{selected ? `${key}: ${selected}` : key}</span>
-                  {active
-                    ? <span onClick={e => { e.stopPropagation(); setFilterValues(p => { const n = { ...p }; delete n[key]; return n }) }} style={{ cursor: "pointer", opacity: 0.7 }}>×</span>
-                    : <span style={{ opacity: 0.4, fontSize: 11 }}>▾</span>
-                  }
-                </div>
-
-                {isOpen && (
-                  <div style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, minWidth: 190, background: "#fff", borderRadius: 12, boxShadow: "0 8px 24px rgba(0,49,53,0.14)", padding: 6, zIndex: 50, display: "flex", flexDirection: "column", gap: 2, maxHeight: 260, overflowY: "auto" }}>
-                    {FILTER_OPTIONS[key].map(opt => (
-                      <div
-                        key={opt}
-                        onClick={() => { setFilterValues(p => ({ ...p, [key]: opt })); setOpenFilter(null) }}
-                        style={{ padding: "10px 14px", fontSize: 13, fontWeight: opt === selected ? 700 : 500, cursor: "pointer", color: opt === selected ? "#964734" : "#003135", background: opt === selected ? "rgba(150,71,52,0.08)" : "transparent", borderRadius: 8 }}
-                      >
-                        {opt}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
       </div>
 
       {/* ── Applications section ── */}
