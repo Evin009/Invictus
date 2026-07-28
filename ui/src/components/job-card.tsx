@@ -84,7 +84,7 @@ export function JobCard({ job, isSelected = false, applied = false, onSelect, on
       className="bj-card"
       onClick={onSelect}
       style={{
-        display: "flex", flexDirection: "column",
+        display: "flex", flexDirection: "column", height: "100%", boxSizing: "border-box",
         background: isSelected ? "#fff" : cardTint(co),
         borderRadius: 28, padding: "20px 20px 18px",
         border: isSelected ? "1.5px solid rgba(150,71,52,0.85)" : "1px solid rgba(0,49,53,0.065)",
