@@ -37,6 +37,8 @@ export interface JobCardJob {
   job_type?: string | null
   workplace?: string | null
   role_category?: string | null
+  degree_level?: string | null
+  visa_sponsorship?: string | null
 }
 
 function sourceColor(src: string | null) {

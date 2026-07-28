@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from "react"
 import gsap from "gsap"
 import { CompanyLogo } from "@/components/company-logo"
 import { sourceCategory } from "@/lib/source-category"
-import { locationMatches } from "@/lib/location-match"
 import { JobCard, JOB_CARD_CSS } from "@/components/job-card"
+import { JOB_FILTER_KEYS, buildJobFilterOptions, jobMatchesFilters } from "@/lib/job-filter"
 
 const CSS = `
   @keyframes bj-shimmer { 0%{background-position:100% 0} 100%{background-position:0 0} }
@@ -28,30 +28,11 @@ const SHIMMER = {
   borderRadius: "6px",
 } as React.CSSProperties
 
-const FILTER_KEYS = ["Date", "Location", "Workplace", "Companies", "Degree Level", "Sponsors Visa", "Role", "Job Type"]
-const POSTED_DATE_OPTIONS = ["Any time", "Past 24 hours"]
-
 // Browse only ever shows "active" postings — discovered within the last 7
 // days. Older listings are presumed stale (we don't re-verify postings are
-// still open), and the dashboard's Top 5 widget draws from this same window.
+// still open), and the dashboard's Top jobs widget draws from this same window.
 const ACTIVE_WINDOW_MS = 7 * 24 * 3600 * 1000
 
-// Fixed-vocabulary fields — these come from job_meta.py's own enums (the
-// full set of values the backend heuristics can ever produce), so the
-// dropdown always shows every possible value, not just ones a job happens
-// to have hit so far. Companies stays fully dynamic below since company
-// names are unbounded; Location gets a common baseline (below) merged with
-// whatever real locations show up, since it's open-ended but a handful of
-// hubs cover most postings.
-const WORKPLACE_OPTIONS = ["Remote", "Hybrid", "Onsite"]
-const DEGREE_LEVEL_OPTIONS = ["High school", "Associate", "Bachelor's", "Master's", "PhD"]
-const VISA_SPONSORSHIP_OPTIONS = ["Yes", "No"]
-const ROLE_OPTIONS = ["Engineering", "Design", "Product", "Data", "Marketing"]
-const JOB_TYPE_OPTIONS = ["Full-time", "Part-time", "Internship", "Contract"]
-const COMMON_LOCATION_OPTIONS = [
-  "Remote", "San Francisco, CA", "New York, NY", "Seattle, WA", "Austin, TX",
-  "Boston, MA", "Los Angeles, CA", "Chicago, IL", "Washington, DC", "Denver, CO",
-]
 const SORT_OPTIONS = ["Best match", "Most recent"]
 const BATCH_SIZE_OPTIONS = [12, 24, 48, 96]
 
@@ -170,55 +151,13 @@ export default function BrowseJobsPage() {
   const activeSince = new Date(Date.now() - ACTIVE_WINDOW_MS).toISOString()
   const activeJobs = jobs.filter(j => j.discovered_at && j.discovered_at >= activeSince)
 
-  // Companies is genuinely unbounded (real company names), so its options
-  // are derived purely from actually-discovered jobs.
-  const uniqueOf = (get: (j: RawJob) => string | null | undefined) =>
-    Array.from(new Set(activeJobs.map(get).filter((v): v is string => !!v))).sort()
-  const companyOptions = uniqueOf(j => j.company)
-
-  // Fixed/baseline fields always show their full option set (from
-  // job_meta.py's enums, or a common-hubs list for Location), merged with
-  // any real value seen that isn't already in that list, so the dropdown is
-  // never missing an option a real job actually has.
-  const withRealExtras = (fixed: string[], get: (j: RawJob) => string | null | undefined) =>
-    Array.from(new Set([...fixed, ...uniqueOf(get)]))
-  const locationOptions = withRealExtras(COMMON_LOCATION_OPTIONS, j => j.location)
-  const jobTypeOptions = withRealExtras(JOB_TYPE_OPTIONS, j => j.job_type)
-  const workplaceOptions = withRealExtras(WORKPLACE_OPTIONS, j => j.workplace)
-  const degreeOptions = withRealExtras(DEGREE_LEVEL_OPTIONS, j => j.degree_level)
-  const visaOptions = withRealExtras(VISA_SPONSORSHIP_OPTIONS, j => j.visa_sponsorship)
-  const roleOptions = withRealExtras(ROLE_OPTIONS, j => j.role_category)
-  const filterOptions: Record<string, string[]> = {
-    "Date": POSTED_DATE_OPTIONS,
-    "Location": locationOptions,
-    "Workplace": workplaceOptions,
-    "Companies": companyOptions,
-    "Degree Level": degreeOptions,
-    "Sponsors Visa": visaOptions,
-    "Role": roleOptions,
-    "Job Type": jobTypeOptions,
-  }
-
-  function withinPostedDate(iso: string | null, bucket: string) {
-    if (bucket === "Any time" || !iso) return true
-    const hours = (Date.now() - new Date(iso).getTime()) / 3600000
-    if (bucket === "Past 24 hours") return hours <= 24
-    return true
-  }
+  const filterOptions = buildJobFilterOptions(activeJobs)
 
   const q = searchQuery.trim().toLowerCase()
   const filtered = activeJobs.filter(j => {
     if (passedIds.includes(j.id)) return false
     if (q && !j.title?.toLowerCase().includes(q) && !j.company?.toLowerCase().includes(q)) return false
-    if (filterValues["Job Type"] && j.job_type !== filterValues["Job Type"]) return false
-    if (filterValues["Location"] && !locationMatches(j.location, filterValues["Location"])) return false
-    if (filterValues["Workplace"] && j.workplace !== filterValues["Workplace"]) return false
-    if (filterValues["Companies"] && j.company !== filterValues["Companies"]) return false
-    if (filterValues["Degree Level"] && j.degree_level !== filterValues["Degree Level"]) return false
-    if (filterValues["Sponsors Visa"] && j.visa_sponsorship !== filterValues["Sponsors Visa"]) return false
-    if (filterValues["Role"] && j.role_category !== filterValues["Role"]) return false
-    if (filterValues["Date"] && !withinPostedDate(j.discovered_at, filterValues["Date"])) return false
-    return true
+    return jobMatchesFilters(j, filterValues)
   })
 
   const sorted = sortValue === "Most recent"
@@ -298,7 +237,7 @@ export default function BrowseJobsPage() {
 
             {/* Filter pills */}
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              {FILTER_KEYS.map(key => {
+              {JOB_FILTER_KEYS.map(key => {
                 const val = filterValues[key]
                 const active = !!val
                 const isOpen = openFilter === key
