@@ -307,6 +307,13 @@ def test_keywords_hash_differs_for_different_keywords():
     assert _keywords_hash(["engineer"]) != _keywords_hash(["designer"])
 
 
+def test_keywords_hash_tolerates_none_entry():
+    # Real production crash: a watchlist row's role_keywords list contained
+    # a None entry, and .strip() on it crashed with
+    # "'NoneType' object has no attribute 'strip'".
+    assert _keywords_hash(["engineer", None]) == _keywords_hash(["engineer", ""])
+
+
 def test_get_cached_jobs_returns_none_when_no_row():
     mock_db = MagicMock()
     mock_db.table.return_value.select.return_value.eq.return_value.eq.return_value.limit.return_value.execute.return_value.data = []
@@ -496,6 +503,22 @@ def test_parse_jobs_missing_url_uses_careers_url():
     ]
     with patch("src.agents.watchlist.anthropic.Anthropic", return_value=mock_client):
         result = _parse_jobs(_RAW_HTML, "Acme", "https://acme.com/careers", ["engineer"])
+    assert result[0]["job_url"] == "https://acme.com/careers#swe"
+
+
+def test_parse_jobs_tolerates_explicit_null_title_and_url():
+    # Real production crash: Claude occasionally emits "title": null (key
+    # present, value null) rather than omitting the key — item.get("title", "")
+    # only defaults on a MISSING key, not an explicit null, so .strip()
+    # crashed with "'NoneType' object has no attribute 'strip'".
+    mock_client = MagicMock()
+    mock_client.messages.create.return_value.content = [
+        MagicMock(text='[{"title": null, "url": null}, {"title": "SWE", "url": null}]')
+    ]
+    with patch("src.agents.watchlist.anthropic.Anthropic", return_value=mock_client):
+        result = _parse_jobs(_RAW_HTML, "Acme", "https://acme.com/careers", ["engineer"])
+    assert len(result) == 1
+    assert result[0]["title"] == "SWE"
     assert result[0]["job_url"] == "https://acme.com/careers#swe"
 
 

@@ -36,7 +36,7 @@ def _select_active_batch(rows: list[dict]) -> list[dict]:
 
 
 def _keywords_hash(keywords: list[str]) -> str:
-    normalized = ",".join(sorted(k.strip().lower() for k in keywords))
+    normalized = ",".join(sorted((k or "").strip().lower() for k in keywords))
     return hashlib.sha256(normalized.encode()).hexdigest()
 
 
@@ -315,10 +315,10 @@ def _parse_jobs(text: str, company: str, careers_url: str, keywords: list[str], 
     for item in items:
         if not isinstance(item, dict):
             continue
-        title = item.get("title", "").strip()
+        title = (item.get("title") or "").strip()
         if not title:
             continue
-        raw_url = item.get("url", "").strip()
+        raw_url = (item.get("url") or "").strip()
         # Use title-based synthetic ID when Claude can't extract a URL so multiple
         # jobs from the same page don't all collapse onto careers_url in dedup.
         job_url = raw_url or f"{careers_url}#{re.sub(r'[^a-z0-9]+', '-', title.lower())}"
